@@ -9,7 +9,7 @@ import {
 import { cn } from "@/lib/utils";
 import { showSuccessToast, showErrorToast } from "../utils/toast";
 
-export type StageOption = "Ready to Test" | "Live" | "Rejected" | "Archived";
+export type StageOption = "Ready" | "Live" | "Re-edit" | "Archived" | "Pending" | "Approved";
 
 interface StageSelectorProps {
   currentStage?: StageOption;
@@ -19,29 +19,41 @@ interface StageSelectorProps {
 }
 
 const STAGE_COLORS = {
-  "Ready to Test": {
+  "Ready": {
     bg: "bg-violet-100 hover:bg-violet-200",
     text: "text-violet-700",
     border: "border-violet-200",
     dark: "dark:bg-violet-900/20 dark:text-violet-300 dark:border-violet-700"
   },
   "Live": {
-    bg: "bg-green-100 hover:bg-green-200",
-    text: "text-green-700",
-    border: "border-green-200",
-    dark: "dark:bg-green-900/20 dark:text-green-300 dark:border-green-700"
+    bg: "bg-emerald-100 hover:bg-emerald-200",
+    text: "text-emerald-700",
+    border: "border-emerald-200",
+    dark: "dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-700"
   },
-  "Rejected": {
-    bg: "bg-rose-100 hover:bg-rose-200",
-    text: "text-rose-700",
-    border: "border-rose-200",
-    dark: "dark:bg-rose-900/20 dark:text-rose-300 dark:border-rose-700"
+  "Re-edit": {
+    bg: "bg-amber-100 hover:bg-amber-200",
+    text: "text-amber-700",
+    border: "border-amber-200",
+    dark: "dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-700"
   },
   "Archived": {
     bg: "bg-gray-100 hover:bg-gray-200",
     text: "text-gray-700",
     border: "border-gray-200",
     dark: "dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600"
+  },
+  "Pending": {
+    bg: "bg-orange-100 hover:bg-orange-200",
+    text: "text-orange-700",
+    border: "border-orange-200",
+    dark: "dark:bg-orange-900/20 dark:text-orange-300 dark:border-orange-700"
+  },
+  "Approved": {
+    bg: "bg-green-100 hover:bg-green-200",
+    text: "text-green-700",
+    border: "border-green-200",
+    dark: "dark:bg-green-900/20 dark:text-green-300 dark:border-green-700"
   }
 } as const;
 
@@ -63,9 +75,9 @@ export const StageSelector: React.FC<StageSelectorProps> = ({
       if (!confirmed) return;
     }
 
-    if (stage === "Rejected") {
+    if (stage === "Re-edit") {
       const confirmed = window.confirm(
-        "Are you sure you want to reject this asset?"
+        "Are you sure you want to mark this asset for re-edit?"
       );
       if (!confirmed) return;
     }
@@ -88,6 +100,10 @@ export const StageSelector: React.FC<StageSelectorProps> = ({
       return "bg-muted hover:bg-muted/80 text-muted-foreground border-muted-foreground/20";
     }
     const colors = STAGE_COLORS[stage];
+    if (!colors) {
+      console.warn(`Unknown stage: ${stage}. Falling back to default colors.`);
+      return "bg-muted hover:bg-muted/80 text-muted-foreground border-muted-foreground/20";
+    }
     return `${colors.bg} ${colors.text} ${colors.border} ${colors.dark}`;
   };
 
@@ -102,7 +118,7 @@ export const StageSelector: React.FC<StageSelectorProps> = ({
       <DropdownMenuTrigger asChild>
         <button
           className={cn(
-            "inline-flex items-center justify-center text-xs px-3 py-1 font-medium rounded-full border transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1",
+            "inline-flex items-center justify-center text-xs px-3 py-1 font-medium rounded-md border transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1",
             getStageColors(currentStage),
             disabled && "opacity-50 cursor-not-allowed",
             isLoading && "opacity-75",
@@ -123,7 +139,7 @@ export const StageSelector: React.FC<StageSelectorProps> = ({
         className="w-40"
         onClick={(e) => e.stopPropagation()}
       >
-        {(["Ready to Test", "Live", "Rejected", "Archived"] as const).map((stage) => (
+        {(["Ready", "Live", "Re-edit", "Archived", "Pending", "Approved"] as const).map((stage) => (
           <DropdownMenuItem
             key={stage}
             onClick={() => handleStageSelect(stage)}

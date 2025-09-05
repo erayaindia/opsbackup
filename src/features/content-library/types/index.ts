@@ -3,7 +3,7 @@
  * Defines all TypeScript interfaces and types for the content library feature
  */
 
-export type Stage = "Ready to Test" | "Live" | "Re-edit" | "Archived" | "Pending" | "Approved";
+export type Stage = "Ready" | "Live" | "Re-edit" | "Archived" | "Pending" | "Approved";
 
 export type PerformanceLabel = "Top Creative" | "Scaling" | "Testing" | "Low Performer";
 
@@ -63,7 +63,7 @@ export interface AssetGridProps {
 
 // Stage color mappings for consistent theming
 export const STAGE_COLORS = {
-  "Ready to Test": {
+  "Ready": {
     light: "bg-violet-100 text-violet-700 border-violet-200",
     dark: "bg-violet-900/20 text-violet-300 border-violet-700"
   },

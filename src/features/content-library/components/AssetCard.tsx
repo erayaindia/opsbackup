@@ -342,25 +342,27 @@ export const AssetCard: React.FC<AssetCardProps> = ({
             )}
           </div>
 
-          {/* Middle: Controls section */}
+          {/* Middle: Controls section - Stage and Performance on same line */}
           <div className="flex flex-col gap-2.5 flex-1">
-            {/* Stage selector */}
-            <div className="flex items-center justify-end">
-              <StageSelector
-                currentStage={stage as StageOption}
-                onStageChange={(newStage) => onStageChange?.(id, newStage)}
-                disabled={selectMode}
-              />
-            </div>
-
-            {/* Performance selector */}
-            <div className="min-h-[24px]">
-              <PerformanceSelector
-                currentPerformance={performance as PerformanceOption[]}
-                onPerformanceChange={(newPerformance) => onPerformanceChange?.(id, newPerformance)}
-                disabled={selectMode}
-                maxVisible={2}
-              />
+            <div className="flex items-center justify-between gap-2">
+              {/* Performance selector on left */}
+              <div className="flex-1 min-w-0">
+                <PerformanceSelector
+                  currentPerformance={performance as PerformanceOption[]}
+                  onPerformanceChange={(newPerformance) => onPerformanceChange?.(id, newPerformance)}
+                  disabled={selectMode}
+                  maxVisible={2}
+                />
+              </div>
+              
+              {/* Stage selector on right */}
+              <div className="flex-shrink-0">
+                <StageSelector
+                  currentStage={stage as StageOption}
+                  onStageChange={(newStage) => onStageChange?.(id, newStage)}
+                  disabled={selectMode}
+                />
+              </div>
             </div>
           </div>
 
