@@ -2,10 +2,14 @@ import React, { useState, useRef, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { X } from "lucide-react";
 import { AssetCardData, UploadCardData } from "../types";
 import { AssetGrid } from "../components/AssetGrid";
 import { AssetList } from "../components/AssetList";
 import { UploadCard } from "../components/UploadCard";
+import { AssetDrawer } from "../components/AssetDrawer";
+import { VideoManagerProvider } from "../contexts/VideoManagerContext";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { 
   generateUploadId, 
   isSupportedFile, 
@@ -15,6 +19,8 @@ import {
   generateUniqueFilename
 } from "../utils/upload";
 import { ContentLibraryService } from "../services/contentLibraryService";
+import { FilterBar } from "../components/FilterBar";
+import { FilterState } from "../types";
 
 
 /**
@@ -38,6 +44,16 @@ export const LibraryGridPage: React.FC = () => {
     total: number;
     fileName: string;
   } | null>(null);
+  const [selectedAsset, setSelectedAsset] = useState<AssetCardData | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [filters, setFilters] = useState<FilterState>({
+    assetType: 'all',
+    stage: 'all',
+    performance: 'all',
+    aspect: 'all',
+    dateRange: 'all',
+    searchQuery: ''
+  });
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropZoneRef = useRef<HTMLDivElement>(null);
@@ -45,7 +61,31 @@ export const LibraryGridPage: React.FC = () => {
   // Fetch assets on component mount
   useEffect(() => {
     loadAssets();
+    // Test Supabase connection
+    testSupabaseConnection();
   }, []);
+
+  const testSupabaseConnection = async () => {
+    try {
+      const { supabase } = await import('@/integrations/supabase/client');
+      const { data: { user }, error } = await supabase.auth.getUser();
+      console.log('Supabase connection test:', { 
+        user: user ? { id: user.id, email: user.email } : null, 
+        error: error?.message 
+      });
+      
+      // Test if environment variables are set
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      console.log('Supabase config:', {
+        hasUrl: !!supabaseUrl,
+        hasKey: !!supabaseKey,
+        urlPreview: supabaseUrl ? supabaseUrl.substring(0, 20) + '...' : 'MISSING'
+      });
+    } catch (error) {
+      console.error('Supabase connection test failed:', error);
+    }
+  };
 
   const loadAssets = async () => {
     try {
@@ -66,9 +106,12 @@ export const LibraryGridPage: React.FC = () => {
   };
 
   const handleAssetOpen = useCallback((id: string) => {
-    console.log(`Opening asset detail drawer for ID: ${id}`);
-    // TODO: Implement detail drawer when real data integration is added
-  }, []);
+    const asset = assets.find(a => a.id === id);
+    if (asset) {
+      setSelectedAsset(asset);
+      setDrawerOpen(true);
+    }
+  }, [assets]);
 
   const handleCopyLink = async (id: string) => {
     try {
@@ -156,7 +199,7 @@ export const LibraryGridPage: React.FC = () => {
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedItems(new Set(assets.map(asset => asset.id)));
+      setSelectedItems(new Set(filteredAssets.map(asset => asset.id)));
     } else {
       setSelectedItems(new Set());
     }
@@ -377,119 +420,314 @@ export const LibraryGridPage: React.FC = () => {
     console.log('startUpload called with product:', productName);
     console.log('filesToUpload in startUpload:', filesToUpload);
     
+    try {
+      if (!filesToUpload || filesToUpload.length === 0) {
+        console.error('No files to upload');
+        setError('No files selected for upload');
+        return;
+      }
 
-    // Create optimistic upload cards
-    const uploadCards: UploadCardData[] = filesToUpload.map(file => ({
-      id: generateUploadId(),
-      title: file.name,
-      productName,
-      stage: "Ready to Test",
-      isVideo: file.type.startsWith('video/'),
-      thumbnailUrl: '', // Will be generated during processing
-      aspect: "16:9",
-      performance: [],
-      createdBy: "Current User",
-      createdAt: new Date(),
-      isUploading: true,
-      uploadProgress: 0,
-    }));
+      // Clear any previous errors
+      setError(null);
 
-    setUploadingCards(uploadCards);
+      // Generate temporary display IDs for uploading cards
+      const maxDisplayId = Math.max(0, ...assets.map(asset => asset.displayId || 0));
+      
+      // Create optimistic upload cards
+      const uploadCards: UploadCardData[] = filesToUpload.map((file, index) => ({
+        id: generateUploadId(),
+        displayId: maxDisplayId + index + 1, // Temporary sequential ID
+        title: file.name,
+        productName,
+        stage: "Ready",
+        isVideo: file.type.startsWith('video/'),
+        thumbnailUrl: '', // Will be generated during processing
+        aspect: "16:9",
+        performance: [],
+        createdBy: "Current User",
+        createdAt: new Date(),
+        isUploading: true,
+        uploadProgress: 0,
+      }));
 
-    // Process files one by one
-    for (let i = 0; i < filesToUpload.length; i++) {
-      const file = filesToUpload[i];
-      const uploadCard = uploadCards[i];
+      setUploadingCards(uploadCards);
 
-      try {
-        // Simulate upload progress
-        for (let progress = 0; progress <= 100; progress += 10) {
-          await new Promise(resolve => setTimeout(resolve, 100));
+      let successCount = 0;
+      let errorCount = 0;
+
+      // Process files one by one
+      for (let i = 0; i < filesToUpload.length; i++) {
+        const file = filesToUpload[i];
+        const uploadCard = uploadCards[i];
+
+        try {
+          console.log(`Processing file ${i + 1}/${filesToUpload.length}: ${file.name}`);
+          
+          // Simulate upload progress
+          for (let progress = 0; progress <= 100; progress += 10) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+            setUploadingCards(prev => 
+              prev.map(card => 
+                card.id === uploadCard.id 
+                  ? { ...card, uploadProgress: progress }
+                  : card
+              )
+            );
+          }
+
+          // Process the file
+          const processedAsset = await processUploadedFile(file, productName, uploadCard.id);
+          
+          // Check for duplicates
+          const duplicate = checkForDuplicates(processedAsset.title, assets);
+          if (duplicate) {
+            processedAsset.title = generateUniqueFilename(processedAsset.title, assets);
+          }
+
+          // Remove from uploading cards
+          setUploadingCards(prev => prev.filter(card => card.id !== uploadCard.id));
+
+          // Auto-open the first uploaded asset (only for the first file)
+          if (i === 0) {
+            setTimeout(() => {
+              setSelectedAsset(processedAsset);
+              setDrawerOpen(true);
+            }, 500);
+          }
+
+          successCount++;
+          console.log(`Successfully processed file: ${file.name}`);
+
+        } catch (error) {
+          errorCount++;
+          console.error(`Failed to process file ${file.name}:`, error);
+          
+          // Update upload card with error
           setUploadingCards(prev => 
             prev.map(card => 
               card.id === uploadCard.id 
-                ? { ...card, uploadProgress: progress }
+                ? { 
+                    ...card, 
+                    isUploading: false, 
+                    uploadError: error instanceof Error ? error.message : 'Upload failed' 
+                  }
                 : card
             )
           );
+
+          // Set general error message for the first failed file
+          if (errorCount === 1) {
+            const errorMessage = error instanceof Error ? error.message : 'Upload failed';
+            if (errorMessage.includes('Authentication required')) {
+              setError('Please log in to upload files');
+            } else if (errorMessage.includes('storage')) {
+              setError('Storage configuration error. Please check your Supabase setup.');
+            } else if (errorMessage.includes('database') || errorMessage.includes('table')) {
+              setError('Database error. Please check your content library table setup.');
+            } else {
+              setError(`Upload failed: ${errorMessage}`);
+            }
+          }
         }
-
-        // Process the file
-        const processedAsset = await processUploadedFile(file, productName, uploadCard.id);
-        
-        // Check for duplicates
-        const duplicate = checkForDuplicates(processedAsset.title, assets);
-        if (duplicate) {
-          processedAsset.title = generateUniqueFilename(processedAsset.title, assets);
-        }
-
-        // Remove from uploading cards
-        setUploadingCards(prev => prev.filter(card => card.id !== uploadCard.id));
-
-        // Auto-open the first uploaded asset (only for the first file)
-        if (i === 0) {
-          setTimeout(() => {
-            handleAssetOpen(processedAsset.id);
-          }, 500);
-        }
-
-
-      } catch (error) {
-        console.error(`Failed to process file ${file.name}:`, error);
-        
-        // Update upload card with error
-        setUploadingCards(prev => 
-          prev.map(card => 
-            card.id === uploadCard.id 
-              ? { 
-                  ...card, 
-                  isUploading: false, 
-                  uploadError: error instanceof Error ? error.message : 'Upload failed' 
-                }
-              : card
-          )
-        );
       }
+
+      setPendingFiles([]);
+
+      // Refresh assets list after upload
+      try {
+        await loadAssets();
+      } catch (refreshError) {
+        console.error('Failed to refresh assets after upload:', refreshError);
+        // Don't set error here as uploads might have succeeded
+      }
+
+      // Show success/error summary
+      if (successCount > 0 && errorCount === 0) {
+        console.log(`Successfully uploaded ${successCount} files`);
+        // Clear any previous errors on complete success
+        setError(null);
+      } else if (successCount > 0 && errorCount > 0) {
+        console.log(`Uploaded ${successCount} files successfully, ${errorCount} files failed`);
+        setError(`${errorCount} files failed to upload. Successfully uploaded ${successCount} files.`);
+      } else if (successCount === 0) {
+        console.error('All files failed to upload');
+        if (!error) { // Only set error if not already set
+          setError('All files failed to upload. Please check your connection and try again.');
+        }
+      }
+
+    } catch (error) {
+      console.error('Error in startUpload:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Upload process failed';
+      setError(`Upload failed: ${errorMessage}`);
+      
+      // Clear any uploading cards on critical error
+      setUploadingCards([]);
+      setPendingFiles([]);
     }
-
-
-    setPendingFiles([]);
-
-    // Refresh assets list after upload
-    await loadAssets();
-
-    // Show success toast (simulated with console log)
-    console.log(`Uploaded ${filesToUpload.length} files successfully`);
-  }, [assets, handleAssetOpen]);
+  }, [assets, handleAssetOpen, error]);
 
   const processFiles = useCallback((files: File[]) => {
     console.log('Processing files:', files);
     
-    // Filter supported files
-    const supportedFiles = files.filter(file => {
-      if (!isSupportedFile(file)) {
-        console.warn(`Unsupported file type: ${file.name}`);
-        return false;
+    try {
+      if (!files || files.length === 0) {
+        console.warn('No files provided to processFiles');
+        setError('No files selected');
+        return;
       }
-      if (!validateFileSize(file)) {
-        console.warn(`File too large: ${file.name}`);
-        return false;
+
+      const unsupportedFiles: string[] = [];
+      const oversizedFiles: string[] = [];
+      
+      // Filter supported files
+      const supportedFiles = files.filter(file => {
+        if (!isSupportedFile(file)) {
+          console.warn(`Unsupported file type: ${file.name} (${file.type})`);
+          unsupportedFiles.push(`${file.name} (${file.type})`);
+          return false;
+        }
+        if (!validateFileSize(file)) {
+          console.warn(`File too large: ${file.name} (${(file.size / 1024 / 1024).toFixed(1)}MB)`);
+          oversizedFiles.push(`${file.name} (${(file.size / 1024 / 1024).toFixed(1)}MB)`);
+          return false;
+        }
+        return true;
+      });
+
+      console.log('Supported files:', supportedFiles);
+
+      // Show warnings for unsupported/oversized files
+      if (unsupportedFiles.length > 0) {
+        const message = `Unsupported file types: ${unsupportedFiles.join(', ')}. Please upload images or videos only.`;
+        console.warn(message);
+        if (supportedFiles.length === 0) {
+          setError(message);
+        }
       }
+
+      if (oversizedFiles.length > 0) {
+        const message = `Files too large: ${oversizedFiles.join(', ')}. Max size: 100MB for videos, 10MB for images.`;
+        console.warn(message);
+        if (supportedFiles.length === 0) {
+          setError(message);
+        }
+      }
+
+      if (supportedFiles.length === 0) {
+        console.log('No supported files found');
+        if (unsupportedFiles.length === 0 && oversizedFiles.length === 0) {
+          setError('No valid files found. Please select images or videos to upload.');
+        }
+        return;
+      }
+
+      // Clear any previous errors if we have supported files
+      if (supportedFiles.length > 0) {
+        setError(null);
+      }
+
+      // Set pending files and start upload with default product
+      setPendingFiles(supportedFiles);
+      console.log('Starting upload with files:', supportedFiles);
+      startUpload("General Assets", supportedFiles);
+      
+    } catch (error) {
+      console.error('Error in processFiles:', error);
+      setError('Failed to process selected files. Please try again.');
+    }
+  }, [startUpload]);
+
+  // Filter functions
+  const handleFilterChange = (filterType: keyof FilterState, value: any) => {
+    setFilters(prev => ({ ...prev, [filterType]: value }));
+  };
+
+  const handleClearAllFilters = () => {
+    setFilters({
+      assetType: 'all',
+      stage: 'all',
+      performance: 'all',
+      aspect: 'all',
+      dateRange: 'all',
+      searchQuery: ''
+    });
+  };
+
+  const getActiveFilterCount = () => {
+    return Object.entries(filters).filter(([key, value]) => {
+      if (key === 'customDateFrom' || key === 'customDateTo') return false;
+      if (key === 'searchQuery') return value && value.trim() !== '';
+      return value !== 'all';
+    }).length;
+  };
+
+  const filterAssets = (assets: AssetCardData[]): AssetCardData[] => {
+    return assets.filter(asset => {
+      // Asset type filter
+      if (filters.assetType === 'videos' && !asset.isVideo) return false;
+      if (filters.assetType === 'images' && asset.isVideo) return false;
+
+      // Stage filter
+      if (filters.stage !== 'all' && asset.stage !== filters.stage) return false;
+
+      // Performance filter
+      if (filters.performance !== 'all' && !asset.performance.includes(filters.performance as any)) return false;
+
+      // Aspect filter
+      if (filters.aspect !== 'all' && asset.aspect !== filters.aspect) return false;
+
+      // Date range filter
+      if (filters.dateRange !== 'all' && asset.createdAt) {
+        const assetDate = new Date(asset.createdAt);
+        const today = new Date();
+        const dayInMs = 24 * 60 * 60 * 1000;
+
+        switch (filters.dateRange) {
+          case 'today':
+            if (assetDate.toDateString() !== today.toDateString()) return false;
+            break;
+          case 'week':
+            if (today.getTime() - assetDate.getTime() > 7 * dayInMs) return false;
+            break;
+          case 'month':
+            if (today.getTime() - assetDate.getTime() > 30 * dayInMs) return false;
+            break;
+        }
+      }
+
+      // Search query filter (comprehensive search across multiple fields)
+      if (filters.searchQuery && filters.searchQuery.trim()) {
+        const searchTerm = filters.searchQuery.toLowerCase().trim();
+        const searchableFields = [
+          asset.title?.toLowerCase() || '',
+          asset.productName?.toLowerCase() || '',
+          asset.stage?.toLowerCase() || '',
+          asset.createdBy?.toLowerCase() || '',
+          asset.versionLabel?.toLowerCase() || '',
+          asset.displayId?.toString() || '',
+          ...(asset.performance || []).map(p => p.toLowerCase()),
+          asset.aspect?.toLowerCase() || '',
+          asset.isVideo ? 'video' : 'image',
+          // Format date for search
+          asset.createdAt ? new Date(asset.createdAt).toLocaleDateString() : '',
+          asset.createdAt ? new Date(asset.createdAt).toLocaleDateString('en-US', { 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric' 
+          }) : '',
+        ].filter(Boolean);
+
+        const matches = searchableFields.some(field => 
+          field.includes(searchTerm)
+        );
+
+        if (!matches) return false;
+      }
+
       return true;
     });
-
-    console.log('Supported files:', supportedFiles);
-
-    if (supportedFiles.length === 0) {
-      console.log('No supported files found');
-      return;
-    }
-
-    // Set pending files and start upload with default product
-    setPendingFiles(supportedFiles);
-    console.log('Starting upload with files:', supportedFiles);
-    startUpload("General Assets", supportedFiles);
-  }, [startUpload]);
+  };
 
 
 
@@ -543,13 +781,18 @@ export const LibraryGridPage: React.FC = () => {
     processFiles(files);
   }, [processFiles]);
 
-  // Combined assets (uploading cards + regular assets)
+  // Apply filters to assets
+  const filteredAssets = filterAssets(assets);
+  
+  // Combined assets (uploading cards + filtered regular assets)
   const combinedAssets = [...uploadingCards.map(card => ({
     ...card,
     isUploading: true
-  }) as AssetCardData), ...assets];
+  }) as AssetCardData), ...filteredAssets];
 
   return (
+    <ErrorBoundary>
+    <VideoManagerProvider>
     <div 
       ref={dropZoneRef}
       className={cn(
@@ -607,30 +850,6 @@ export const LibraryGridPage: React.FC = () => {
                 </svg>
                 Upload
               </Button>
-              {/* Global Search */}
-              <div className="relative">
-                <Input
-                  type="search"
-                  placeholder="Search assets..."
-                  className="w-full sm:w-64 pl-9"
-                  disabled // Non-functional stub per requirements
-                />
-                <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
-                  <svg 
-                    className="w-4 h-4 text-muted-foreground" 
-                    fill="none" 
-                    stroke="currentColor" 
-                    viewBox="0 0 24 24"
-                  >
-                    <path 
-                      strokeLinecap="round" 
-                      strokeLinejoin="round" 
-                      strokeWidth={2} 
-                      d="m21 21-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" 
-                    />
-                  </svg>
-                </div>
-              </div>
 
               {/* View Toggle */}
               <div className="flex border border-border rounded-md overflow-hidden">
@@ -685,6 +904,14 @@ export const LibraryGridPage: React.FC = () => {
         </div>
       </div>
 
+      {/* Filter Bar */}
+      <FilterBar
+        filters={filters}
+        onFilterChange={handleFilterChange}
+        onClearAll={handleClearAllFilters}
+        activeFilterCount={getActiveFilterCount()}
+      />
+
       {/* Selection Actions Bar */}
       {selectMode && (
         <div className="border-b border-border bg-muted/30">
@@ -694,14 +921,14 @@ export const LibraryGridPage: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <input
                     type="checkbox"
-                    checked={selectedItems.size === assets.length && assets.length > 0}
+                    checked={selectedItems.size === filteredAssets.length && filteredAssets.length > 0}
                     onChange={(e) => handleSelectAll(e.target.checked)}
                     className="rounded border-gray-300 text-primary focus:ring-primary"
                   />
                   <span className="text-sm font-medium">
                     {selectedItems.size === 0
-                      ? `Select all (${assets.length})`
-                      : `${selectedItems.size} of ${assets.length} selected`
+                      ? `Select all (${filteredAssets.length})`
+                      : `${selectedItems.size} of ${filteredAssets.length} selected`
                     }
                   </span>
                 </div>
@@ -822,30 +1049,42 @@ export const LibraryGridPage: React.FC = () => {
               )}
 
               {/* Empty State */}
-              {!isLoading && assets.length === 0 && uploadingCards.length === 0 && !error && (
+              {!isLoading && filteredAssets.length === 0 && uploadingCards.length === 0 && !error && (
                 <div className="flex flex-col items-center justify-center py-12 text-center">
                   <svg className="w-12 h-12 text-muted-foreground mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                   </svg>
-                  <h3 className="text-lg font-semibold text-foreground mb-2">No content yet</h3>
+                  <h3 className="text-lg font-semibold text-foreground mb-2">
+                    {assets.length === 0 ? 'No content yet' : 'No content matches your filters'}
+                  </h3>
                   <p className="text-muted-foreground mb-4 max-w-md">
-                    Upload your first video or image to get started with your content library.
+                    {assets.length === 0 
+                      ? 'Upload your first video or image to get started with your content library.'
+                      : 'Try adjusting your filters or clear all filters to see more content.'
+                    }
                   </p>
-                  <Button onClick={handleUploadClick} className="flex items-center gap-2">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                    </svg>
-                    Upload Content
-                  </Button>
+                  {assets.length === 0 ? (
+                    <Button onClick={handleUploadClick} className="flex items-center gap-2">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                      </svg>
+                      Upload Content
+                    </Button>
+                  ) : (
+                    <Button onClick={handleClearAllFilters} variant="outline" className="flex items-center gap-2">
+                      <X className="w-4 h-4" />
+                      Clear All Filters
+                    </Button>
+                  )}
                 </div>
               )}
 
               {/* Content Grid/List */}
-              {assets.length > 0 && (
+              {filteredAssets.length > 0 && (
                 <>
                   {viewMode === 'grid' ? (
                     <AssetGrid 
-                      items={assets}
+                      items={filteredAssets}
                       onOpen={handleAssetOpen}
                       onCopyLink={handleCopyLink}
                       onDownload={handleDownload}
@@ -878,6 +1117,24 @@ export const LibraryGridPage: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Asset Detail Drawer */}
+      <AssetDrawer
+        asset={selectedAsset}
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+        onStageChange={handleStageChange}
+        onPerformanceChange={handlePerformanceChange}
+        onDownload={handleDownload}
+        onCopyLink={handleCopyLink}
+        onDelete={(id) => {
+          handleDelete(id);
+          setDrawerOpen(false);
+        }}
+        onRename={handleRename}
+      />
     </div>
+    </VideoManagerProvider>
+    </ErrorBoundary>
   );
 };

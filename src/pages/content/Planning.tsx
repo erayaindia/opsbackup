@@ -6,7 +6,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { ContentLayout } from "@/components/ContentLayout";
 import { Search, Loader2, AlertCircle, Trash2 } from "lucide-react";
 import { ContentService } from "@/services/contentService";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -326,11 +325,11 @@ export default function ContentCalendar() {
     }
   };
 
-
   const sidebarItemCls = (active) =>
     `cursor-pointer hover:text-primary px-3 py-2 rounded-lg transition-all duration-200 ${
       active ? "bg-primary/10 text-primary font-semibold border border-primary/20" : "text-muted-foreground hover:bg-muted/50"
     }`;
+
   const matchesSearch = (c) =>
     searchTerm.trim() === "" ||
     c.id.toString().includes(searchTerm.toLowerCase()) ||
@@ -440,8 +439,7 @@ export default function ContentCalendar() {
   );
 
   return (
-    <ContentLayout>
-      <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background">
         <div className="flex">
           {/* Filters Sidebar - Now secondary to content navigation */}
           <aside className="w-64 bg-muted/30 border-r border-border hidden lg:block">
@@ -634,7 +632,7 @@ export default function ContentCalendar() {
               <span className="ml-2 text-muted-foreground">Loading content...</span>
             </div>
           ) : viewMode === "cards" ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-6">
               {sortedCards.map((card) => {
                 const dl = deadlineInfo(card.deadline);
                 return (
@@ -776,9 +774,8 @@ export default function ContentCalendar() {
           )}
           </main>
         </div>
-      </div>
 
-      {/* New Idea Dialog */}
+        {/* New Idea Dialog */}
       <Dialog open={newOpen} onOpenChange={setNewOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border-border/50 shadow-elegant bg-card">
           <DialogHeader className="border-b border-border pb-4">
@@ -931,6 +928,6 @@ export default function ContentCalendar() {
           </div>
         </DialogContent>
       </Dialog>
-    </ContentLayout>
+      </div>
   );
 }

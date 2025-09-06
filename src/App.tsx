@@ -31,6 +31,7 @@ import FulfillmentInventorySync from "./pages/fulfillment/FulfillmentInventorySy
 // Content pages
 import Planning from "./pages/content/Planning";
 import ContentLibrary from "./pages/content/ContentLibrary";
+import ContentCreator from "./pages/content/ContentCreator";
 import ContentDetail from "./pages/content/ContentDetail";
 
 // Customer Support pages
@@ -109,6 +110,7 @@ const App = () => (
                 {/* Content routes */}
                 <Route path="content/planning" element={<Planning />} />
                 <Route path="content/library" element={<ContentLibrary />} />
+                <Route path="content/creator" element={<ContentCreator />} />
                 
                 {/* Customer Support routes */}
                 <Route path="support/feedback-complaints" element={<FeedbackComplaints />} />

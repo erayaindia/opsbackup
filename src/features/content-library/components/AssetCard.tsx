@@ -20,6 +20,7 @@ import { PerformanceSelector, type PerformanceOption } from "./PerformanceSelect
  */
 export const AssetCard: React.FC<AssetCardProps> = ({
   id,
+  displayId,
   title,
   productName,
   stage,
@@ -291,8 +292,13 @@ export const AssetCard: React.FC<AssetCardProps> = ({
           <div className="flex items-start justify-between gap-3 mb-3">
             <h3 
               className="font-semibold text-sm leading-tight line-clamp-1 flex-1 text-foreground group-hover:text-primary transition-colors" 
-              title={title}
+              title={`#${displayId || '?'} - ${title}`}
             >
+              {displayId && (
+                <span className="text-muted-foreground font-normal mr-1.5">
+                  #{displayId}
+                </span>
+              )}
               {title}
             </h3>
             {showQuickActions && (

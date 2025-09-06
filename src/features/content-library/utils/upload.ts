@@ -303,106 +303,138 @@ export const processUploadedFile = async (
   productName: string,
   uploadId: string
 ): Promise<AssetCardData> => {
-  const { ContentLibraryService } = await import('../services/contentLibraryService');
-  const { supabase } = await import('@/integrations/supabase/client');
-  
-  const isVideo = isVideoFile(file);
-  let durationSec: number | undefined;
-  let aspect: AssetCardData['aspect'] = "16:9";
-  let dimensions: { width: number; height: number } | undefined;
+  try {
+    console.log('Starting processUploadedFile for:', file.name);
+    
+    const { ContentLibraryService } = await import('../services/contentLibraryService');
+    const { supabase } = await import('@/integrations/supabase/client');
+    
+    const isVideo = isVideoFile(file);
+    let durationSec: number | undefined;
+    let aspect: AssetCardData['aspect'] = "16:9";
+    let dimensions: { width: number; height: number } | undefined;
 
-  // Get user ID
-  const { data: { user } } = await supabase.auth.getUser();
-  const userId = user?.id;
+    console.log('File type:', file.type, 'Is video:', isVideo);
 
-  // Generate file path for storage
-  const filePath = ContentLibraryService.generateFilePath(file.name, userId);
-  
-  // Upload main file to Supabase storage
-  const fileUrl = await ContentLibraryService.uploadFile(file, filePath);
-
-  // Generate thumbnail
-  let thumbnailUrl: string | undefined;
-  if (isVideo) {
-    // Get duration with fallback
-    try {
-      durationSec = await getVideoDuration(file);
-    } catch (error) {
-      console.warn('Failed to get video duration, using default:', error);
-      durationSec = 30; // Default fallback
+    // Get user ID
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError) {
+      console.error('Failed to get user:', userError);
+      throw new Error('Authentication required to upload files');
     }
     
-    // Generate video thumbnail and upload to storage
-    try {
-      const thumbnailDataUrl = await generateVideoThumbnail(file);
-      if (thumbnailDataUrl && !thumbnailDataUrl.startsWith('data:image/svg')) {
-        try {
-          // Convert data URL to blob
-          const response = await fetch(thumbnailDataUrl);
-          const thumbnailBlob = await response.blob();
-          
-          const thumbnailPath = ContentLibraryService.generateThumbnailPath(filePath);
-          thumbnailUrl = await ContentLibraryService.uploadThumbnail(thumbnailBlob, thumbnailPath);
-        } catch (uploadError) {
-          console.warn('Failed to upload video thumbnail, using video file as fallback:', uploadError);
+    const userId = user?.id;
+    console.log('User ID:', userId);
+
+    // Generate file path for storage
+    const filePath = ContentLibraryService.generateFilePath(file.name, userId);
+    console.log('Generated file path:', filePath);
+    
+    // Upload main file to Supabase storage
+    console.log('Uploading file to storage...');
+    const fileUrl = await ContentLibraryService.uploadFile(file, filePath);
+    console.log('File uploaded successfully:', fileUrl);
+
+    // Generate thumbnail
+    let thumbnailUrl: string | undefined;
+    if (isVideo) {
+      // Get duration with fallback
+      try {
+        console.log('Getting video duration...');
+        durationSec = await getVideoDuration(file);
+        console.log('Video duration:', durationSec);
+      } catch (error) {
+        console.warn('Failed to get video duration, using default:', error);
+        durationSec = 30; // Default fallback
+      }
+      
+      // Generate video thumbnail and upload to storage
+      try {
+        console.log('Generating video thumbnail...');
+        const thumbnailDataUrl = await generateVideoThumbnail(file);
+        if (thumbnailDataUrl && !thumbnailDataUrl.startsWith('data:image/svg')) {
+          try {
+            // Convert data URL to blob
+            const response = await fetch(thumbnailDataUrl);
+            const thumbnailBlob = await response.blob();
+            
+            const thumbnailPath = ContentLibraryService.generateThumbnailPath(filePath);
+            console.log('Uploading video thumbnail...');
+            thumbnailUrl = await ContentLibraryService.uploadThumbnail(thumbnailBlob, thumbnailPath);
+            console.log('Video thumbnail uploaded:', thumbnailUrl);
+          } catch (uploadError) {
+            console.warn('Failed to upload video thumbnail, using video file as fallback:', uploadError);
+            thumbnailUrl = fileUrl; // Use video file as thumbnail fallback
+          }
+        } else {
+          console.warn('Invalid thumbnail generated, using video file as fallback');
           thumbnailUrl = fileUrl; // Use video file as thumbnail fallback
         }
-      } else {
-        console.warn('Invalid thumbnail generated, using video file as fallback');
+      } catch (thumbnailError) {
+        console.warn('Failed to generate video thumbnail, using video file as fallback:', thumbnailError);
         thumbnailUrl = fileUrl; // Use video file as thumbnail fallback
       }
-    } catch (thumbnailError) {
-      console.warn('Failed to generate video thumbnail, using video file as fallback:', thumbnailError);
-      thumbnailUrl = fileUrl; // Use video file as thumbnail fallback
+    } else {
+      try {
+        console.log('Getting image dimensions...');
+        dimensions = await getImageDimensions(file);
+        aspect = getAspectRatioFromDimensions(dimensions.width, dimensions.height);
+        console.log('Image dimensions:', dimensions, 'Aspect ratio:', aspect);
+      } catch (error) {
+        console.warn('Failed to get image dimensions, using defaults:', error);
+        dimensions = { width: 1920, height: 1080 }; // Default dimensions
+        aspect = "16:9"; // Default aspect ratio
+      }
+      
+      // For images, the main file serves as the thumbnail
+      thumbnailUrl = fileUrl;
     }
-  } else {
-    try {
-      dimensions = await getImageDimensions(file);
-      aspect = getAspectRatioFromDimensions(dimensions.width, dimensions.height);
-    } catch (error) {
-      console.warn('Failed to get image dimensions, using defaults:', error);
-      dimensions = { width: 1920, height: 1080 }; // Default dimensions
-      aspect = "16:9"; // Default aspect ratio
-    }
-    
-    // For images, the main file serves as the thumbnail
-    thumbnailUrl = fileUrl;
+
+    console.log('Creating database record...');
+    // Create database record
+    const dbRecord = await ContentLibraryService.createAsset({
+      name: file.name,
+      file_url: fileUrl,
+      file_type: isVideo ? 'video' : 'image',
+      file_size: file.size,
+      mime_type: file.type,
+      thumbnail_url: thumbnailUrl,
+      duration_seconds: durationSec,
+      dimensions,
+      aspect_ratio: aspect,
+      status: 'Ready',
+      version_number: 1,
+      product_name: productName,
+      performance_tags: [],
+      comment_markers: [],
+      tags: []
+    });
+
+    console.log('Database record created:', dbRecord.id);
+
+    // Return AssetCardData format
+    const result = {
+      id: dbRecord.id,
+      title: dbRecord.name,
+      productName: dbRecord.product_name,
+      stage: dbRecord.status as AssetCardData['stage'],
+      isVideo: dbRecord.file_type === 'video',
+      thumbnailUrl: dbRecord.thumbnail_url || '',
+      videoUrl: dbRecord.file_type === 'video' ? dbRecord.file_url : undefined,
+      aspect: dbRecord.aspect_ratio as AssetCardData['aspect'] || '16:9',
+      performance: dbRecord.performance_tags as AssetCardData['performance'] || [],
+      createdBy: dbRecord.uploaded_by,
+      createdAt: new Date(dbRecord.uploaded_at),
+      durationSec: dbRecord.duration_seconds,
+      commentMarkers: dbRecord.comment_markers || [],
+      versionLabel: dbRecord.version_label,
+    };
+
+    console.log('processUploadedFile completed successfully for:', file.name);
+    return result;
+  } catch (error) {
+    console.error('Error in processUploadedFile:', error);
+    console.error('File details:', { name: file.name, size: file.size, type: file.type });
+    throw error;
   }
-
-  // Create database record
-  const dbRecord = await ContentLibraryService.createAsset({
-    name: file.name,
-    file_url: fileUrl,
-    file_type: isVideo ? 'video' : 'image',
-    file_size: file.size,
-    mime_type: file.type,
-    thumbnail_url: thumbnailUrl,
-    duration_seconds: durationSec,
-    dimensions,
-    aspect_ratio: aspect,
-    status: 'Ready to Test',
-    version_number: 1,
-    product_name: productName,
-    performance_tags: [],
-    comment_markers: [],
-    tags: []
-  });
-
-  // Return AssetCardData format
-  return {
-    id: dbRecord.id,
-    title: dbRecord.name,
-    productName: dbRecord.product_name,
-    stage: dbRecord.status as AssetCardData['stage'],
-    isVideo: dbRecord.file_type === 'video',
-    thumbnailUrl: dbRecord.thumbnail_url || '',
-    videoUrl: dbRecord.file_type === 'video' ? dbRecord.file_url : undefined,
-    aspect: dbRecord.aspect_ratio as AssetCardData['aspect'] || '16:9',
-    performance: dbRecord.performance_tags as AssetCardData['performance'] || [],
-    createdBy: dbRecord.uploaded_by,
-    createdAt: new Date(dbRecord.uploaded_at),
-    durationSec: dbRecord.duration_seconds,
-    commentMarkers: dbRecord.comment_markers || [],
-    versionLabel: dbRecord.version_label,
-  };
 };

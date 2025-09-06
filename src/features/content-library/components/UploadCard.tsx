@@ -17,6 +17,7 @@ interface UploadCardProps extends UploadCardData {
  */
 export const UploadCard: React.FC<UploadCardProps> = ({
   id,
+  displayId,
   title,
   productName,
   stage,
@@ -31,7 +32,12 @@ export const UploadCard: React.FC<UploadCardProps> = ({
   ...rest
 }) => {
   const getStageColors = (stage: keyof typeof STAGE_COLORS) => {
-    return `${STAGE_COLORS[stage].light} dark:${STAGE_COLORS[stage].dark}`;
+    const colors = STAGE_COLORS[stage];
+    if (!colors) {
+      console.warn(`Unknown stage: ${stage}. Using default colors.`);
+      return "bg-muted text-muted-foreground border-muted-foreground/20";
+    }
+    return `${colors.light} ${colors.dark}`;
   };
 
   return (
@@ -129,8 +135,13 @@ export const UploadCard: React.FC<UploadCardProps> = ({
           {/* Title */}
           <h3 
             className="font-bold text-sm leading-tight line-clamp-1" 
-            title={title}
+            title={`${displayId ? `#${displayId} - ` : ''}${title}`}
           >
+            {displayId && (
+              <span className="text-muted-foreground font-normal mr-1.5">
+                #{displayId}
+              </span>
+            )}
             {title}
           </h3>
 

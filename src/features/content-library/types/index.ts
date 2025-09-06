@@ -11,6 +11,7 @@ export type Aspect = "16:9" | "9:16" | "1:1" | "4:5";
 
 export interface AssetCardData {
   id: string;
+  displayId?: number; // Sequential display ID (1, 2, 3, 4...)
   title: string;
   productName: string;
   stage: Stage;
@@ -90,6 +91,31 @@ export const STAGE_COLORS = {
 } as const;
 
 // Performance label color mappings
+// Filter types
+export type AssetTypeFilter = 'all' | 'videos' | 'images';
+export type StageFilter = 'all' | Stage;
+export type PerformanceFilter = 'all' | PerformanceLabel;
+export type AspectFilter = 'all' | Aspect;
+export type DateRangeFilter = 'all' | 'today' | 'week' | 'month' | 'custom';
+
+export interface FilterState {
+  assetType: AssetTypeFilter;
+  stage: StageFilter;
+  performance: PerformanceFilter;
+  aspect: AspectFilter;
+  dateRange: DateRangeFilter;
+  customDateFrom?: Date;
+  customDateTo?: Date;
+  searchQuery: string;
+}
+
+export interface FilterBarProps {
+  filters: FilterState;
+  onFilterChange: (filterType: keyof FilterState, value: any) => void;
+  onClearAll: () => void;
+  activeFilterCount: number;
+}
+
 export const PERFORMANCE_COLORS = {
   "Top Creative": {
     light: "bg-green-100 text-green-700 border-green-200",

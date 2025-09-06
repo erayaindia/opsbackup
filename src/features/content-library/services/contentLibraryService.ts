@@ -4,6 +4,7 @@ import JSZip from 'jszip';
 
 export interface ContentLibraryRecord {
   id: string;
+  display_id?: number; // Sequential display ID
   name: string;
   description?: string;
   file_url: string;
@@ -14,7 +15,7 @@ export interface ContentLibraryRecord {
   duration_seconds?: number;
   dimensions?: { width: number; height: number };
   aspect_ratio?: '16:9' | '9:16' | '1:1' | '4:5';
-  status: 'Live' | 'Ready to Test' | 'Re-edit' | 'Archived';
+  status: 'Live' | 'Ready' | 'Re-edit' | 'Archived';
   version_number: number;
   version_label?: string;
   uploaded_by?: string;
@@ -75,6 +76,39 @@ export class ContentLibraryService {
   }
 
   /**
+   * Get the next sequential display ID
+   * This ensures no reuse of deleted IDs (gaps remain permanent)
+   */
+  static async getNextDisplayId(): Promise<number> {
+    try {
+      const { data, error } = await supabase
+        .from('content_library')
+        .select('display_id')
+        .not('display_id', 'is', null) // Only get rows that have display_id
+        .is('deleted_at', null) // Exclude soft-deleted items
+        .order('display_id', { ascending: false })
+        .limit(1);
+
+      if (error) {
+        console.error('Error getting max display_id:', error);
+        // If there's an error, start from 1
+        return 1;
+      }
+
+      // If no records exist or no display_id found, start from 1
+      // Otherwise, use the highest existing display_id + 1 (never reuse gaps)
+      const maxDisplayId = data?.[0]?.display_id || 0;
+      const nextId = maxDisplayId + 1;
+      
+      console.log(`Next display_id will be: ${nextId} (current max: ${maxDisplayId})`);
+      return nextId;
+    } catch (error) {
+      console.error('Error in getNextDisplayId:', error);
+      return 1; // Fallback to 1 if there's any error
+    }
+  }
+
+  /**
    * Create a new content library item
    */
   static async createAsset(assetData: Partial<ContentLibraryRecord>): Promise<ContentLibraryRecord> {
@@ -82,8 +116,12 @@ export class ContentLibraryService {
       // Get current user
       const { data: { user } } = await supabase.auth.getUser();
       
+      // Get next sequential display ID
+      const displayId = await this.getNextDisplayId();
+      
       // Prepare clean data for insertion
       const insertData = {
+        display_id: displayId,
         name: assetData.name,
         description: assetData.description,
         file_url: assetData.file_url,
@@ -94,7 +132,7 @@ export class ContentLibraryService {
         duration_seconds: assetData.duration_seconds ? Math.round(assetData.duration_seconds) : null,
         dimensions: assetData.dimensions,
         aspect_ratio: assetData.aspect_ratio,
-        status: assetData.status || 'Ready to Test',
+        status: assetData.status || 'Ready',
         version_number: assetData.version_number || 1,
         version_label: assetData.version_label,
         product_name: assetData.product_name,
@@ -461,6 +499,7 @@ export class ContentLibraryService {
   private static mapRecordToAssetCard(record: ContentLibraryRecord): AssetCardData {
     return {
       id: record.id,
+      displayId: record.display_id,
       title: ContentLibraryService.cleanDisplayName(record.name),
       productName: record.product_name,
       stage: record.status as AssetCardData['stage'],

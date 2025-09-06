@@ -62,7 +62,8 @@ import {
   Clock,
   UserCheck,
   Link,
-  PieChart as PieChartIcon
+  PieChart as PieChartIcon,
+  Plus
 } from "lucide-react";
 import {
   Sidebar,
@@ -165,6 +166,7 @@ const contentItems = [
   { title: "Planning", url: "/content/planning", icon: Calendar },
   { title: "Content Library", url: "/content/library", icon: Archive },
   { title: "Editing", url: "/content/editing", icon: Edit },
+  { title: "Content Creator", url: "/content/creator", icon: Plus },
 ];
 
 
