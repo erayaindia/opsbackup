@@ -218,8 +218,8 @@ export const AddUserModal: React.FC<AddUserModalProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={handleModalClose}>
-      <DialogContent className="max-w-4xl max-h-[95vh] flex flex-col">
-        <DialogHeader className="space-y-4">
+      <DialogContent className="max-w-4xl h-[90vh] flex flex-col overflow-hidden">
+        <DialogHeader className="flex-shrink-0 space-y-4">
           <DialogTitle className="text-2xl font-bold flex items-center gap-3">
             <div className={`p-2 rounded-lg ${currentStepData?.color || 'bg-gray-100'}`}>
               {currentStepData && <currentStepData.icon className="w-6 h-6" />}
@@ -281,11 +281,11 @@ export const AddUserModal: React.FC<AddUserModalProps> = ({
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col flex-1">
-            <div className="flex-1 overflow-y-auto px-1 py-2">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col flex-1 min-h-0">
+            <div className="flex-1 overflow-y-auto overflow-x-hidden px-1 py-4 scroll-smooth scrollbar-thin scrollbar-track-slate-100 scrollbar-thumb-slate-300 hover:scrollbar-thumb-slate-400">
               {/* Step 1: Basic Info */}
               {currentStep === 1 && (
-                <Card className="border-0 shadow-none">
+                <Card className="border-0 shadow-none mx-2 mb-4">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-lg">
                       <User className="w-5 h-5" />
@@ -384,7 +384,7 @@ export const AddUserModal: React.FC<AddUserModalProps> = ({
 
               {/* Step 2: Work Details */}
               {currentStep === 2 && (
-                <Card className="border-0 shadow-none">
+                <Card className="border-0 shadow-none mx-2 mb-4">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-lg">
                       <Building2 className="w-5 h-5" />
@@ -540,7 +540,7 @@ export const AddUserModal: React.FC<AddUserModalProps> = ({
 
               {/* Step 3: Access Control */}
               {currentStep === 3 && (
-                <Card className="border-0 shadow-none">
+                <Card className="border-0 shadow-none mx-2 mb-4">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-lg">
                       <Settings className="w-5 h-5" />
@@ -570,8 +570,8 @@ export const AddUserModal: React.FC<AddUserModalProps> = ({
                                     <Card className={`cursor-pointer transition-all duration-200 hover:shadow-md ${
                                       isChecked 
                                         ? 'ring-2 ring-primary bg-primary/5' 
-                                        : 'hover:bg-gray-50'
-                                    }`}>
+                                        : 'hover:bg-gray-50/80'
+                                    } relative group`}>
                                       <CardContent className="p-4">
                                         <FormItem className="flex flex-row items-start space-x-3 space-y-0">
                                           <FormControl>
@@ -600,7 +600,7 @@ export const AddUserModal: React.FC<AddUserModalProps> = ({
                                                 </Badge>
                                               )}
                                             </FormLabel>
-                                            <p className="text-xs text-muted-foreground leading-relaxed">
+                                            <p className="text-xs text-gray-600 leading-relaxed group-hover:text-gray-800 transition-colors">
                                               {module.description}
                                             </p>
                                           </div>
@@ -622,7 +622,7 @@ export const AddUserModal: React.FC<AddUserModalProps> = ({
 
               {/* Step 4: Review & Submit */}
               {currentStep === 4 && (
-                <div className="space-y-6">
+                <div className="space-y-6 mx-2 mb-4">
                   <FormField
                     control={form.control}
                     name="notes"
@@ -723,7 +723,7 @@ export const AddUserModal: React.FC<AddUserModalProps> = ({
             </div>
 
             {/* Footer Actions */}
-            <div className="flex-shrink-0 flex justify-between items-center pt-4 mt-4 border-t">
+            <div className="flex-shrink-0 flex justify-between items-center pt-4">
               <div>
                 {currentStep > 1 && (
                   <Button
