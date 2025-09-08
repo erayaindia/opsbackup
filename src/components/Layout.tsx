@@ -2,6 +2,7 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { AppHeader } from "@/components/AppHeader";
 import { FloatingChatButton, useChatStatus } from "@/components/FloatingChatButton";
+import { UserAccessDebugger } from "@/components/debug/UserAccessDebugger";
 import { Outlet } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -29,6 +30,9 @@ export function Layout() {
         
         {/* Floating Chat Button */}
         <FloatingChatButton unreadCount={unreadCount} isOnline={isOnline} />
+        
+        {/* Debug Access Tool - Only in development */}
+        {process.env.NODE_ENV === 'development' && <UserAccessDebugger />}
       </div>
     </SidebarProvider>
   );

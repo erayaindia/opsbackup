@@ -5,6 +5,8 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthWrapper } from "./components/AuthWrapper";
 import { Layout } from "./components/Layout";
 import { ReadOnlyGuard } from "./components/ReadOnlyGuard";
+import { PermissionGuard } from "./components/PermissionGuard";
+import { PermissionsProvider } from "./contexts/PermissionsContext";
 import Dashboard from "./pages/Dashboard";
 import Orders from "./pages/Orders";
 import Tasks from "./pages/Tasks";
@@ -19,6 +21,7 @@ import Security from "./pages/Security";
 import TeamChat from "./pages/TeamChat";
 import NotFound from "./pages/NotFound";
 import Auth from "./pages/Auth";
+import Onboard from "./pages/Onboard";
 
 // Fulfillment pages
 import FulfillmentPacking from "./pages/fulfillment/FulfillmentPacking";
@@ -72,6 +75,9 @@ import SystemSettings from "./pages/management/SystemSettings";
 import Integrations from "./pages/management/Integrations";
 import AnalyticsInsights from "./pages/management/AnalyticsInsights";
 
+// Admin pages
+import OnboardingApplications from "./pages/admin/OnboardingApplications";
+
 // Alerts pages
 import InventoryAlerts from "./pages/alerts/InventoryAlerts";
 import DisputeAlerts from "./pages/alerts/DisputeAlerts";
@@ -79,50 +85,114 @@ import SystemNotifications from "./pages/alerts/SystemNotifications";
 
 const App = () => (
   <TooltipProvider>
-    <Toaster />
-    <Sonner />
-    <BrowserRouter>
+    <PermissionsProvider>
+      <Toaster />
+      <Sonner />
+      <BrowserRouter>
       <Routes>
         <Route path="/auth" element={<Auth />} />
+        <Route path="/onboard" element={<Onboard />} />
         <Route path="/*" element={
           <AuthWrapper>
             <Routes>
               <Route path="/" element={<Layout />}>
                 <Route index element={<Dashboard />} />
                 <Route path="dashboard" element={<Dashboard />} />
-                <Route path="orders" element={<Orders />} />
+                <Route path="orders" element={
+                  <PermissionGuard requiredModule="orders">
+                    <Orders />
+                  </PermissionGuard>
+                } />
                 <Route path="packing" element={<Packing />} />
-                <Route path="support" element={<Support />} />
+                <Route path="support" element={
+                  <PermissionGuard requiredModule="support">
+                    <Support />
+                  </PermissionGuard>
+                } />
                 <Route path="chat" element={<Chat />} />
                 <Route path="tasks" element={<Tasks />} />
                 <Route path="team" element={<TeamManagement />} />
                 <Route path="users" element={
-                  <ReadOnlyGuard>
-                    <Users />
-                  </ReadOnlyGuard>
+                  <PermissionGuard requiredModule="management">
+                    <ReadOnlyGuard>
+                      <Users />
+                    </ReadOnlyGuard>
+                  </PermissionGuard>
                 } />
                 <Route path="settings" element={<Settings />} />
                 <Route path="analytics" element={<Analytics />} />
                 <Route path="security" element={<Security />} />
                 
                 {/* Fulfillment routes */}
-                <Route path="fulfillment/packing" element={<FulfillmentPacking />} />
-                <Route path="fulfillment/disputes" element={<FulfillmentDisputes />} />
-                <Route path="fulfillment/quality-check" element={<FulfillmentQualityCheck />} />
-                <Route path="fulfillment/label-printing" element={<FulfillmentLabelPrinting />} />
-                <Route path="fulfillment/pick-lists" element={<FulfillmentPickLists />} />
-                <Route path="fulfillment/rto-ndr" element={<FulfillmentRTONDR />} />
-                <Route path="fulfillment/inventory-sync" element={<FulfillmentInventorySync />} />
+                <Route path="fulfillment/packing" element={
+                  <PermissionGuard requiredModule="fulfillment">
+                    <FulfillmentPacking />
+                  </PermissionGuard>
+                } />
+                <Route path="fulfillment/disputes" element={
+                  <PermissionGuard requiredModule="fulfillment">
+                    <FulfillmentDisputes />
+                  </PermissionGuard>
+                } />
+                <Route path="fulfillment/quality-check" element={
+                  <PermissionGuard requiredModule="fulfillment">
+                    <FulfillmentQualityCheck />
+                  </PermissionGuard>
+                } />
+                <Route path="fulfillment/label-printing" element={
+                  <PermissionGuard requiredModule="fulfillment">
+                    <FulfillmentLabelPrinting />
+                  </PermissionGuard>
+                } />
+                <Route path="fulfillment/pick-lists" element={
+                  <PermissionGuard requiredModule="fulfillment">
+                    <FulfillmentPickLists />
+                  </PermissionGuard>
+                } />
+                <Route path="fulfillment/rto-ndr" element={
+                  <PermissionGuard requiredModule="fulfillment">
+                    <FulfillmentRTONDR />
+                  </PermissionGuard>
+                } />
+                <Route path="fulfillment/inventory-sync" element={
+                  <PermissionGuard requiredModule="fulfillment">
+                    <FulfillmentInventorySync />
+                  </PermissionGuard>
+                } />
 
                 {/* Content routes */}
-                <Route path="content/planning" element={<Planning />} />
-                <Route path="content/library" element={<ContentLibrary />} />
-                <Route path="content/creator" element={<ContentCreator />} />
+                <Route path="content/planning" element={
+                  <PermissionGuard requiredModule="content">
+                    <Planning />
+                  </PermissionGuard>
+                } />
+                <Route path="content/library" element={
+                  <PermissionGuard requiredModule="content">
+                    <ContentLibrary />
+                  </PermissionGuard>
+                } />
+                <Route path="content/creator" element={
+                  <PermissionGuard requiredModule="content">
+                    <ContentCreator />
+                  </PermissionGuard>
+                } />
                 
                 {/* Customer Support routes */}
-                <Route path="support/feedback-complaints" element={<FeedbackComplaints />} />
-                <Route path="support/returns-refunds" element={<ReturnsRefunds />} />
-                <Route path="support/ndr-rto" element={<NDRRTOManagement />} />
+                <Route path="support/feedback-complaints" element={
+                  <PermissionGuard requiredModule="support">
+                    <FeedbackComplaints />
+                  </PermissionGuard>
+                } />
+                <Route path="support/returns-refunds" element={
+                  <PermissionGuard requiredModule="support">
+                    <ReturnsRefunds />
+                  </PermissionGuard>
+                } />
+                <Route path="support/ndr-rto" element={
+                  <PermissionGuard requiredModule="support">
+                    <NDRRTOManagement />
+                  </PermissionGuard>
+                } />
                 
                 {/* Team Hub routes */}
                 <Route path="team-hub/attendance" element={<Attendance />} />
@@ -157,6 +227,13 @@ const App = () => (
                 <Route path="management/integrations" element={<Integrations />} />
                 <Route path="management/analytics-insights" element={<AnalyticsInsights />} />
                 
+                {/* Admin routes */}
+                <Route path="admin/onboarding" element={
+                  <PermissionGuard requiredModule="management">
+                    <OnboardingApplications />
+                  </PermissionGuard>
+                } />
+                
                 {/* Alerts routes */}
                 <Route path="alerts/inventory" element={<InventoryAlerts />} />
                 <Route path="alerts/disputes" element={<DisputeAlerts />} />
@@ -175,8 +252,9 @@ const App = () => (
           </AuthWrapper>
         } />
       </Routes>
-    </BrowserRouter>
+      </BrowserRouter>
+    </PermissionsProvider>
   </TooltipProvider>
-);
+)
 
 export default App;

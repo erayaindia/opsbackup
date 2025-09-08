@@ -78,7 +78,7 @@ Deno.serve(async (req: Request) => {
 
     // Step 1: Get user data before deletion (for audit and response)
     const { data: userToDelete, error: getUserError } = await serviceClient
-      .from('app.users')
+      .from('app_users')
       .select('id, auth_user_id, company_email, full_name, role, status')
       .eq('id', requestData.app_user_id)
       .single()
@@ -132,14 +132,14 @@ Deno.serve(async (req: Request) => {
         }
       )
 
-      // Step 3: Delete from app.users table first
+      // Step 3: Delete from app_users table first
       const { error: deleteAppUserError } = await serviceClient
-        .from('app.users')
+        .from('app_users')
         .delete()
         .eq('id', requestData.app_user_id)
 
       if (deleteAppUserError) {
-        throw new Error(`Failed to delete from app.users: ${deleteAppUserError.message}`)
+        throw new Error(`Failed to delete from app_users: ${deleteAppUserError.message}`)
       }
 
       // Step 4: Delete from auth.users (Supabase Auth)

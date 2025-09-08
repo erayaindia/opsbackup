@@ -4,17 +4,17 @@ import {
   CreateUserData as EnhancedCreateUserData,
   UpdateUserData as EnhancedUpdateUserData,
   UserRole,
-  UserStatus,
   UserDepartment,
   ModuleAccess
 } from '@/types/user.types'
-import { 
-  EnhancedUsersService,
-  UserServiceError,
-  ValidationError,
-  NotFoundError,
-  PermissionError
-} from '@/services/enhancedUsersService'
+// Enhanced users service temporarily disabled due to UserStatus removal
+// import { 
+//   EnhancedUsersService,
+//   UserServiceError,
+//   ValidationError,
+//   NotFoundError,
+//   PermissionError
+// } from '@/services/enhancedUsersService'
 import { ErrorHandler, ErrorFactory, RetryHandler } from '@/utils/errorHandling'
 
 // Backward compatibility interface (legacy format)
@@ -25,7 +25,6 @@ export interface User {
   company_email: string
   role: string
   department: string
-  status: string
   joined_at: string
   personal_email: string | null
   phone: string | null
@@ -46,7 +45,6 @@ const toLegacyUser = (enhancedUser: EnhancedUser): User => ({
   company_email: enhancedUser.company_email,
   role: enhancedUser.role,
   department: enhancedUser.department,
-  status: enhancedUser.status,
   joined_at: enhancedUser.joined_at,
   personal_email: enhancedUser.personal_email,
   phone: enhancedUser.phone,
@@ -102,7 +100,6 @@ export interface UpdateUserData {
   company_email?: string
   role?: string
   department?: string
-  status?: string
   personal_email?: string
   phone?: string
   designation?: string
@@ -128,11 +125,7 @@ export const getUsers = async (): Promise<User[]> => {
   return getUsersCompat()
 }
 
-// Enhanced update user status with compatibility layer
-export const updateUserStatus = async (userId: string, status: string) => {
-  const { updateUserStatus: updateUserStatusCompat } = await import('./compatibilityUsersService')
-  return updateUserStatusCompat(userId, status)
-}
+// Status update functionality removed
 
 // Enhanced update user with compatibility layer
 export const updateUser = async (userId: string, userData: UpdateUserData): Promise<UpdateUserResponse> => {

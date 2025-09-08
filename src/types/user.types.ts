@@ -10,15 +10,7 @@ export enum UserRole {
   EXTERNAL = 'external'
 }
 
-export enum UserStatus {
-  ACTIVE = 'active',
-  PENDING = 'pending',
-  SUSPENDED = 'suspended',
-  ON_LEAVE = 'on_leave',
-  INACTIVE = 'inactive',
-  RESIGNED = 'resigned',
-  TERMINATED = 'terminated'
-}
+// UserStatus enum removed - no longer using status field
 
 export enum UserDepartment {
   CONTENT = 'Content',
@@ -69,7 +61,6 @@ export interface User {
   // Employment Details
   role: UserRole
   department: UserDepartment
-  status: UserStatus
   designation: string | null
   work_location: string
   employment_type: EmploymentType
@@ -129,7 +120,6 @@ export interface UpdateUserData {
   company_email?: string
   role?: UserRole
   department?: UserDepartment
-  status?: UserStatus
   personal_email?: string
   phone?: string
   designation?: string
@@ -242,14 +232,13 @@ export interface GetUsersParams extends PaginationParams {
 // Permission checking utilities
 export interface PermissionContext {
   user_role: UserRole
-  user_status: UserStatus
   required_modules?: ModuleAccess[]
   required_roles?: UserRole[]
 }
 
 // Bulk operations
 export interface BulkUserOperation {
-  operation: 'update_status' | 'update_role' | 'add_module_access' | 'remove_module_access' | 'delete'
+  operation: 'update_role' | 'add_module_access' | 'remove_module_access' | 'delete'
   user_ids: string[]
   data?: any
   reason?: string
@@ -271,9 +260,7 @@ export const isUserRole = (value: string): value is UserRole => {
   return Object.values(UserRole).includes(value as UserRole)
 }
 
-export const isUserStatus = (value: string): value is UserStatus => {
-  return Object.values(UserStatus).includes(value as UserStatus)
-}
+// Status type guard removed
 
 export const isUserDepartment = (value: string): value is UserDepartment => {
   return Object.values(UserDepartment).includes(value as UserDepartment)
@@ -301,9 +288,7 @@ export const getRoleDisplayName = (role: UserRole): string => {
   return role.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())
 }
 
-export const getStatusDisplayName = (status: UserStatus): string => {
-  return status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())
-}
+// Status display name function removed
 
 // Constants for validation
 export const USER_VALIDATION_RULES = {

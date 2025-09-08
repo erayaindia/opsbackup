@@ -81,6 +81,7 @@ import {
 } from "@/components/ui/sidebar";
 import React, { useState } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useModuleAccess } from "@/hooks/useModuleAccess";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { RippleEffect } from "@/components/ui/ripple-effect";
 import { SkeletonMenu, SkeletonCollapsible } from "@/components/ui/skeleton-menu";
@@ -155,6 +156,7 @@ const accountsFinanceItems = [
 // Management & Admin Section
 const managementAdminItems = [
   { title: "Users", url: "/users", icon: UserCog },
+  { title: "Onboarding Applications", url: "/admin/onboarding", icon: UserPlus },
   { title: "People & Roles", url: "/management/people-roles", icon: UserCheck },
   { title: "System Settings", url: "/management/system-settings", icon: Settings },
   { title: "Integrations", url: "/management/integrations", icon: Link },
@@ -201,6 +203,7 @@ export function AppSidebar() {
   const currentPath = location.pathname;
   const isCollapsed = state === "collapsed";
   const isMobile = useIsMobile();
+  const { canAccessModule, isLoading: permissionsLoading, getUserInfo } = useModuleAccess();
   
   // Collapsible group states
   const [fulfillmentOpen, setFulfillmentOpen] = useState(currentPath.startsWith('/fulfillment'));
@@ -210,7 +213,7 @@ export function AppSidebar() {
   const [marketingGrowthOpen, setMarketingGrowthOpen] = useState(currentPath.startsWith('/marketing'));
   const [productManagementOpen, setProductManagementOpen] = useState(currentPath.startsWith('/products'));
   const [accountsFinanceOpen, setAccountsFinanceOpen] = useState(currentPath.startsWith('/finance'));
-  const [managementAdminOpen, setManagementAdminOpen] = useState(currentPath.startsWith('/management') || currentPath === '/users');
+  const [managementAdminOpen, setManagementAdminOpen] = useState(currentPath.startsWith('/management') || currentPath === '/users' || currentPath.startsWith('/admin'));
   const [contentOpen, setContentOpen] = useState(currentPath.startsWith('/content'));
   const [trainingOpen, setTrainingOpen] = useState(currentPath.startsWith('/training'));
   const [analyticsOpen, setAnalyticsOpen] = useState(currentPath.startsWith('/analytics'));
@@ -225,7 +228,7 @@ export function AppSidebar() {
   const isMarketingGrowthActive = currentPath.startsWith('/marketing');
   const isProductManagementActive = currentPath.startsWith('/products');
   const isAccountsFinanceActive = currentPath.startsWith('/finance');
-  const isManagementAdminActive = currentPath.startsWith('/management') || currentPath === '/users';
+  const isManagementAdminActive = currentPath.startsWith('/management') || currentPath === '/users' || currentPath.startsWith('/admin');
   const isContentActive = currentPath.startsWith('/content');
   const isTrainingActive = currentPath.startsWith('/training');
   const isAnalyticsActive = currentPath.startsWith('/analytics');
@@ -233,10 +236,28 @@ export function AppSidebar() {
 
   const shouldShowLabels = !isCollapsed || (isCollapsed && hoverExpanded && !isMobile);
 
-  const renderMenuSection = (items: typeof operationsItems, label: string) => {
-    if (isLoading) {
+  const renderMenuSection = (items: typeof operationsItems, label: string, requiredModule?: string) => {
+    if (isLoading || permissionsLoading) {
       return <SkeletonMenu count={items.length} showLabels={shouldShowLabels} />;
     }
+
+    // Filter items based on permissions
+    const accessibleItems = items.filter(item => {
+      // Dashboard is always accessible
+      if (item.url === '/') return true;
+      
+      // If a specific module is required for this section
+      if (requiredModule) {
+        return canAccessModule(requiredModule);
+      }
+      
+      // For individual items, derive module from URL
+      const urlModule = item.url.split('/')[1] || 'dashboard';
+      return canAccessModule(urlModule);
+    });
+
+    // Don't render section if no accessible items
+    if (accessibleItems.length === 0) return null;
 
     return (
       <SidebarGroup className="px-3 py-1">
@@ -247,7 +268,7 @@ export function AppSidebar() {
         )}
         <SidebarGroupContent>
           <SidebarMenu className="space-y-0.5">
-            {items.map((item, index) => {
+            {accessibleItems.map((item, index) => {
               const active = isActive(item.url);
               
               const menuButton = (
@@ -309,11 +330,19 @@ export function AppSidebar() {
     isOpen: boolean,
     setIsOpen: (open: boolean) => void,
     isActive: boolean,
-    icon: React.ComponentType<any>,
+    icon: React.ComponentType<React.SVGProps<SVGSVGElement>>,
+    requiredModule: string,
     subSections?: { title: string; items: typeof operationsItems }[]
   ) => {
-    if (isLoading) {
+    if (isLoading || permissionsLoading) {
       return <SkeletonCollapsible showLabels={shouldShowLabels} />;
+    }
+
+    // Check if user can access this module
+    const hasAccess = canAccessModule(requiredModule);
+    console.log(`🔍 [AppSidebar] renderCollapsibleSection('${title}', requiredModule: '${requiredModule}'): ${hasAccess ? 'VISIBLE' : 'HIDDEN'}`);
+    if (!hasAccess) {
+      return null;
     }
 
     const sectionButton = (
@@ -472,6 +501,7 @@ export function AppSidebar() {
               setFulfillmentOpen,
               isFulfillmentActive,
               PackageCheck,
+              "fulfillment",
               [
                 { title: "Processing", items: processingItems },
                 { title: "Exceptions", items: exceptionsItems },
@@ -485,7 +515,8 @@ export function AppSidebar() {
               customerSupportOpen,
               setCustomerSupportOpen,
               isCustomerSupportActive,
-              Headphones
+              Headphones,
+              "support"
             )}
             {shouldShowLabels && customerSupportOpen && (
               <SidebarGroup className="px-3 py-0 -mt-1">
@@ -527,7 +558,8 @@ export function AppSidebar() {
               teamHubOpen,
               setTeamHubOpen,
               isTeamHubActive,
-              Users
+              Users,
+              "team-hub"
             )}
             {shouldShowLabels && teamHubOpen && (
               <SidebarGroup className="px-3 py-0 -mt-1">
@@ -569,7 +601,8 @@ export function AppSidebar() {
               contentOpen,
               setContentOpen,
               isContentActive,
-              Edit
+              Edit,
+              "content"
             )}
             {shouldShowLabels && contentOpen && (
               <SidebarGroup className="px-3 py-0 -mt-1">
@@ -611,7 +644,8 @@ export function AppSidebar() {
               marketingGrowthOpen,
               setMarketingGrowthOpen,
               isMarketingGrowthActive,
-              Bullhorn
+              Bullhorn,
+              "marketing"
             )}
             {shouldShowLabels && marketingGrowthOpen && (
               <SidebarGroup className="px-3 py-0 -mt-1">
@@ -653,7 +687,8 @@ export function AppSidebar() {
               productManagementOpen,
               setProductManagementOpen,
               isProductManagementActive,
-              Box
+              Box,
+              "products"
             )}
             {shouldShowLabels && productManagementOpen && (
               <SidebarGroup className="px-3 py-0 -mt-1">
@@ -695,7 +730,8 @@ export function AppSidebar() {
               accountsFinanceOpen,
               setAccountsFinanceOpen,
               isAccountsFinanceActive,
-              Wallet
+              Wallet,
+              "finance"
             )}
             {shouldShowLabels && accountsFinanceOpen && (
               <SidebarGroup className="px-3 py-0 -mt-1">
@@ -737,7 +773,8 @@ export function AppSidebar() {
               trainingOpen,
               setTrainingOpen,
               isTrainingActive,
-              GraduationCap
+              GraduationCap,
+              "training"
             )}
             {shouldShowLabels && trainingOpen && (
               <SidebarGroup className="px-3 py-0 -mt-1">
@@ -779,7 +816,8 @@ export function AppSidebar() {
               analyticsOpen,
               setAnalyticsOpen,
               isAnalyticsActive,
-              PieChart
+              PieChart,
+              "analytics"
             )}
             {shouldShowLabels && analyticsOpen && (
               <SidebarGroup className="px-3 py-0 -mt-1">
@@ -821,7 +859,8 @@ export function AppSidebar() {
               managementAdminOpen,
               setManagementAdminOpen,
               isManagementAdminActive,
-              Settings
+              Settings,
+              "management"
             )}
             {shouldShowLabels && managementAdminOpen && (
               <SidebarGroup className="px-3 py-0 -mt-1">
@@ -863,7 +902,8 @@ export function AppSidebar() {
               alertsOpen,
               setAlertsOpen,
               isAlertsActive,
-              Bell
+              Bell,
+              "alerts"
             )}
             {shouldShowLabels && alertsOpen && (
               <SidebarGroup className="px-3 py-0 -mt-1">

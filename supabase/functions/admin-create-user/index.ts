@@ -170,13 +170,13 @@ Deno.serve(async (req: Request) => {
       }
 
       const { data: appUser, error: appUserError } = await serviceClient
-        .from('app.users')
+        .from('app_users')
         .insert(appUserData)
         .select()
         .single()
 
       if (appUserError) {
-        // Rollback: delete the auth user if app.users creation fails
+        // Rollback: delete the auth user if app_users creation fails
         await serviceClient.auth.admin.deleteUser(authUser.user.id)
         return createErrorResponse(
           `Failed to create app user: ${appUserError.message}`, 

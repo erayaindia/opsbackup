@@ -1,7 +1,6 @@
 import { z } from 'zod'
 import {
   UserRole,
-  UserStatus,
   UserDepartment,
   EmploymentType,
   ModuleAccess,
@@ -31,9 +30,7 @@ export const userRoleSchema = z.nativeEnum(UserRole, {
   errorMap: () => ({ message: 'Invalid user role' })
 })
 
-export const userStatusSchema = z.nativeEnum(UserStatus, {
-  errorMap: () => ({ message: 'Invalid user status' })
-})
+// UserStatus schema removed
 
 export const userDepartmentSchema = z.nativeEnum(UserDepartment, {
   errorMap: () => ({ message: 'Invalid department' })
@@ -105,7 +102,6 @@ export const userSchema = z.object({
   // Employment Details
   role: userRoleSchema,
   department: userDepartmentSchema,
-  status: userStatusSchema,
   designation: z.string()
     .max(USER_VALIDATION_RULES.designation.max, `Designation must be at most ${USER_VALIDATION_RULES.designation.max} characters`)
     .optional()
@@ -213,13 +209,7 @@ export const updateUserSchema = z.object({
   message: 'Dashboard access is required for all users'
 })
 
-// User Status Update schema
-export const updateUserStatusSchema = z.object({
-  user_id: z.string().uuid('Invalid user ID'),
-  status: userStatusSchema,
-  reason: z.string().optional(),
-  effective_date: dateStringSchema.optional()
-})
+// User Status Update schema removed
 
 // User Activity Log schema
 export const userActivityLogSchema = z.object({
@@ -239,7 +229,6 @@ export const userActivityLogSchema = z.object({
 // Filters schema
 export const userFiltersSchema = z.object({
   role: z.array(userRoleSchema).optional(),
-  status: z.array(userStatusSchema).optional(),
   department: z.array(userDepartmentSchema).optional(),
   search: z.string().optional(),
   joined_after: dateStringSchema.optional(),
@@ -266,15 +255,13 @@ export const getUsersParamsSchema = paginationSchema.extend({
 
 // Bulk operations schema
 export const bulkUserOperationSchema = z.object({
-  operation: z.enum(['update_status', 'update_role', 'add_module_access', 'remove_module_access', 'delete']),
+  operation: z.enum(['update_role', 'add_module_access', 'remove_module_access', 'delete']),
   user_ids: z.array(z.string().uuid()).min(1, 'At least one user ID is required'),
   data: z.any().optional(), // The data depends on the operation
   reason: z.string().optional()
 }).refine(data => {
   // Validate specific operations
   switch (data.operation) {
-    case 'update_status':
-      return userStatusSchema.safeParse(data.data).success
     case 'update_role':
       return userRoleSchema.safeParse(data.data).success
     case 'add_module_access':
@@ -292,7 +279,6 @@ export const bulkUserOperationSchema = z.object({
 // Permission context schema
 export const permissionContextSchema = z.object({
   user_role: userRoleSchema,
-  user_status: userStatusSchema,
   required_modules: z.array(moduleAccessSchema).optional(),
   required_roles: z.array(userRoleSchema).optional()
 })
@@ -368,7 +354,6 @@ export const transformLegacyUser = (legacyUser: any): z.infer<typeof userSchema>
   return userSchema.parse({
     ...legacyUser,
     role: legacyUser.role || UserRole.EMPLOYEE,
-    status: legacyUser.status || UserStatus.PENDING,
     department: legacyUser.department || UserDepartment.OPS,
     employment_type: legacyUser.employment_type || EmploymentType.FULL_TIME,
     work_location: legacyUser.work_location || 'Patna',

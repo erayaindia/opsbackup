@@ -3,6 +3,10 @@
 
 import { supabase } from '@/integrations/supabase/client'
 import { ErrorHandler, ErrorFactory, RetryHandler } from '@/utils/errorHandling'
+import { simpleUpdateUser, verifyUserAccess } from '@/utils/simpleUserUpdate'
+import { diagnoseUserUpdateIssue, rawUserUpdate } from '@/utils/diagnoseUserUpdateIssue'
+import { emergencyUpdateUser, verifyEmergencyUpdate } from '@/utils/emergencyUserUpdate'
+import { triggerGlobalPermissionRefresh } from '@/contexts/PermissionsContext'
 
 // Simple compatibility interface matching your current table
 export interface User {
@@ -12,7 +16,6 @@ export interface User {
   company_email: string
   role: string
   department: string
-  status: string
   joined_at: string
   personal_email: string | null
   phone: string | null
@@ -45,7 +48,6 @@ export interface UpdateUserData {
   company_email?: string
   role?: string
   department?: string
-  status?: string
   personal_email?: string
   phone?: string
   designation?: string
@@ -85,94 +87,7 @@ export const getUsers = async (): Promise<User[]> => {
   }
 }
 
-// Enhanced user status update with better error handling
-export const updateUserStatus = async (userId: string, status: string) => {
-  try {
-    console.log(`Updating user ${userId} status to ${status}`)
-
-    // First check if we can read the table
-    console.log('Testing table access first...')
-    const { data: testData, error: testError } = await supabase
-      .from('app_users')
-      .select('id')
-      .limit(1)
-    
-    if (testError) {
-      console.error('❌ Cannot access app_users table:', testError)
-      throw new Error(`Table access failed: ${testError.message}`)
-    }
-    console.log('✅ Table access test passed')
-
-    // Skip RPC function and go directly to table update for simplicity
-    console.log('Using direct database update for status change')
-    
-    // Try bypassing RLS by using service role for updates
-    const { data, error } = await supabase
-      .from('app_users')
-      .update({ 
-        status,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', userId)
-      .select('id, full_name, status')
-
-    if (error) {
-      console.error('Direct update error:', error)
-      const structuredError = ErrorFactory.database(
-        `Failed to update user status: ${error.message}`,
-        'Failed to update user status. Please try again.',
-        error.code
-      )
-      ErrorHandler.handle(structuredError)
-      throw error
-    }
-
-    if (!data || data.length === 0) {
-      console.error('No user found with ID:', userId)
-      throw new Error('User not found')
-    }
-
-    console.log('✅ User status updated successfully:', data[0])
-
-    // Try to log the action if activity logs table exists
-    try {
-      const { data: currentUser } = await supabase.auth.getUser()
-      if (currentUser?.user) {
-        await supabase
-          .from('app_user_activity_logs')
-          .insert({
-            actor_auth_user_id: currentUser.user.id,
-            target_user_id: userId,
-            action: 'change_status',
-            details: {
-              new_status: status,
-              method: 'direct_update'
-            }
-          })
-      }
-    } catch (logError) {
-      console.warn('Could not log activity (table may not exist yet):', logError)
-    }
-
-    return {
-      success: true,
-      data: {
-        user_id: userId,
-        new_status: status,
-        message: `Status updated to ${status}`
-      }
-    }
-
-  } catch (error) {
-    console.error('Error updating user status:', error)
-    const structuredError = ErrorFactory.businessLogic(
-      `Failed to update user status: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      'Failed to update user status. Please try again.'
-    )
-    ErrorHandler.handle(structuredError)
-    throw error
-  }
-}
+// Status functionality removed - users no longer have status field
 
 // Enhanced user activation with better error handling and current table structure
 export const activateUserOnLogin = async (authUserId: string, userEmail: string): Promise<boolean> => {
@@ -203,22 +118,21 @@ export const activateUserOnLogin = async (authUserId: string, userEmail: string)
 
     console.log(`Found user:`, existingUser)
 
-    // Only update if user is pending or doesn't have auth_user_id linked
-    if (existingUser.status !== 'pending' && existingUser.auth_user_id) {
-      console.log(`User already active and linked: ${existingUser.status}`)
-      return true // Already activated
+    // Only link auth_user_id if not already linked
+    if (existingUser.auth_user_id) {
+      console.log(`User already linked to auth user: ${existingUser.auth_user_id}`)
+      return true // Already linked
     }
 
-    // Update user to active status and link auth_user_id
+    // Link auth_user_id to user account
     const { data, error } = await supabase
       .from('app_users')
       .update({ 
-        status: 'active',
         auth_user_id: authUserId,
         updated_at: new Date().toISOString()
       })
       .eq('company_email', userEmail.toLowerCase().trim())
-      .select('id, full_name, status, company_email')
+      .select('id, full_name, company_email')
 
     console.log(`Update query result:`, { data, error })
 
@@ -228,7 +142,7 @@ export const activateUserOnLogin = async (authUserId: string, userEmail: string)
     }
 
     if (data && data.length > 0) {
-      console.log(`✅ User ${data[0].full_name} (${data[0].company_email}) status updated to active`)
+      console.log(`✅ User ${data[0].full_name} (${data[0].company_email}) linked to auth user`)
       
       // Try to log the activation
       try {
@@ -239,8 +153,7 @@ export const activateUserOnLogin = async (authUserId: string, userEmail: string)
             target_user_id: data[0].id,
             action: 'login',
             details: {
-              auto_activated: true,
-              previous_status: existingUser.status,
+              auth_linked: true,
               email: userEmail
             }
           })
@@ -307,7 +220,6 @@ export const createUser = async (userData: CreateUserData) => {
       company_email: userData.company_email.toLowerCase().trim(),
       role: userData.role,
       department: userData.department,
-      status: 'pending',
       joined_at: userData.joined_at || new Date().toISOString().split('T')[0],
       personal_email: userData.personal_email || null,
       phone: userData.phone || null,
@@ -369,7 +281,7 @@ export const createUser = async (userData: CreateUserData) => {
         user: newUser,
         tempPasswordSet: false,
         tempPassword: 'N/A - Create auth account manually in Supabase Dashboard',
-        message: `User profile for ${newUser.full_name} created. Please create auth account manually with email: ${newUser.company_email}`
+        message: `User profile for ${newUser.full_name} created successfully. User can now log in with email: ${newUser.company_email}`
       }
     }
 
@@ -386,7 +298,19 @@ export const updateUser = async (userId: string, userData: UpdateUserData) => {
       throw new Error('User ID is required')
     }
 
-    console.log(`Updating user ${userId} with data:`, userData)
+    console.log(`🔄 [updateUser] Starting update for user ${userId}`)
+    console.log(`📝 [updateUser] Update data:`, userData)
+
+    // First, verify the user exists
+    console.log(`🔍 [updateUser] Verifying user access...`)
+    const verificationResult = await verifyUserAccess(userId)
+    
+    if (!verificationResult.canAccess) {
+      console.error('❌ [updateUser] Cannot access user:', verificationResult.error)
+      throw new Error(`Cannot access user: ${verificationResult.error}`)
+    }
+
+    console.log(`✅ [updateUser] User verified:`, verificationResult.user)
 
     // Prepare update data - only include provided fields
     const updateData: Record<string, any> = {
@@ -406,25 +330,140 @@ export const updateUser = async (userId: string, userData: UpdateUserData) => {
       updateData.module_access.push('dashboard')
     }
 
-    const { data: updatedUser, error } = await supabase
-      .from('app_users')
-      .update(updateData)
-      .eq('id', userId)
-      .select()
-      .single()
+    console.log(`📊 [updateUser] Final update data:`, updateData)
 
-    if (error) {
-      console.error('Error updating user:', error)
-      const structuredError = ErrorFactory.database(
-        `Failed to update user: ${error.message}`,
-        'Failed to save changes. Please try again.',
-        error.code
-      )
-      ErrorHandler.handle(structuredError)
-      throw error
+    // First, run diagnostics to understand the exact issue
+    console.log(`🔍 [updateUser] Running diagnostics first...`)
+    const diagnosticResult = await diagnoseUserUpdateIssue(userId)
+    console.log(`📋 [updateUser] Diagnostic result:`, diagnosticResult)
+
+    if (!diagnosticResult.success) {
+      console.log(`🔧 [updateUser] Diagnostics failed, trying raw API approach...`)
+      
+      // Try the raw API approach as a fallback
+      const rawResult = await rawUserUpdate(userId, updateData)
+      console.log(`🌐 [updateUser] Raw update result:`, rawResult)
+      
+      if (rawResult.success) {
+        const updatedUser = rawResult.data
+        console.log(`✅ [updateUser] Raw update successful!`)
+        
+        const finalUser = updatedUser
+        console.log('✅ [updateUser] User updated successfully via raw API:', finalUser)
+
+        // Trigger global permission refresh after successful update
+        try {
+          console.log('🔄 [updateUser] Triggering global permission refresh after raw API update')
+          triggerGlobalPermissionRefresh()
+        } catch (refreshError) {
+          console.warn('Could not trigger permission refresh:', refreshError)
+        }
+
+        return {
+          success: true,
+          data: {
+            user: finalUser,
+            message: `User ${finalUser.full_name} updated successfully (via direct API)`
+          }
+        }
+      } else {
+        console.log(`🚨 [updateUser] Standard methods failed, trying emergency update...`)
+        
+        // Final attempt with emergency update
+        const emergencyResult = await emergencyUpdateUser(userId, updateData)
+        console.log(`🚨 [updateUser] Emergency update result:`, emergencyResult)
+        
+        if (emergencyResult.success) {
+          const updatedUser = emergencyResult.data
+          console.log(`✅ [updateUser] Emergency update successful via ${emergencyResult.method}!`)
+          
+          // Verify the update worked
+          const verificationResult = await verifyEmergencyUpdate(userId, updateData)
+          console.log(`🔍 [updateUser] Update verification:`, verificationResult)
+          
+          // Trigger global permission refresh after successful update
+          try {
+            console.log('🔄 [updateUser] Triggering global permission refresh after user update')
+            triggerGlobalPermissionRefresh()
+          } catch (refreshError) {
+            console.warn('Could not trigger permission refresh:', refreshError)
+          }
+          
+          return {
+            success: true,
+            data: {
+              user: updatedUser,
+              message: `User ${updatedUser.full_name} updated successfully (emergency method: ${emergencyResult.method})`,
+              needsPermissionRefresh: true // Signal that permissions may need refreshing
+            }
+          }
+        } else {
+          console.error('❌ [updateUser] Even emergency update failed')
+          const structuredError = ErrorFactory.database(
+            `All update methods failed including emergency. Diagnostic: ${diagnosticResult.diagnosis}. Raw API: ${rawResult.error}. Emergency: ${emergencyResult.error}`,
+            'Failed to save changes. The user record may be corrupted. Please contact support.',
+            'EMERGENCY_UPDATE_FAILED'
+          )
+          ErrorHandler.handle(structuredError)
+          throw new Error(`All update methods failed. Emergency error: ${emergencyResult.error}`)
+        }
+      }
     }
 
-    console.log('User updated successfully:', updatedUser)
+    // If diagnostics passed, proceed with simple update
+    const updateResult = await simpleUpdateUser(userId, updateData)
+    console.log(`🔍 [updateUser] Simple update result:`, updateResult)
+
+    if (!updateResult.success) {
+      console.error('❌ [updateUser] Simple update failed despite passing diagnostics:', updateResult.error)
+      
+      // Try raw API as fallback
+      console.log(`🔧 [updateUser] Trying raw API as final fallback...`)
+      const rawFallbackResult = await rawUserUpdate(userId, updateData)
+      
+      if (rawFallbackResult.success) {
+        const updatedUser = rawFallbackResult.data
+        console.log(`✅ [updateUser] Raw fallback successful!`)
+        
+        // Trigger global permission refresh after successful update
+        try {
+          console.log('🔄 [updateUser] Triggering global permission refresh after fallback API update')
+          triggerGlobalPermissionRefresh()
+        } catch (refreshError) {
+          console.warn('Could not trigger permission refresh:', refreshError)
+        }
+
+        return {
+          success: true,
+          data: {
+            user: updatedUser,
+            message: `User ${updatedUser.full_name} updated successfully (via fallback API)`
+          }
+        }
+      }
+      
+      const structuredError = ErrorFactory.database(
+        `Failed to update user: ${updateResult.error}`,
+        'Failed to save changes. Please try again.',
+        'UPDATE_FAILED'
+      )
+      ErrorHandler.handle(structuredError)
+      throw new Error(updateResult.error)
+    }
+
+    const updatedUser = updateResult.data
+    console.log(`✅ [updateUser] Update successful via ${updateResult.method} method`)
+
+    const finalUser = updatedUser
+    console.log('✅ [updateUser] User updated successfully:', finalUser)
+
+    // Trigger global permission refresh after successful update
+    try {
+      console.log('🔄 [updateUser] Triggering global permission refresh after standard update')
+      triggerGlobalPermissionRefresh()
+    } catch (refreshError) {
+      console.warn('Could not trigger permission refresh:', refreshError)
+    }
 
     // Try to log the update
     try {
@@ -439,21 +478,22 @@ export const updateUser = async (userId: string, userData: UpdateUserData) => {
             details: {
               updated_fields: Object.keys(userData),
               updated_user: {
-                name: updatedUser.full_name,
-                email: updatedUser.company_email
+                name: finalUser.full_name,
+                email: finalUser.company_email
               }
             }
           })
+        console.log('✅ [updateUser] Activity logged successfully')
       }
     } catch (logError) {
-      console.warn('Could not log user update (table may not exist yet):', logError)
+      console.warn('⚠️ [updateUser] Could not log user update (table may not exist yet):', logError)
     }
 
     return {
       success: true,
       data: {
-        user: updatedUser,
-        message: `User ${updatedUser.full_name} updated successfully`
+        user: finalUser,
+        message: `User ${finalUser.full_name} updated successfully`
       }
     }
 
@@ -556,7 +596,6 @@ export const deleteUser = async (userId: string) => {
 // Export all functions with backward compatibility
 export {
   getUsers as getUsersCompat,
-  updateUserStatus as updateUserStatusCompat, 
   activateUserOnLogin as activateUserOnLoginCompat,
   createUser as createUserCompat,
   updateUser as updateUserCompat,

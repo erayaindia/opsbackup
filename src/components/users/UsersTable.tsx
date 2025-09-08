@@ -41,9 +41,6 @@ import {
   ArrowUpDown, 
   Eye, 
   Edit, 
-  UserCheck, 
-  UserX, 
-  UserMinus, 
   Trash2,
   Shield,
   Building2,
@@ -51,7 +48,7 @@ import {
   Mail,
   MapPin
 } from 'lucide-react'
-import { User, updateUserStatus, deleteUser } from '@/services/usersService'
+import { User, deleteUser } from '@/services/usersService'
 import { EditUserModal } from './EditUserModal'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
@@ -80,28 +77,7 @@ export const UsersTable: React.FC<UsersTableProps> = ({ users, loading, onUserUp
   })
   const [actionLoading, setActionLoading] = useState<string | null>(null)
 
-  const getStatusBadge = (status: string) => {
-    const variants = {
-      active: 'default',
-      suspended: 'destructive',
-      on_leave: 'secondary',
-      inactive: 'outline',
-    } as const
-
-    const colors = {
-      active: 'text-green-700 bg-green-100',
-      suspended: 'text-red-700 bg-red-100', 
-      on_leave: 'text-yellow-700 bg-yellow-100',
-      inactive: 'text-gray-700 bg-gray-100',
-    } as const
-
-    return (
-      <Badge variant={variants[status as keyof typeof variants] || 'outline'} 
-             className={colors[status as keyof typeof colors] || ''}>
-        {status.replace('_', ' ')}
-      </Badge>
-    )
-  }
+  // Status badge removed - no longer using status field
 
   const getRoleBadge = (role: string) => {
     const colors = {
@@ -120,21 +96,7 @@ export const UsersTable: React.FC<UsersTableProps> = ({ users, loading, onUserUp
     )
   }
 
-  const handleStatusChange = async (user: User, newStatus: string) => {
-    try {
-      setActionLoading(user.id)
-      console.log(`🔄 Attempting to change ${user.full_name} (${user.id}) status to ${newStatus}`)
-      const result = await updateUserStatus(user.id, newStatus)
-      console.log('✅ Status change result:', result)
-      toast.success(`User ${user.full_name} is now ${newStatus.replace('_', ' ')}`)
-      onUserUpdate()
-    } catch (error) {
-      console.error('❌ Error updating user status:', error)
-      toast.error('Failed to update user status')
-    } finally {
-      setActionLoading(null)
-    }
-  }
+  // Status change functionality removed
 
   const handleDelete = async () => {
     if (!deleteDialog.user) return
@@ -212,10 +174,6 @@ export const UsersTable: React.FC<UsersTableProps> = ({ users, loading, onUserUp
       ),
     }),
 
-    columnHelper.accessor('status', {
-      header: 'Status',
-      cell: ({ getValue }) => getStatusBadge(getValue()),
-    }),
 
     columnHelper.accessor('designation', {
       header: 'Designation',
@@ -284,40 +242,7 @@ export const UsersTable: React.FC<UsersTableProps> = ({ users, loading, onUserUp
                 </DropdownMenuItem>
               )}
 
-              {!readOnly && <DropdownMenuSeparator />}
-              
-              {!readOnly && user.status !== 'active' && (
-                <DropdownMenuItem 
-                  onClick={() => handleStatusChange(user, 'active')}
-                  disabled={isLoading}
-                  className="text-green-600"
-                >
-                  <UserCheck className="mr-2 h-4 w-4" />
-                  Activate
-                </DropdownMenuItem>
-              )}
-              
-              {!readOnly && user.status !== 'suspended' && (
-                <DropdownMenuItem 
-                  onClick={() => handleStatusChange(user, 'suspended')}
-                  disabled={isLoading}
-                  className="text-red-600"
-                >
-                  <UserX className="mr-2 h-4 w-4" />
-                  Suspend
-                </DropdownMenuItem>
-              )}
-              
-              {!readOnly && user.status !== 'on_leave' && (
-                <DropdownMenuItem 
-                  onClick={() => handleStatusChange(user, 'on_leave')}
-                  disabled={isLoading}
-                  className="text-yellow-600"
-                >
-                  <UserMinus className="mr-2 h-4 w-4" />
-                  Put on Leave
-                </DropdownMenuItem>
-              )}
+              {/* Status change menu items removed */}
 
               {!readOnly && user.role !== 'super_admin' && (
                 <>

@@ -65,7 +65,6 @@ const editUserSchema = z.object({
   company_email: z.string().email('Invalid email address'),
   role: z.string().min(1, 'Role is required'),
   department: z.string().min(1, 'Department is required'),
-  status: z.string().min(1, 'Status is required'),
   personal_email: z.string().email('Invalid email').optional().or(z.literal('')),
   phone: z.string().optional(),
   designation: z.string().optional(),
@@ -100,7 +99,6 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({
       company_email: '',
       role: '',
       department: '',
-      status: 'active',
       personal_email: '',
       phone: '',
       designation: '',
@@ -119,7 +117,6 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({
         company_email: user.company_email || '',
         role: user.role || '',
         department: user.department || '',
-        status: user.status || 'active',
         personal_email: user.personal_email || '',
         phone: user.phone || '',
         designation: user.designation || '',
@@ -143,7 +140,6 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({
         company_email: data.company_email,
         role: data.role,
         department: data.department,
-        status: data.status,
         personal_email: data.personal_email || undefined,
         phone: data.phone || undefined,
         designation: data.designation || undefined,
@@ -340,29 +336,6 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({
                     )}
                   />
 
-                  <FormField
-                    control={form.control}
-                    name="status"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Status *</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select status" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="active">Active</SelectItem>
-                            <SelectItem value="pending">Pending</SelectItem>
-                            <SelectItem value="on_leave">On Leave</SelectItem>
-                            <SelectItem value="suspended">Suspended</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
 
                   <FormField
                     control={form.control}

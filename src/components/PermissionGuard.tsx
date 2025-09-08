@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/integrations/supabase/client'
 import { User } from '@/services/usersService'
 import { Loader2 } from 'lucide-react'
 import { AccessDeniedModal } from './AccessDeniedModal'
+import { usePermissionsContext, setGlobalPermissionRefresh } from '@/contexts/PermissionsContext'
 
 interface PermissionGuardProps {
   children: React.ReactNode
@@ -57,19 +58,13 @@ export function PermissionGuard({
 
       // Super admin has access to EVERYTHING - bypass all checks
       if (appUser.role === 'super_admin') {
-        console.log(`✅ Super admin ${appUser.full_name} - full access granted`)
+        // console.log(`✅ Super admin ${appUser.full_name} - full access granted`) // Reduced logging
         setHasPermission(true)
         setLoading(false)
         return
       }
 
-      // Check if user is active
-      if (appUser.status !== 'active') {
-        console.log(`User ${appUser.full_name} is not active (status: ${appUser.status})`)
-        setHasPermission(false)
-        setLoading(false)
-        return
-      }
+      // Status check removed - access is now only based on module permissions
 
       // Check role permissions
       if (requiredRole.length > 0 && !requiredRole.includes(appUser.role)) {
@@ -146,10 +141,32 @@ export function PermissionGuard({
 export function useUserPermissions() {
   const [currentUser, setCurrentUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const [refreshKey, setRefreshKey] = useState(0)
+  
+  // Use permissions context - it's okay if it fails, we'll handle that
+  const permissionsContext = usePermissionsContext()
 
   useEffect(() => {
     getCurrentUser()
+  }, [refreshKey])
+
+  // Listen to global refresh trigger
+  useEffect(() => {
+    if (permissionsContext) {
+      setRefreshKey(prev => prev + permissionsContext.refreshTrigger)
+    }
+  }, [permissionsContext?.refreshTrigger])
+
+  // Function to force refresh user permissions
+  const refreshUserPermissions = useCallback(() => {
+    console.log('🔄 [useUserPermissions] Refreshing user permissions...')
+    setRefreshKey(prev => prev + 1)
   }, [])
+
+  // Set up global refresh function
+  useEffect(() => {
+    setGlobalPermissionRefresh(refreshUserPermissions)
+  }, [refreshUserPermissions])
 
   const getCurrentUser = async () => {
     try {
@@ -186,7 +203,6 @@ export function useUserPermissions() {
         name: appUser.full_name,
         email: appUser.company_email,
         role: appUser.role,
-        status: appUser.status,
         module_access: appUser.module_access
       })
 
@@ -203,7 +219,6 @@ export function useUserPermissions() {
       userExists: !!currentUser,
       userName: currentUser?.full_name,
       role: currentUser?.role,
-      status: currentUser?.status,
       moduleAccess: currentUser?.module_access,
       hasModule: currentUser?.module_access?.includes(module)
     })
@@ -227,9 +242,8 @@ export function useUserPermissions() {
   }
 
   const isActive = () => {
-    // Super admin is always considered active
-    if (currentUser?.role === 'super_admin') return true
-    return currentUser?.status === 'active'
+    // Status checks removed - all users are considered active if they exist
+    return !!currentUser
   }
 
   return {
@@ -237,6 +251,7 @@ export function useUserPermissions() {
     loading,
     hasModuleAccess,
     hasRole,
-    isActive
+    isActive,
+    refreshUserPermissions
   }
 }
