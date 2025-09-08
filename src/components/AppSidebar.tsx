@@ -154,6 +154,7 @@ const accountsFinanceItems = [
 
 // Management & Admin Section
 const managementAdminItems = [
+  { title: "Users", url: "/users", icon: UserCog },
   { title: "People & Roles", url: "/management/people-roles", icon: UserCheck },
   { title: "System Settings", url: "/management/system-settings", icon: Settings },
   { title: "Integrations", url: "/management/integrations", icon: Link },
@@ -205,10 +206,11 @@ export function AppSidebar() {
   const [fulfillmentOpen, setFulfillmentOpen] = useState(currentPath.startsWith('/fulfillment'));
   const [customerSupportOpen, setCustomerSupportOpen] = useState(currentPath.startsWith('/support') && currentPath !== '/support' ? true : currentPath === '/support');
   const [teamHubOpen, setTeamHubOpen] = useState(currentPath.startsWith('/team-hub'));
+
   const [marketingGrowthOpen, setMarketingGrowthOpen] = useState(currentPath.startsWith('/marketing'));
   const [productManagementOpen, setProductManagementOpen] = useState(currentPath.startsWith('/products'));
   const [accountsFinanceOpen, setAccountsFinanceOpen] = useState(currentPath.startsWith('/finance'));
-  const [managementAdminOpen, setManagementAdminOpen] = useState(currentPath.startsWith('/management'));
+  const [managementAdminOpen, setManagementAdminOpen] = useState(currentPath.startsWith('/management') || currentPath === '/users');
   const [contentOpen, setContentOpen] = useState(currentPath.startsWith('/content'));
   const [trainingOpen, setTrainingOpen] = useState(currentPath.startsWith('/training'));
   const [analyticsOpen, setAnalyticsOpen] = useState(currentPath.startsWith('/analytics'));
@@ -223,7 +225,7 @@ export function AppSidebar() {
   const isMarketingGrowthActive = currentPath.startsWith('/marketing');
   const isProductManagementActive = currentPath.startsWith('/products');
   const isAccountsFinanceActive = currentPath.startsWith('/finance');
-  const isManagementAdminActive = currentPath.startsWith('/management');
+  const isManagementAdminActive = currentPath.startsWith('/management') || currentPath === '/users';
   const isContentActive = currentPath.startsWith('/content');
   const isTrainingActive = currentPath.startsWith('/training');
   const isAnalyticsActive = currentPath.startsWith('/analytics');
@@ -247,6 +249,7 @@ export function AppSidebar() {
           <SidebarMenu className="space-y-0.5">
             {items.map((item, index) => {
               const active = isActive(item.url);
+              
               const menuButton = (
                 <SidebarMenuItem key={item.title} style={{ animationDelay: `${index * 50}ms` }}>
                   <RippleEffect className="rounded-lg">

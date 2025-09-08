@@ -12,7 +12,7 @@ export type CreatorRole =
 
 export type CreatorStatus = 'Active' | 'Onboarding' | 'Paused' | 'Archived';
 
-export type CreatorCapacity = 'Free' | 'Limited' | 'Busy';
+export type CreatorAvailability = 'Free' | 'Limited' | 'Busy';
 
 export type PaymentStatus = 'Pending' | 'Paid' | 'Partial' | 'Overdue';
 
@@ -59,7 +59,7 @@ export interface ContentCreator {
   name: string;
   role: CreatorRole;
   status: CreatorStatus;
-  capacity: CreatorCapacity;
+  availability: CreatorAvailability;
   rating: number; // 1-10 scale
   
   // Profile
@@ -80,6 +80,14 @@ export interface ContentCreator {
     portfolio?: string;
   };
   preferredCommunication: CommunicationChannel;
+  
+  // Shipping Address
+  shippingAddress?: {
+    fullAddress: string;
+    pincode: string;
+    phone: string;
+    alternatePhone?: string;
+  };
   
   // Projects
   currentProjects: CreatorProject[];
@@ -111,7 +119,7 @@ export interface ContentCreator {
 export interface CreatorFilters {
   role: CreatorRole | 'All';
   status: CreatorStatus | 'All';
-  capacity: CreatorCapacity | 'All';
+  availability: CreatorAvailability | 'All';
   minRating: number;
   searchQuery: string;
 }
@@ -128,4 +136,5 @@ export interface CreatorDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onUpdate: (creator: ContentCreator) => void;
+  onDelete: (creatorId: string) => Promise<void>;
 }

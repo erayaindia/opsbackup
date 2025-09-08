@@ -12,7 +12,7 @@ const MOCK_CREATORS: ContentCreator[] = [
     name: 'Sarah Johnson',
     role: 'Videographer',
     status: 'Active',
-    capacity: 'Free',
+    availability: 'Free',
     rating: 9.2,
     profilePicture: 'https://images.unsplash.com/photo-1494790108755-2616b332e234?w=150&h=150&fit=crop&crop=face',
     bio: 'Professional videographer with 8+ years experience in commercial and lifestyle content creation.',
@@ -97,7 +97,7 @@ const MOCK_CREATORS: ContentCreator[] = [
     name: 'Marcus Chen',
     role: 'Editor',
     status: 'Active',
-    capacity: 'Limited',
+    availability: 'Limited',
     rating: 8.9,
     profilePicture: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
     bio: 'Expert video editor specializing in social media content and motion graphics.',
@@ -166,7 +166,7 @@ const MOCK_CREATORS: ContentCreator[] = [
     name: 'Emma Rodriguez',
     role: 'Influencer',
     status: 'Active',
-    capacity: 'Busy',
+    availability: 'Busy',
     rating: 9.7,
     profilePicture: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face',
     bio: 'Lifestyle influencer with 500K+ followers across platforms. Specializes in fashion and beauty content.',
@@ -254,7 +254,7 @@ const MOCK_CREATORS: ContentCreator[] = [
     name: 'David Park',
     role: 'Designer',
     status: 'Onboarding',
-    capacity: 'Free',
+    availability: 'Free',
     rating: 8.5,
     profilePicture: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face',
     bio: 'Creative designer with expertise in branding, UI/UX, and digital marketing materials.',
@@ -315,7 +315,7 @@ const MOCK_CREATORS: ContentCreator[] = [
     name: 'Lisa Thompson',
     role: 'Photographer',
     status: 'Paused',
-    capacity: 'Free',
+    availability: 'Free',
     rating: 8.8,
     profilePicture: 'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=150&h=150&fit=crop&crop=face',
     bio: 'Professional photographer specializing in product and lifestyle photography.',
@@ -377,6 +377,31 @@ const MOCK_CREATORS: ContentCreator[] = [
   }
 ];
 
+// Debug helper function - call this in browser console to see data state
+(window as any).debugCreatorData = async () => {
+  const dbStatus = await CreatorService.checkDatabaseStatus();
+  const backendCreators = await CreatorService.getAllCreators();
+  
+  console.log('🔍 CREATOR DATA DEBUG:', {
+    database: {
+      count: dbStatus.creatorCount,
+      creators: backendCreators.map(c => ({ id: c.id, name: c.name }))
+    },
+    mock: {
+      count: MOCK_CREATORS.length,
+      creators: MOCK_CREATORS.map(c => ({ id: c.id, name: c.name }))
+    },
+    recommendations: {
+      issue: 'You have data in database that differs from UI display',
+      solutions: [
+        '1. Refresh page to see only database data',
+        '2. Add creators via "Add Creator" button to save to database',
+        '3. Or clear database to start fresh with mock data'
+      ]
+    }
+  });
+};
+
 export default function ContentCreator() {
   const [creators, setCreators] = useState<ContentCreator[]>(MOCK_CREATORS);
   const [selectedCreator, setSelectedCreator] = useState<ContentCreator | null>(null);
@@ -391,15 +416,47 @@ export default function ContentCreator() {
 
   const loadCreators = async () => {
     try {
+      console.log('🔄 Loading creators from backend...');
       setLoading(true);
+
+      // First, check database status for debugging
+      const dbStatus = await CreatorService.checkDatabaseStatus();
+      console.log('🗄️ Database Status:', dbStatus);
+
       const backendCreators = await CreatorService.getAllCreators();
-      // If we have backend data, use it; otherwise fallback to mock data
-      if (backendCreators.length > 0) {
+      console.log('✅ Loaded creators:', { 
+        count: backendCreators.length, 
+        creators: backendCreators.map(c => ({ id: c.id, name: c.name, source: 'database' })),
+        usingDatabase: backendCreators.length > 0 || dbStatus.creatorCount === 0
+      });
+
+      // Debug: Show comparison between database and mock data
+      console.log('🔍 Data Source Analysis:', {
+        databaseCreators: backendCreators.map(c => ({ id: c.id, name: c.name })),
+        mockCreators: MOCK_CREATORS.map(c => ({ id: c.id, name: c.name })),
+        databaseCount: backendCreators.length,
+        mockCount: MOCK_CREATORS.length,
+        usingMockFallback: backendCreators.length === 0 && dbStatus.creatorCount === 0,
+        databaseIds: backendCreators.map(c => c.id),
+        mockIds: MOCK_CREATORS.map(c => c.id)
+      });
+
+      // Always use database data if the database has creators, regardless of count mismatch
+      if (dbStatus.creatorCount > 0) {
+        console.log('🗄️ Using database data (database has creators)');
+        setCreators(backendCreators);
+      } else if (backendCreators.length === 0 && dbStatus.creatorCount === 0) {
+        console.log('📭 Database is empty, using mock data for initial setup');
+        setCreators(MOCK_CREATORS);
+      } else {
+        console.log('⚠️ Data mismatch detected, using database data to stay in sync');
         setCreators(backendCreators);
       }
     } catch (error) {
-      console.error('Failed to load creators from backend:', error);
-      // Keep using mock data if backend fails
+      console.error('❌ Failed to load creators from backend:', error);
+      // If there's an error connecting to backend, use mock data as fallback
+      console.log('🔄 Falling back to mock data...');
+      setCreators(MOCK_CREATORS);
     } finally {
       setLoading(false);
     }
@@ -416,19 +473,28 @@ export default function ContentCreator() {
 
   const handleCreateCreator = async (newCreatorData: Omit<ContentCreator, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
+      console.log('🔄 Creating new creator:', { name: newCreatorData.name, email: newCreatorData.email, shippingAddress: newCreatorData.shippingAddress });
       // Try to create in backend first
       const createdCreator = await CreatorService.createCreator(newCreatorData);
+      console.log('✅ Creator created successfully:', createdCreator);
       setCreators(prev => [createdCreator, ...prev]);
     } catch (error) {
-      console.error('Failed to create creator in backend:', error);
+      console.error('❌ Failed to create creator in backend:', error);
       
-      // Fallback: Create locally with mock ID
+      // Check if it's a duplicate email error
+      if (error instanceof Error && error.message.includes('duplicate key value violates unique constraint')) {
+        alert('⚠️ Error: A creator with this email address already exists. Please use a different email.');
+        return; // Don't create a fallback for duplicate emails
+      }
+      
+      // For other errors, create fallback
       const mockCreator: ContentCreator = {
         ...newCreatorData,
         id: `mock-${Date.now()}`,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
+      console.log('🔄 Creating mock creator as fallback:', mockCreator);
       setCreators(prev => [mockCreator, ...prev]);
     }
   };
@@ -449,6 +515,78 @@ export default function ContentCreator() {
         creator.id === updatedCreator.id ? updatedCreator : creator
       ));
       setSelectedCreator(updatedCreator);
+    }
+  };
+
+  const handleDeleteCreator = async (creatorId: string) => {
+    try {
+      console.log('🗑️ Handling delete request for creator ID:', creatorId);
+      
+      // Debug: Show what creators are currently in local state
+      const localCreator = creators.find(c => c.id === creatorId);
+      console.log('📋 Local creator to delete:', localCreator);
+      
+      // Check database status before attempting delete
+      const dbStatus = await CreatorService.checkDatabaseStatus();
+      console.log('🗄️ Database status before delete:', dbStatus);
+      
+      // Check if this is a mock creator (by checking if ID exists in mock data)
+      const isMockCreator = MOCK_CREATORS.some(mock => mock.id === creatorId);
+      console.log('🔍 Mock creator check:', { 
+        creatorId, 
+        isMockCreator, 
+        mockIds: MOCK_CREATORS.map(m => m.id),
+        isExactMatch: MOCK_CREATORS.find(mock => mock.id === creatorId)
+      });
+      
+      // Try database deletion first, but handle the "not found" case gracefully for mock data
+      let databaseDeleteSuccess = false;
+      try {
+        await CreatorService.deleteCreator(creatorId);
+        databaseDeleteSuccess = true;
+        console.log('✅ Creator deleted successfully from database');
+      } catch (dbError) {
+        console.log('⚠️ Database deletion failed, checking if this is mock data:', dbError);
+        
+        // If database deletion failed because the creator wasn't found, treat as mock data
+        const errorMessage = dbError instanceof Error ? dbError.message : '';
+        if (errorMessage.includes('not found in database') || errorMessage.includes('already deleted')) {
+          console.log('🎭 Treating as mock creator since not found in database');
+        } else {
+          // If it's a different error (connection, permission, etc.), re-throw it
+          throw dbError;
+        }
+      }
+      
+      // Update local state since either database deletion succeeded or it's mock data
+      setCreators(prev => prev.filter(creator => creator.id !== creatorId));
+      
+      // Close drawer if the deleted creator was selected
+      if (selectedCreator?.id === creatorId) {
+        setSelectedCreator(null);
+        setDrawerOpen(false);
+      }
+      
+      // Show appropriate success message
+      if (databaseDeleteSuccess) {
+        alert('✅ Creator deleted successfully from database');
+      } else {
+        alert('✅ Creator deleted successfully (was mock/local data)');
+      }
+    } catch (error) {
+      console.error('❌ Failed to delete creator:', error);
+      
+      // Show specific error to user with actionable information
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      
+      if (errorMessage.includes('not found in database')) {
+        alert(`❌ Delete failed: This creator may have been created as mock data.\n\nTo use real database functionality:\n1. Add new creators using the "Add Creator" button\n2. These will be saved to the database and can be properly deleted\n\nFor now, try refreshing the page to reset to actual database state.`);
+      } else {
+        alert(`❌ Failed to delete creator: ${errorMessage}\n\nPlease check the console for more details.`);
+      }
+      
+      // Don't update local state if database deletion failed (for non-mock creators)
+      throw error;
     }
   };
 
@@ -479,6 +617,7 @@ export default function ContentCreator() {
           open={drawerOpen}
           onOpenChange={setDrawerOpen}
           onUpdate={handleUpdateCreator}
+          onDelete={handleDeleteCreator}
         />
 
         <AddCreatorModal

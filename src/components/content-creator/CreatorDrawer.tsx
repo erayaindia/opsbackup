@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Sheet,
   SheetContent,
@@ -18,6 +18,16 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   Mail,
   Phone,
   MessageCircle,
@@ -31,8 +41,11 @@ import {
   Plus,
   Edit,
   Zap,
+  Trash2,
+  Loader2,
 } from 'lucide-react';
 import { ContentCreator, CreatorDrawerProps } from '@/types/contentCreator';
+import { EditCreatorModal } from './EditCreatorModal';
 
 const getStatusColor = (status: string) => {
   switch (status) {
@@ -44,8 +57,8 @@ const getStatusColor = (status: string) => {
   }
 };
 
-const getCapacityColor = (capacity: string) => {
-  switch (capacity) {
+const getAvailabilityColor = (availability: string) => {
+  switch (availability) {
     case 'Free': return 'bg-green-100 text-green-800 border-green-200';
     case 'Limited': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
     case 'Busy': return 'bg-red-100 text-red-800 border-red-200';
@@ -58,7 +71,12 @@ export const CreatorDrawer: React.FC<CreatorDrawerProps> = ({
   open,
   onOpenChange,
   onUpdate,
+  onDelete,
 }) => {
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+
   if (!creator) return null;
 
   const handleContactEmail = () => {
@@ -68,6 +86,27 @@ export const CreatorDrawer: React.FC<CreatorDrawerProps> = ({
   const handleContactWhatsApp = () => {
     if (creator.whatsapp) {
       window.open(`https://wa.me/${creator.whatsapp.replace(/[^\d]/g, '')}`, '_blank');
+    }
+  };
+
+  const handleEdit = () => {
+    setEditModalOpen(true);
+  };
+
+  const handleDelete = async () => {
+    if (!creator || !onDelete) return;
+    
+    setIsDeleting(true);
+    try {
+      await onDelete(creator.id);
+      setDeleteDialogOpen(false);
+      onOpenChange(false); // Close the drawer after successful delete
+    } catch (error) {
+      console.error('Error deleting creator:', error);
+      // Keep the dialog and drawer open if delete fails
+      // The error message will be shown by the parent component
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -92,8 +131,8 @@ export const CreatorDrawer: React.FC<CreatorDrawerProps> = ({
                 <Badge variant="outline" className={getStatusColor(creator.status)}>
                   {creator.status}
                 </Badge>
-                <Badge variant="outline" className={getCapacityColor(creator.capacity)}>
-                  {creator.capacity}
+                <Badge variant="outline" className={getAvailabilityColor(creator.availability)}>
+                  {creator.availability}
                 </Badge>
                 <div className="flex items-center gap-1">
                   <Star className="h-4 w-4 text-yellow-500 fill-current" />
@@ -119,7 +158,7 @@ export const CreatorDrawer: React.FC<CreatorDrawerProps> = ({
               <Plus className="h-4 w-4 mr-2" />
               Assign Project
             </Button>
-            <Button variant="outline" size="sm">
+            <Button onClick={handleEdit} variant="outline" size="sm">
               <Edit className="h-4 w-4 mr-2" />
               Edit
             </Button>
@@ -462,7 +501,51 @@ export const CreatorDrawer: React.FC<CreatorDrawerProps> = ({
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* Delete Button - Fixed at bottom */}
+        <div className="sticky bottom-0 bg-background border-t pt-4 mt-6">
+          <Button
+            onClick={() => setDeleteDialogOpen(true)}
+            variant="destructive"
+            className="w-full"
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            Delete Creator
+          </Button>
+        </div>
       </SheetContent>
+
+      {/* Edit Modal */}
+      <EditCreatorModal
+        creator={creator}
+        open={editModalOpen}
+        onOpenChange={setEditModalOpen}
+        onUpdateCreator={onUpdate}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete {creator?.name} from your creators list.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={isDeleting}
+            >
+              {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Sheet>
   );
 };

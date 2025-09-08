@@ -1,0 +1,187 @@
+# Edge Functions Testing
+# Use with REST Client extension in VS Code or similar HTTP client
+
+# =============================================================================
+# VARIABLES (Replace with your actual values)
+# =============================================================================
+
+@supabase_url = https://your-project-ref.supabase.co
+@jwt_token = your-super-admin-jwt-token-here
+
+# =============================================================================
+# ADMIN-CREATE-USER FUNCTION TESTS
+# =============================================================================
+
+### Test 1: Create User - Success Case
+POST {{supabase_url}}/functions/v1/admin-create-user
+Authorization: Bearer {{jwt_token}}
+Content-Type: application/json
+
+{
+  "full_name": "John Doe",
+  "company_email": "john.doe@erayastyle.com",
+  "role": "employee", 
+  "department": "Content",
+  "joined_at": "2025-01-01",
+  "personal_email": "john.personal@gmail.com",
+  "phone": "+91 9876543210",
+  "designation": "Content Writer",
+  "work_location": "Patna",
+  "employment_type": "Full-time",
+  "module_access": ["content", "orders"],
+  "notes": "New hire from content team"
+}
+
+### Test 2: Create User - Minimal Required Fields
+POST {{supabase_url}}/functions/v1/admin-create-user
+Authorization: Bearer {{jwt_token}}
+Content-Type: application/json
+
+{
+  "full_name": "Jane Smith",
+  "company_email": "jane.smith@erayastyle.com",
+  "role": "intern",
+  "department": "HR",
+  "joined_at": "2025-02-01"
+}
+
+### Test 3: Create User - Invalid Email (Should Fail)
+POST {{supabase_url}}/functions/v1/admin-create-user
+Authorization: Bearer {{jwt_token}}
+Content-Type: application/json
+
+{
+  "full_name": "Invalid User",
+  "company_email": "invalid-email",
+  "role": "employee",
+  "department": "IT", 
+  "joined_at": "2025-01-01"
+}
+
+### Test 4: Create User - Missing Required Fields (Should Fail)
+POST {{supabase_url}}/functions/v1/admin-create-user
+Authorization: Bearer {{jwt_token}}
+Content-Type: application/json
+
+{
+  "full_name": "Incomplete User",
+  "company_email": "incomplete@erayastyle.com"
+}
+
+### Test 5: Create User - Unauthorized (Should Fail)
+POST {{supabase_url}}/functions/v1/admin-create-user
+Authorization: Bearer invalid-jwt-token
+Content-Type: application/json
+
+{
+  "full_name": "Unauthorized User",
+  "company_email": "unauthorized@erayastyle.com",
+  "role": "employee",
+  "department": "IT",
+  "joined_at": "2025-01-01"
+}
+
+# =============================================================================
+# ADMIN-DELETE-USER FUNCTION TESTS  
+# =============================================================================
+
+### Test 6: Delete User - Success Case
+POST {{supabase_url}}/functions/v1/admin-delete-user
+Authorization: Bearer {{jwt_token}}
+Content-Type: application/json
+
+{
+  "app_user_id": "uuid-of-user-to-delete"
+}
+
+### Test 7: Delete User - User Not Found (Should Fail)
+POST {{supabase_url}}/functions/v1/admin-delete-user
+Authorization: Bearer {{jwt_token}}
+Content-Type: application/json
+
+{
+  "app_user_id": "00000000-0000-0000-0000-000000000000"
+}
+
+### Test 8: Delete User - Invalid UUID Format (Should Fail)
+POST {{supabase_url}}/functions/v1/admin-delete-user
+Authorization: Bearer {{jwt_token}}
+Content-Type: application/json
+
+{
+  "app_user_id": "invalid-uuid-format"
+}
+
+### Test 9: Delete User - Missing Required Field (Should Fail) 
+POST {{supabase_url}}/functions/v1/admin-delete-user
+Authorization: Bearer {{jwt_token}}
+Content-Type: application/json
+
+{}
+
+### Test 10: Delete User - Unauthorized (Should Fail)
+POST {{supabase_url}}/functions/v1/admin-delete-user
+Authorization: Bearer invalid-jwt-token
+Content-Type: application/json
+
+{
+  "app_user_id": "uuid-of-user-to-delete"
+}
+
+# =============================================================================
+# CORS PREFLIGHT TESTS
+# =============================================================================
+
+### Test 11: CORS Preflight - Create User
+OPTIONS {{supabase_url}}/functions/v1/admin-create-user
+Access-Control-Request-Method: POST
+Access-Control-Request-Headers: authorization, content-type
+
+### Test 12: CORS Preflight - Delete User
+OPTIONS {{supabase_url}}/functions/v1/admin-delete-user
+Access-Control-Request-Method: POST
+Access-Control-Request-Headers: authorization, content-type
+
+# =============================================================================
+# HOW TO GET YOUR JWT TOKEN
+# =============================================================================
+
+# In your browser console (while logged in as super admin):
+# const { data: { session } } = await supabase.auth.getSession()
+# console.log(session.access_token)
+
+# Or using Supabase CLI:
+# supabase auth login
+# Then get session token from your app
+
+# =============================================================================
+# EXPECTED RESPONSES
+# =============================================================================
+
+# CREATE USER SUCCESS:
+# {
+#   "success": true,
+#   "data": {
+#     "user": { /* app.users record */ },
+#     "tempPasswordSet": true,
+#     "tempPassword": "generated-password",
+#     "message": "User John Doe created successfully"
+#   }
+# }
+
+# DELETE USER SUCCESS:
+# {
+#   "success": true, 
+#   "data": {
+#     "deleted": true,
+#     "company_email": "user@example.com",
+#     "full_name": "User Name",
+#     "message": "User has been permanently deleted"
+#   }
+# }
+
+# ERROR RESPONSE:
+# {
+#   "success": false,
+#   "error": "Error message here"
+# }

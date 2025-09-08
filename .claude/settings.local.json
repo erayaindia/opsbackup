@@ -11,7 +11,11 @@
       "Bash(npm run build:dev:*)",
       "Bash(npx eslint:*)",
       "Bash(pkill:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(npm run build:*)",
+      "Bash(supabase:*)",
+      "Bash(find:*)",
+      "Bash(tail:*)"
     ],
     "deny": [],
     "ask": []

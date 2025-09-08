@@ -20,8 +20,8 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, Star, Filter, Plus, Users, Zap } from 'lucide-react';
-import { ContentCreator, CreatorFilters, CreatorView, CreatorRole, CreatorStatus, CreatorCapacity } from '@/types/contentCreator';
+import { Search, Star, Filter, Plus, Users, Zap, DollarSign } from 'lucide-react';
+import { ContentCreator, CreatorFilters, CreatorView, CreatorRole, CreatorStatus, CreatorAvailability } from '@/types/contentCreator';
 
 interface CreatorTableProps {
   creators: ContentCreator[];
@@ -32,7 +32,7 @@ interface CreatorTableProps {
 const CREATOR_VIEWS: { value: CreatorView; label: string; icon: any; description: string }[] = [
   { value: 'All Creators', label: 'All Creators', icon: Users, description: 'View all content creators' },
   { value: 'Active Only', label: 'Active Only', icon: Zap, description: 'Only active creators' },
-  { value: 'Available Now', label: 'Available Now', icon: Star, description: 'Creators with free capacity' },
+  { value: 'Available Now', label: 'Available Now', icon: Star, description: 'Creators with free availability' },
   { value: 'By Role', label: 'By Role', icon: Filter, description: 'Group by creator role' },
   { value: 'Top Rated', label: 'Top Rated', icon: Star, description: 'Highest rated creators' },
 ];
@@ -52,8 +52,8 @@ const getStatusColor = (status: CreatorStatus) => {
   }
 };
 
-const getCapacityColor = (capacity: CreatorCapacity) => {
-  switch (capacity) {
+const getAvailabilityColor = (availability: CreatorAvailability) => {
+  switch (availability) {
     case 'Free': return 'bg-green-100 text-green-800';
     case 'Limited': return 'bg-yellow-100 text-yellow-800';
     case 'Busy': return 'bg-red-100 text-red-800';
@@ -69,7 +69,7 @@ export const CreatorTable: React.FC<CreatorTableProps> = ({
   const [filters, setFilters] = useState<CreatorFilters>({
     role: 'All',
     status: 'All',
-    capacity: 'All',
+    availability: 'All',
     minRating: 0,
     searchQuery: '',
   });
@@ -95,8 +95,8 @@ export const CreatorTable: React.FC<CreatorTableProps> = ({
     // Status filter  
     if (filters.status !== 'All' && creator.status !== filters.status) return false;
 
-    // Capacity filter
-    if (filters.capacity !== 'All' && creator.capacity !== filters.capacity) return false;
+    // Availability filter
+    if (filters.availability !== 'All' && creator.availability !== filters.availability) return false;
 
     // Rating filter
     if (creator.rating < filters.minRating) return false;
@@ -110,7 +110,7 @@ export const CreatorTable: React.FC<CreatorTableProps> = ({
       case 'Active Only':
         return creator.status === 'Active';
       case 'Available Now':
-        return creator.capacity === 'Free' && creator.status === 'Active';
+        return creator.availability === 'Free' && creator.status === 'Active';
       case 'Top Rated':
         return creator.rating >= 8;
       case 'By Role':
@@ -136,7 +136,7 @@ export const CreatorTable: React.FC<CreatorTableProps> = ({
     setFilters({
       role: 'All',
       status: 'All', 
-      capacity: 'All',
+      availability: 'All',
       minRating: 0,
       searchQuery: '',
     });
@@ -249,18 +249,18 @@ export const CreatorTable: React.FC<CreatorTableProps> = ({
               </Select>
             </div>
 
-            {/* Capacity Filter */}
+            {/* Availability Filter */}
             <div className="space-y-2">
-              <label className="text-sm font-medium">Capacity</label>
+              <label className="text-sm font-medium">Availability</label>
               <Select
-                value={filters.capacity}
-                onValueChange={(value) => handleFilterChange('capacity', value)}
+                value={filters.availability}
+                onValueChange={(value) => handleFilterChange('availability', value)}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="All">All Capacity</SelectItem>
+                  <SelectItem value="All">All Availability</SelectItem>
                   <SelectItem value="Free">Free</SelectItem>
                   <SelectItem value="Limited">Limited</SelectItem>
                   <SelectItem value="Busy">Busy</SelectItem>
@@ -310,16 +310,16 @@ export const CreatorTable: React.FC<CreatorTableProps> = ({
               <TableHead>Creator</TableHead>
               <TableHead>Role</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Capacity</TableHead>
+              <TableHead>Charge</TableHead>
+              <TableHead>Availability</TableHead>
               <TableHead>Rating</TableHead>
               <TableHead className="hidden md:table-cell">Location</TableHead>
-              <TableHead className="hidden lg:table-cell">Projects</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {sortedCreators.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8">
+                <TableCell colSpan={6} className="text-center py-8">
                   <div className="flex flex-col items-center gap-3">
                     <Users className="h-8 w-8 text-muted-foreground" />
                     <div>
@@ -368,8 +368,18 @@ export const CreatorTable: React.FC<CreatorTableProps> = ({
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline" className={getCapacityColor(creator.capacity)}>
-                      {creator.capacity}
+                    <div className="flex flex-col">
+                      <span className="font-medium text-sm">
+                        {creator.rateCard.currency} {creator.rateCard.baseRate.toLocaleString()}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {creator.rateCard.unit}
+                      </span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className={getAvailabilityColor(creator.availability)}>
+                      {creator.availability}
                     </Badge>
                   </TableCell>
                   <TableCell>
@@ -380,12 +390,6 @@ export const CreatorTable: React.FC<CreatorTableProps> = ({
                   </TableCell>
                   <TableCell className="hidden md:table-cell">
                     {creator.location}
-                  </TableCell>
-                  <TableCell className="hidden lg:table-cell">
-                    <div className="text-sm">
-                      <div className="font-medium">{creator.currentProjects.length} active</div>
-                      <div className="text-muted-foreground">{creator.pastProjects.length} completed</div>
-                    </div>
                   </TableCell>
                 </TableRow>
               ))

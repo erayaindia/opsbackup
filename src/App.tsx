@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthWrapper } from "./components/AuthWrapper";
 import { Layout } from "./components/Layout";
+import { ReadOnlyGuard } from "./components/ReadOnlyGuard";
 import Dashboard from "./pages/Dashboard";
 import Orders from "./pages/Orders";
 import Tasks from "./pages/Tasks";
@@ -12,7 +13,7 @@ import Packing from "./pages/Packing";
 import Support from "./pages/Support";
 import Chat from "./pages/Chat";
 import Settings from "./pages/Settings";
-import Users from "./pages/Users";
+import { Users } from "./pages/users/Users";
 import Analytics from "./pages/Analytics";
 import Security from "./pages/Security";
 import TeamChat from "./pages/TeamChat";
@@ -43,6 +44,7 @@ import NDRRTOManagement from "./pages/support/NDRRTOManagement";
 import Attendance from "./pages/team-hub/Attendance";
 import TasksTodos from "./pages/team-hub/TasksTodos";
 import Announcements from "./pages/team-hub/Announcements";
+import TrainingKnowledge from "./pages/team-hub/TrainingKnowledge";
 
 // Marketing pages
 import Campaigns from "./pages/marketing/Campaigns";
@@ -87,13 +89,18 @@ const App = () => (
             <Routes>
               <Route path="/" element={<Layout />}>
                 <Route index element={<Dashboard />} />
+                <Route path="dashboard" element={<Dashboard />} />
                 <Route path="orders" element={<Orders />} />
                 <Route path="packing" element={<Packing />} />
                 <Route path="support" element={<Support />} />
                 <Route path="chat" element={<Chat />} />
                 <Route path="tasks" element={<Tasks />} />
                 <Route path="team" element={<TeamManagement />} />
-                <Route path="users" element={<Users />} />
+                <Route path="users" element={
+                  <ReadOnlyGuard>
+                    <Users />
+                  </ReadOnlyGuard>
+                } />
                 <Route path="settings" element={<Settings />} />
                 <Route path="analytics" element={<Analytics />} />
                 <Route path="security" element={<Security />} />
@@ -154,10 +161,15 @@ const App = () => (
                 <Route path="alerts/inventory" element={<InventoryAlerts />} />
                 <Route path="alerts/disputes" element={<DisputeAlerts />} />
                 <Route path="alerts/system" element={<SystemNotifications />} />
+                
+                {/* Training routes */}
+                <Route path="training/hub" element={<TrainingKnowledge />} />
+                <Route path="training/sops" element={<TrainingKnowledge />} />
+                <Route path="training/onboarding" element={<TrainingKnowledge />} />
               </Route>
               
-              {/* Dynamic content detail routes - outside main layout */}
-              <Route path="/:slug" element={<ContentDetail />} />
+              {/* Dynamic content detail routes - outside main layout - moved to more specific path */}
+              <Route path="/content/:slug" element={<ContentDetail />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </AuthWrapper>

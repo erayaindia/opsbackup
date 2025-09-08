@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -29,10 +29,11 @@ import {
   CommunicationChannel,
 } from '@/types/contentCreator';
 
-interface AddCreatorModalProps {
+interface EditCreatorModalProps {
+  creator: ContentCreator | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onCreateCreator: (creator: Omit<ContentCreator, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  onUpdateCreator: (creator: ContentCreator) => Promise<void>;
 }
 
 const CREATOR_ROLES: CreatorRole[] = [
@@ -45,22 +46,17 @@ const CREATOR_AVAILABILITIES: CreatorAvailability[] = ['Free', 'Limited', 'Busy'
 const PAYMENT_CYCLES: PaymentCycle[] = ['Per Project', 'Monthly', 'Weekly', 'Custom'];
 const COMMUNICATION_CHANNELS: CommunicationChannel[] = ['Email', 'WhatsApp', 'Slack', 'Phone', 'Discord'];
 
-export const AddCreatorModal: React.FC<AddCreatorModalProps> = ({
+export const EditCreatorModal: React.FC<EditCreatorModalProps> = ({
+  creator,
   open,
   onOpenChange,
-  onCreateCreator,
+  onUpdateCreator,
 }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [activeTab, setActiveTab] = useState('basic');
-  
-  const tabs = ['basic', 'contact', 'rates', 'notes'];
-  const tabNames = ['Basic Info', 'Contact', 'Rates & Payment', 'Notes'];
-  const currentTabIndex = tabs.indexOf(activeTab);
-  const isLastTab = currentTabIndex === tabs.length - 1;
   const [formData, setFormData] = useState({
     // Basic Info
     name: '',
-    role: '' as CreatorRole,
+    role: 'Designer' as CreatorRole,
     status: 'Active' as CreatorStatus,
     availability: 'Free' as CreatorAvailability,
     rating: 0,
@@ -93,14 +89,11 @@ export const AddCreatorModal: React.FC<AddCreatorModalProps> = ({
     },
     
     // Rate Card
-    baseRate: '' as any,
+    baseRate: 0,
     currency: 'INR',
     unit: 'per hour',
     paymentCycle: 'Per Project' as PaymentCycle,
     advancePercentage: 0,
-    
-    // Initial Payment
-    initialPayment: 0,
     
     // Collaboration
     strengths: '',
@@ -109,6 +102,49 @@ export const AddCreatorModal: React.FC<AddCreatorModalProps> = ({
     internalNotes: '',
   });
 
+  // Populate form when creator changes
+  useEffect(() => {
+    if (creator && open) {
+      setFormData({
+        name: creator.name || '',
+        role: creator.role || 'Designer',
+        status: creator.status || 'Active',
+        availability: creator.availability || 'Free',
+        rating: creator.rating || 0,
+        profilePicture: creator.profilePicture || '',
+        bio: creator.bio || '',
+        location: creator.location || '',
+        timezone: creator.timezone || '',
+        email: creator.email || '',
+        phone: creator.phone || '',
+        whatsapp: creator.whatsapp || '',
+        socialLinks: {
+          instagram: creator.socialLinks?.instagram || '',
+          youtube: creator.socialLinks?.youtube || '',
+          tiktok: creator.socialLinks?.tiktok || '',
+          linkedin: creator.socialLinks?.linkedin || '',
+          portfolio: creator.socialLinks?.portfolio || '',
+        },
+        preferredCommunication: creator.preferredCommunication || 'Email',
+        shippingAddress: {
+          fullAddress: creator.shippingAddress?.fullAddress || '',
+          pincode: creator.shippingAddress?.pincode || '',
+          phone: creator.shippingAddress?.phone || '',
+          alternatePhone: creator.shippingAddress?.alternatePhone || '',
+        },
+        baseRate: creator.rateCard?.baseRate || 0,
+        currency: creator.rateCard?.currency || 'INR',
+        unit: creator.rateCard?.unit || 'per hour',
+        paymentCycle: creator.paymentCycle || 'Per Project',
+        advancePercentage: creator.advancePercentage || 0,
+        strengths: creator.strengths?.join(', ') || '',
+        weaknesses: creator.weaknesses?.join(', ') || '',
+        specialRequirements: creator.specialRequirements?.join(', ') || '',
+        internalNotes: creator.internalNotes || '',
+      });
+    }
+  }, [creator, open]);
+
   const handleInputChange = (field: string, value: string | number) => {
     if (field.startsWith('socialLinks.')) {
       const socialField = field.split('.')[1];
@@ -116,7 +152,7 @@ export const AddCreatorModal: React.FC<AddCreatorModalProps> = ({
         ...prev,
         socialLinks: {
           ...prev.socialLinks,
-          [socialField]: value,
+          [socialField]: value as string,
         },
       }));
     } else if (field.startsWith('shippingAddress.')) {
@@ -125,7 +161,7 @@ export const AddCreatorModal: React.FC<AddCreatorModalProps> = ({
         ...prev,
         shippingAddress: {
           ...prev.shippingAddress,
-          [addressField]: value,
+          [addressField]: value as string,
         },
       }));
     } else {
@@ -138,16 +174,13 @@ export const AddCreatorModal: React.FC<AddCreatorModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!formData.name || !formData.role || !formData.email || !formData.location || !formData.timezone) {
-      alert('Please fill in all required fields');
-      return;
-    }
+    if (!creator) return;
 
     setIsSubmitting(true);
-    
     try {
-      const newCreator: Omit<ContentCreator, 'id' | 'createdAt' | 'updatedAt'> = {
+      // Convert form data back to creator format
+      const updatedCreator: ContentCreator = {
+        ...creator,
         name: formData.name,
         role: formData.role,
         status: formData.status,
@@ -160,9 +193,13 @@ export const AddCreatorModal: React.FC<AddCreatorModalProps> = ({
         email: formData.email,
         phone: formData.phone || undefined,
         whatsapp: formData.whatsapp || undefined,
-        socialLinks: Object.fromEntries(
-          Object.entries(formData.socialLinks).filter(([_, value]) => value.trim() !== '')
-        ),
+        socialLinks: {
+          instagram: formData.socialLinks.instagram || undefined,
+          youtube: formData.socialLinks.youtube || undefined,
+          tiktok: formData.socialLinks.tiktok || undefined,
+          linkedin: formData.socialLinks.linkedin || undefined,
+          portfolio: formData.socialLinks.portfolio || undefined,
+        },
         preferredCommunication: formData.preferredCommunication,
         shippingAddress: {
           fullAddress: formData.shippingAddress.fullAddress,
@@ -170,125 +207,107 @@ export const AddCreatorModal: React.FC<AddCreatorModalProps> = ({
           phone: formData.shippingAddress.phone,
           alternatePhone: formData.shippingAddress.alternatePhone || undefined,
         },
-        currentProjects: [],
-        pastProjects: [],
-        performance: {
-          avgTurnaroundDays: 0,
-          qualityHistory: [],
-          totalProjects: 0,
-          completionRate: 0,
-          avgRating: formData.rating,
-        },
         rateCard: {
-          baseRate: typeof formData.baseRate === 'string' ? parseFloat(formData.baseRate) || 0 : formData.baseRate,
+          baseRate: formData.baseRate,
           currency: formData.currency,
           unit: formData.unit,
         },
         paymentCycle: formData.paymentCycle,
         advancePercentage: formData.advancePercentage || undefined,
-        payments: formData.initialPayment > 0 ? [{
-          id: `payment-${Date.now()}`,
-          amount: formData.initialPayment,
-          currency: formData.currency,
-          status: 'Pending' as const,
-          dueDate: new Date(),
-          description: 'Initial payment setup',
-        }] : [],
         strengths: formData.strengths ? formData.strengths.split(',').map(s => s.trim()).filter(s => s) : [],
         weaknesses: formData.weaknesses ? formData.weaknesses.split(',').map(s => s.trim()).filter(s => s) : [],
         specialRequirements: formData.specialRequirements ? formData.specialRequirements.split(',').map(s => s.trim()).filter(s => s) : [],
         internalNotes: formData.internalNotes,
-        createdBy: 'admin', // TODO: Get from auth context
+        updatedAt: new Date(),
       };
 
-      await onCreateCreator(newCreator);
-      
-      // Reset form
-      setFormData({
-        name: '',
-        role: '' as CreatorRole,
-        status: 'Active',
-        availability: 'Free',
-        rating: 0,
-        profilePicture: '',
-        bio: '',
-        location: '',
-        timezone: '',
-        email: '',
-        phone: '',
-        whatsapp: '',
-        socialLinks: {
-          instagram: '',
-          youtube: '',
-          tiktok: '',
-          linkedin: '',
-          portfolio: '',
-        },
-        preferredCommunication: 'Email',
-        shippingAddress: {
-          fullAddress: '',
-          pincode: '',
-          phone: '',
-          alternatePhone: '',
-        },
-        baseRate: '' as any,
-        currency: 'INR',
-        unit: 'per hour',
-        paymentCycle: 'Per Project',
-        advancePercentage: 0,
-        initialPayment: 0,
-        strengths: '',
-        weaknesses: '',
-        specialRequirements: '',
-        internalNotes: '',
-      });
-      
-      setActiveTab('basic');
+      await onUpdateCreator(updatedCreator);
       onOpenChange(false);
     } catch (error) {
-      console.error('Error creating creator:', error);
-      alert('Failed to create creator. Please try again.');
+      console.error('Error updating creator:', error);
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const resetForm = () => {
+    if (creator) {
+      setFormData({
+        name: creator.name || '',
+        role: creator.role || 'Designer',
+        status: creator.status || 'Active',
+        availability: creator.availability || 'Free',
+        rating: creator.rating || 0,
+        profilePicture: creator.profilePicture || '',
+        bio: creator.bio || '',
+        location: creator.location || '',
+        timezone: creator.timezone || '',
+        email: creator.email || '',
+        phone: creator.phone || '',
+        whatsapp: creator.whatsapp || '',
+        socialLinks: {
+          instagram: creator.socialLinks?.instagram || '',
+          youtube: creator.socialLinks?.youtube || '',
+          tiktok: creator.socialLinks?.tiktok || '',
+          linkedin: creator.socialLinks?.linkedin || '',
+          portfolio: creator.socialLinks?.portfolio || '',
+        },
+        preferredCommunication: creator.preferredCommunication || 'Email',
+        shippingAddress: {
+          fullAddress: creator.shippingAddress?.fullAddress || '',
+          pincode: creator.shippingAddress?.pincode || '',
+          phone: creator.shippingAddress?.phone || '',
+          alternatePhone: creator.shippingAddress?.alternatePhone || '',
+        },
+        baseRate: creator.rateCard?.baseRate || 0,
+        currency: creator.rateCard?.currency || 'INR',
+        unit: creator.rateCard?.unit || 'per hour',
+        paymentCycle: creator.paymentCycle || 'Per Project',
+        advancePercentage: creator.advancePercentage || 0,
+        strengths: creator.strengths?.join(', ') || '',
+        weaknesses: creator.weaknesses?.join(', ') || '',
+        specialRequirements: creator.specialRequirements?.join(', ') || '',
+        internalNotes: creator.internalNotes || '',
+      });
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Add New Creator</DialogTitle>
+          <DialogTitle>Edit Creator: {creator?.name}</DialogTitle>
         </DialogHeader>
-        
-        <form onSubmit={handleSubmit} className="space-y-6 overflow-y-auto max-h-[calc(90vh-100px)]">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <Tabs defaultValue="basic" className="w-full">
             <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="basic">Basic Info</TabsTrigger>
               <TabsTrigger value="contact">Contact</TabsTrigger>
-              <TabsTrigger value="rates">Rates & Payment</TabsTrigger>
+              <TabsTrigger value="rates">Rates</TabsTrigger>
               <TabsTrigger value="notes">Notes</TabsTrigger>
             </TabsList>
-            
+
+            {/* Basic Info Tab */}
             <TabsContent value="basic" className="space-y-4">
               <Card>
                 <CardHeader>
                   <CardTitle>Basic Information</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="name">Full Name *</Label>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="name">Name *</Label>
                       <Input
                         id="name"
                         value={formData.name}
                         onChange={(e) => handleInputChange('name', e.target.value)}
-                        placeholder="Enter full name"
                         required
                       />
                     </div>
-                    <div className="space-y-2">
+                    <div>
                       <Label htmlFor="role">Role *</Label>
-                      <Select value={formData.role} onValueChange={(value) => handleInputChange('role', value as CreatorRole)}>
+                      <Select value={formData.role} onValueChange={(value) => handleInputChange('role', value)}>
                         <SelectTrigger>
                           <SelectValue placeholder="Select role" />
                         </SelectTrigger>
@@ -299,14 +318,11 @@ export const AddCreatorModal: React.FC<AddCreatorModalProps> = ({
                         </SelectContent>
                       </Select>
                     </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="space-y-2">
+                    <div>
                       <Label htmlFor="status">Status</Label>
-                      <Select value={formData.status} onValueChange={(value) => handleInputChange('status', value as CreatorStatus)}>
+                      <Select value={formData.status} onValueChange={(value) => handleInputChange('status', value)}>
                         <SelectTrigger>
-                          <SelectValue />
+                          <SelectValue placeholder="Select status" />
                         </SelectTrigger>
                         <SelectContent>
                           {CREATOR_STATUSES.map((status) => (
@@ -315,11 +331,11 @@ export const AddCreatorModal: React.FC<AddCreatorModalProps> = ({
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="space-y-2">
+                    <div>
                       <Label htmlFor="availability">Availability</Label>
-                      <Select value={formData.availability} onValueChange={(value) => handleInputChange('availability', value as CreatorAvailability)}>
+                      <Select value={formData.availability} onValueChange={(value) => handleInputChange('availability', value)}>
                         <SelectTrigger>
-                          <SelectValue />
+                          <SelectValue placeholder="Select availability" />
                         </SelectTrigger>
                         <SelectContent>
                           {CREATOR_AVAILABILITIES.map((availability) => (
@@ -328,8 +344,8 @@ export const AddCreatorModal: React.FC<AddCreatorModalProps> = ({
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="rating">Initial Rating</Label>
+                    <div>
+                      <Label htmlFor="rating">Rating (0-10)</Label>
                       <Input
                         id="rating"
                         type="number"
@@ -338,35 +354,11 @@ export const AddCreatorModal: React.FC<AddCreatorModalProps> = ({
                         step="0.1"
                         value={formData.rating}
                         onChange={(e) => handleInputChange('rating', parseFloat(e.target.value) || 0)}
-                        placeholder="0.0"
                       />
                     </div>
                   </div>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="location">Location *</Label>
-                      <Input
-                        id="location"
-                        value={formData.location}
-                        onChange={(e) => handleInputChange('location', e.target.value)}
-                        placeholder="City, State/Country"
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="timezone">Timezone *</Label>
-                      <Input
-                        id="timezone"
-                        value={formData.timezone}
-                        onChange={(e) => handleInputChange('timezone', e.target.value)}
-                        placeholder="EST, PST, GMT, etc."
-                        required
-                      />
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-2">
+
+                  <div>
                     <Label htmlFor="profilePicture">Profile Picture URL</Label>
                     <Input
                       id="profilePicture"
@@ -375,66 +367,79 @@ export const AddCreatorModal: React.FC<AddCreatorModalProps> = ({
                       placeholder="https://..."
                     />
                   </div>
-                  
-                  <div className="space-y-2">
+
+                  <div>
                     <Label htmlFor="bio">Bio</Label>
                     <Textarea
                       id="bio"
                       value={formData.bio}
                       onChange={(e) => handleInputChange('bio', e.target.value)}
-                      placeholder="Brief description about the creator..."
+                      placeholder="Brief description..."
                       rows={3}
                     />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="location">Location *</Label>
+                      <Input
+                        id="location"
+                        value={formData.location}
+                        onChange={(e) => handleInputChange('location', e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="timezone">Timezone *</Label>
+                      <Input
+                        id="timezone"
+                        value={formData.timezone}
+                        onChange={(e) => handleInputChange('timezone', e.target.value)}
+                        required
+                      />
+                    </div>
                   </div>
                 </CardContent>
               </Card>
             </TabsContent>
-            
+
+            {/* Contact Tab */}
             <TabsContent value="contact" className="space-y-4">
               <Card>
                 <CardHeader>
                   <CardTitle>Contact Information</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
                       <Label htmlFor="email">Email *</Label>
                       <Input
                         id="email"
                         type="email"
                         value={formData.email}
                         onChange={(e) => handleInputChange('email', e.target.value)}
-                        placeholder="email@example.com"
                         required
                       />
                     </div>
-                    <div className="space-y-2">
+                    <div>
                       <Label htmlFor="phone">Phone</Label>
                       <Input
                         id="phone"
                         value={formData.phone}
                         onChange={(e) => handleInputChange('phone', e.target.value)}
-                        placeholder="+1 (555) 123-4567"
                       />
                     </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
+                    <div>
                       <Label htmlFor="whatsapp">WhatsApp</Label>
                       <Input
                         id="whatsapp"
                         value={formData.whatsapp}
                         onChange={(e) => handleInputChange('whatsapp', e.target.value)}
-                        placeholder="+1 (555) 123-4567"
                       />
                     </div>
-                    <div className="space-y-2">
+                    <div>
                       <Label htmlFor="preferredCommunication">Preferred Communication</Label>
-                      <Select 
-                        value={formData.preferredCommunication} 
-                        onValueChange={(value) => handleInputChange('preferredCommunication', value as CommunicationChannel)}
-                      >
+                      <Select value={formData.preferredCommunication} onValueChange={(value) => handleInputChange('preferredCommunication', value)}>
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
@@ -446,55 +451,55 @@ export const AddCreatorModal: React.FC<AddCreatorModalProps> = ({
                       </Select>
                     </div>
                   </div>
-                  
+
                   <Separator />
-                  
-                  <div className="space-y-4">
-                    <h4 className="text-sm font-medium">Social Media Links</h4>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
+
+                  <div>
+                    <Label className="text-base font-medium">Social Links & Portfolio</Label>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
+                      <div>
                         <Label htmlFor="instagram">Instagram</Label>
                         <Input
                           id="instagram"
                           value={formData.socialLinks.instagram}
                           onChange={(e) => handleInputChange('socialLinks.instagram', e.target.value)}
-                          placeholder="@username or full URL"
+                          placeholder="@username"
                         />
                       </div>
-                      <div className="space-y-2">
+                      <div>
                         <Label htmlFor="youtube">YouTube</Label>
                         <Input
                           id="youtube"
                           value={formData.socialLinks.youtube}
                           onChange={(e) => handleInputChange('socialLinks.youtube', e.target.value)}
-                          placeholder="@channel or full URL"
+                          placeholder="@channelname"
                         />
                       </div>
-                      <div className="space-y-2">
+                      <div>
                         <Label htmlFor="tiktok">TikTok</Label>
                         <Input
                           id="tiktok"
                           value={formData.socialLinks.tiktok}
                           onChange={(e) => handleInputChange('socialLinks.tiktok', e.target.value)}
-                          placeholder="@username or full URL"
+                          placeholder="@username"
                         />
                       </div>
-                      <div className="space-y-2">
+                      <div>
                         <Label htmlFor="linkedin">LinkedIn</Label>
                         <Input
                           id="linkedin"
                           value={formData.socialLinks.linkedin}
                           onChange={(e) => handleInputChange('socialLinks.linkedin', e.target.value)}
-                          placeholder="profile name or full URL"
+                          placeholder="linkedin.com/in/..."
                         />
                       </div>
-                      <div className="space-y-2">
+                      <div className="md:col-span-2">
                         <Label htmlFor="portfolio">Portfolio Website</Label>
                         <Input
                           id="portfolio"
                           value={formData.socialLinks.portfolio}
                           onChange={(e) => handleInputChange('socialLinks.portfolio', e.target.value)}
-                          placeholder="https://portfolio.com"
+                          placeholder="https://..."
                         />
                       </div>
                     </div>
@@ -502,9 +507,9 @@ export const AddCreatorModal: React.FC<AddCreatorModalProps> = ({
                   
                   <Separator />
                   
-                  <div className="space-y-4">
-                    <h4 className="text-sm font-medium">Shipping Address</h4>
-                    <div className="space-y-4">
+                  <div>
+                    <Label className="text-base font-medium">Shipping Address</Label>
+                    <div className="space-y-4 mt-3">
                       <div>
                         <Label htmlFor="fullAddress">Full Address *</Label>
                         <Textarea
@@ -516,7 +521,7 @@ export const AddCreatorModal: React.FC<AddCreatorModalProps> = ({
                         />
                       </div>
                       
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                           <Label htmlFor="pincode">Pincode *</Label>
                           <Input
@@ -551,15 +556,16 @@ export const AddCreatorModal: React.FC<AddCreatorModalProps> = ({
                 </CardContent>
               </Card>
             </TabsContent>
-            
+
+            {/* Rates Tab */}
             <TabsContent value="rates" className="space-y-4">
               <Card>
                 <CardHeader>
-                  <CardTitle>Rates & Payment</CardTitle>
+                  <CardTitle>Rate Card & Payment</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="space-y-2">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
                       <Label htmlFor="baseRate">Base Rate *</Label>
                       <Input
                         id="baseRate"
@@ -567,21 +573,25 @@ export const AddCreatorModal: React.FC<AddCreatorModalProps> = ({
                         min="0"
                         step="0.01"
                         value={formData.baseRate}
-                        onChange={(e) => handleInputChange('baseRate', e.target.value === '' ? '' : parseFloat(e.target.value) || 0)}
-                        placeholder="Enter base rate"
+                        onChange={(e) => handleInputChange('baseRate', parseFloat(e.target.value) || 0)}
                         required
                       />
                     </div>
-                    <div className="space-y-2">
+                    <div>
                       <Label htmlFor="currency">Currency</Label>
-                      <Input
-                        id="currency"
-                        value={formData.currency}
-                        onChange={(e) => handleInputChange('currency', e.target.value)}
-                        placeholder="USD"
-                      />
+                      <Select value={formData.currency} onValueChange={(value) => handleInputChange('currency', value)}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="INR">INR</SelectItem>
+                          <SelectItem value="USD">USD</SelectItem>
+                          <SelectItem value="EUR">EUR</SelectItem>
+                          <SelectItem value="GBP">GBP</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
-                    <div className="space-y-2">
+                    <div>
                       <Label htmlFor="unit">Rate Unit</Label>
                       <Select value={formData.unit} onValueChange={(value) => handleInputChange('unit', value)}>
                         <SelectTrigger>
@@ -596,11 +606,11 @@ export const AddCreatorModal: React.FC<AddCreatorModalProps> = ({
                       </Select>
                     </div>
                   </div>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
                       <Label htmlFor="paymentCycle">Payment Cycle</Label>
-                      <Select value={formData.paymentCycle} onValueChange={(value) => handleInputChange('paymentCycle', value as PaymentCycle)}>
+                      <Select value={formData.paymentCycle} onValueChange={(value) => handleInputChange('paymentCycle', value)}>
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
@@ -611,8 +621,8 @@ export const AddCreatorModal: React.FC<AddCreatorModalProps> = ({
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="advancePercentage">Advance Percentage (%)</Label>
+                    <div>
+                      <Label htmlFor="advancePercentage">Advance Percentage</Label>
                       <Input
                         id="advancePercentage"
                         type="number"
@@ -620,34 +630,21 @@ export const AddCreatorModal: React.FC<AddCreatorModalProps> = ({
                         max="100"
                         value={formData.advancePercentage}
                         onChange={(e) => handleInputChange('advancePercentage', parseInt(e.target.value) || 0)}
-                        placeholder="0"
                       />
                     </div>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="initialPayment">Initial Payment (₹)</Label>
-                    <Input
-                      id="initialPayment"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={formData.initialPayment}
-                      onChange={(e) => handleInputChange('initialPayment', parseFloat(e.target.value) || 0)}
-                      placeholder="0.00"
-                    />
                   </div>
                 </CardContent>
               </Card>
             </TabsContent>
-            
+
+            {/* Notes Tab */}
             <TabsContent value="notes" className="space-y-4">
               <Card>
                 <CardHeader>
                   <CardTitle>Collaboration Notes</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="space-y-2">
+                  <div>
                     <Label htmlFor="strengths">Strengths (comma-separated)</Label>
                     <Textarea
                       id="strengths"
@@ -657,8 +654,8 @@ export const AddCreatorModal: React.FC<AddCreatorModalProps> = ({
                       rows={2}
                     />
                   </div>
-                  
-                  <div className="space-y-2">
+
+                  <div>
                     <Label htmlFor="weaknesses">Areas for Improvement (comma-separated)</Label>
                     <Textarea
                       id="weaknesses"
@@ -668,75 +665,55 @@ export const AddCreatorModal: React.FC<AddCreatorModalProps> = ({
                       rows={2}
                     />
                   </div>
-                  
-                  <div className="space-y-2">
+
+                  <div>
                     <Label htmlFor="specialRequirements">Special Requirements (comma-separated)</Label>
                     <Textarea
                       id="specialRequirements"
                       value={formData.specialRequirements}
                       onChange={(e) => handleInputChange('specialRequirements', e.target.value)}
-                      placeholder="Requires 48h notice for shoots, Not available Sundays"
+                      placeholder="Requires 48h notice, Not available Sundays"
                       rows={2}
                     />
                   </div>
-                  
-                  <div className="space-y-2">
+
+                  <div>
                     <Label htmlFor="internalNotes">Internal Notes</Label>
                     <Textarea
                       id="internalNotes"
                       value={formData.internalNotes}
                       onChange={(e) => handleInputChange('internalNotes', e.target.value)}
-                      placeholder="Any additional notes about working with this creator..."
-                      rows={3}
+                      placeholder="Internal team notes about this creator..."
+                      rows={4}
                     />
                   </div>
                 </CardContent>
               </Card>
             </TabsContent>
           </Tabs>
-          
-          <div className="flex justify-between pt-4 border-t">
-            <div className="flex space-x-2">
-              {currentTabIndex > 0 && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setActiveTab(tabs[currentTabIndex - 1])}
-                  disabled={isSubmitting}
-                >
-                  Previous
-                </Button>
-              )}
-            </div>
-            <div className="flex space-x-2">
+
+          <Separator />
+
+          <div className="flex justify-between">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={resetForm}
+            >
+              Reset
+            </Button>
+            <div className="flex gap-3">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => onOpenChange(false)}
-                disabled={isSubmitting}
               >
                 Cancel
               </Button>
-              {!isLastTab ? (
-                <Button
-                  type="button"
-                  onClick={() => setActiveTab(tabs[currentTabIndex + 1])}
-                  disabled={isSubmitting}
-                >
-                  Next
-                </Button>
-              ) : (
-                <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Creating...
-                    </>
-                  ) : (
-                    'Create Creator'
-                  )}
-                </Button>
-              )}
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Update Creator
+              </Button>
             </div>
           </div>
         </form>

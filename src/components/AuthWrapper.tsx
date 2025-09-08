@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client'
 import { Session, User } from '@supabase/supabase-js'
 import { Loader2 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { activateUserOnLogin } from '@/services/usersService'
 
 export function AuthWrapper({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
@@ -16,7 +17,7 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let isMounted = true
-    let authSubscription: any = null
+    let authSubscription: { data?: { subscription?: { unsubscribe?: () => void } } } | null = null
 
     const initAuth = async () => {
       try {
@@ -32,6 +33,20 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
           setUser(session?.user ?? null)
           setLoading(false)
           setInitialized(true)
+          
+          // Try to activate user on initial session load only
+          if (session?.user?.email) {
+            console.log('Initial session found, attempting user activation...')
+            activateUserOnLogin(session.user.id, session.user.email)
+              .then(success => {
+                if (success) {
+                  console.log('User activation completed successfully')
+                }
+              })
+              .catch(error => {
+                console.error('Failed to activate user on initial session:', error)
+              })
+          }
         }
 
         // Set up auth state listener only after initial session check
@@ -51,6 +66,7 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
             } else if (event === 'SIGNED_IN') {
               setSession(session)
               setUser(session?.user ?? null)
+              // Skip activation on SIGNED_IN to prevent loops - already done on initial session
             } else if (event === 'TOKEN_REFRESHED') {
               setSession(session)
               setUser(session?.user ?? null)

@@ -650,7 +650,7 @@ export default function ContentCalendar() {
                       });
                       localStorage.setItem('currentContent', JSON.stringify(contentForDetail));
                       console.log('💾 Stored in localStorage:', localStorage.getItem('currentContent'));
-                      navigate(`/${generateSlug(card.title)}`);
+                      navigate(`/content/${generateSlug(card.title)}`);
                     }}
                     className="enhanced-card hover:shadow-elegant transition-all duration-300 cursor-pointer border-border/50 backdrop-blur-sm animate-fade-in"
                   >
@@ -722,7 +722,7 @@ export default function ContentCalendar() {
                             // Use databaseId as id for ContentDetail compatibility
                             const contentForDetail = { ...row, id: row.databaseId };
                             localStorage.setItem('currentContent', JSON.stringify(contentForDetail));
-                            navigate(`/${generateSlug(row.title)}`);
+                            navigate(`/content/${generateSlug(row.title)}`);
                           }}>
                             {row.title}
                           </button>
@@ -746,7 +746,7 @@ export default function ContentCalendar() {
                               // Use databaseId as id for ContentDetail compatibility
                               const contentForDetail = { ...row, id: row.databaseId };
                               localStorage.setItem('currentContent', JSON.stringify(contentForDetail));
-                              navigate(`/${generateSlug(row.title)}`);
+                              navigate(`/content/${generateSlug(row.title)}`);
                             }} className="shadow-sm">
                               Edit
                             </Button>
