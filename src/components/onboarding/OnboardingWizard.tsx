@@ -5,10 +5,11 @@ import { validateStep } from '@/schemas/onboarding.schemas'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
-import { ChevronLeft, ChevronRight, User, MapPin, Briefcase, Upload, CheckCircle } from 'lucide-react'
+import { ChevronLeft, ChevronRight, User, MapPin, Briefcase, CreditCard, Upload, CheckCircle } from 'lucide-react'
 import { BasicInfoStep } from './steps/BasicInfoStep'
 import { AddressEmergencyStep } from './steps/AddressEmergencyStep'
 import { WorkDetailsStep } from './steps/WorkDetailsStep'
+import { BankDetailsStep } from './steps/BankDetailsStep'
 import { DocumentsStep } from './steps/DocumentsStep'
 
 interface OnboardingWizardProps {
@@ -41,6 +42,13 @@ const steps = [
   },
   {
     id: 4,
+    title: 'Bank Details',
+    description: 'Banking information for salary processing',
+    icon: CreditCard,
+    component: BankDetailsStep
+  },
+  {
+    id: 5,
     title: 'Documents',
     description: 'Upload required documents',
     icon: Upload,
@@ -107,19 +115,19 @@ export function OnboardingWizard({ form, onSubmit, isSubmitting }: OnboardingWiz
   const CurrentStepComponent = currentStepData.component
 
   return (
-    <div className="w-full max-w-4xl mx-auto">
+    <div className="w-full max-w-none">
       {/* Step Indicator */}
-      <div className="mb-8">
+      <div className="mb-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold text-gray-900">Employee Onboarding</h2>
-          <div className="text-sm text-gray-600">
+          <h2 className="text-xl font-bold text-foreground">Employee Onboarding</h2>
+          <div className="text-sm text-muted-foreground bg-muted px-3 py-1 rounded-full">
             Step {currentStep} of {steps.length}
           </div>
         </div>
         
-        <Progress value={progress} className="h-2 mb-6" />
+        <Progress value={progress} className="h-2 mb-4" />
         
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-2 max-w-5xl mx-auto">
           {steps.map((step) => {
             const Icon = step.icon
             const isCompleted = completedSteps.includes(step.id)
@@ -132,24 +140,24 @@ export function OnboardingWizard({ form, onSubmit, isSubmitting }: OnboardingWiz
                 onClick={() => handleStepClick(step.id)}
                 disabled={!isAccessible}
                 className={`
-                  flex items-center gap-3 p-3 rounded-lg text-left transition-colors
+                  flex items-center gap-3 p-4 rounded-xl text-left transition-all duration-200 border-2
                   ${isCurrent 
-                    ? 'bg-blue-50 border-2 border-blue-200 text-blue-700' 
+                    ? 'bg-primary/10 border-primary/50 text-primary shadow-md ring-2 ring-primary/20' 
                     : isCompleted
-                    ? 'bg-green-50 border-2 border-green-200 text-green-700 hover:bg-green-100'
+                    ? 'bg-green-500/10 border-green-500/30 text-green-500 hover:bg-green-500/20'
                     : isAccessible
-                    ? 'bg-gray-50 border-2 border-gray-200 text-gray-600 hover:bg-gray-100'
-                    : 'bg-gray-25 border-2 border-gray-100 text-gray-400 cursor-not-allowed'
+                    ? 'bg-muted/50 border-border text-muted-foreground hover:bg-muted'
+                    : 'bg-muted/30 border-muted text-muted-foreground/50 cursor-not-allowed'
                   }
                 `}
               >
                 <div className={`
-                  w-8 h-8 rounded-full flex items-center justify-center
+                  w-8 h-8 rounded-full flex items-center justify-center transition-colors
                   ${isCurrent 
-                    ? 'bg-blue-100' 
+                    ? 'bg-primary/20' 
                     : isCompleted 
-                    ? 'bg-green-100' 
-                    : 'bg-gray-100'
+                    ? 'bg-green-500/20' 
+                    : 'bg-muted'
                   }
                 `}>
                   {isCompleted ? (
@@ -169,27 +177,31 @@ export function OnboardingWizard({ form, onSubmit, isSubmitting }: OnboardingWiz
       </div>
 
       {/* Step Content */}
-      <Card className="shadow-lg">
-        <CardContent className="p-8">
+      <Card className="shadow-2xl border border-border/50 bg-card/95 backdrop-blur-xl max-w-none">
+        <CardContent className="p-6">
           <div className="mb-6">
-            <h3 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
-              <currentStepData.icon className="w-5 h-5" />
+            <h3 className="text-xl font-semibold text-foreground flex items-center gap-3">
+              <div className="w-7 h-7 bg-primary/20 rounded-lg flex items-center justify-center">
+                <currentStepData.icon className="w-4 h-4 text-primary" />
+              </div>
               {currentStepData.title}
             </h3>
-            <p className="text-gray-600 mt-1">{currentStepData.description}</p>
+            <p className="text-muted-foreground mt-2 text-sm">{currentStepData.description}</p>
           </div>
 
           <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
-            <CurrentStepComponent form={form} />
+            <div className="max-w-4xl mx-auto">
+              <CurrentStepComponent form={form} />
+            </div>
 
             {/* Navigation Buttons */}
-            <div className="flex justify-between pt-6 border-t">
+            <div className="flex justify-between pt-6 border-t border-border max-w-4xl mx-auto">
               <Button
                 type="button"
                 variant="outline"
                 onClick={handleBack}
                 disabled={currentStep === 1}
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 h-10"
               >
                 <ChevronLeft className="w-4 h-4" />
                 Back
@@ -199,7 +211,7 @@ export function OnboardingWizard({ form, onSubmit, isSubmitting }: OnboardingWiz
                 <Button
                   type="button"
                   onClick={handleNext}
-                  className="flex items-center gap-2"
+                  className="flex items-center gap-2 h-10 px-6"
                 >
                   Next
                   <ChevronRight className="w-4 h-4" />
@@ -208,7 +220,7 @@ export function OnboardingWizard({ form, onSubmit, isSubmitting }: OnboardingWiz
                 <Button
                   type="submit"
                   disabled={isSubmitting}
-                  className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
+                  className="flex items-center gap-2 h-10 px-6 bg-green-600 hover:bg-green-700 text-white"
                 >
                   {isSubmitting ? (
                     <>
@@ -230,10 +242,10 @@ export function OnboardingWizard({ form, onSubmit, isSubmitting }: OnboardingWiz
 
       {/* Form Errors Summary */}
       {Object.keys(errors).length > 0 && (
-        <Card className="mt-4 border-red-200 bg-red-50">
+        <Card className="mt-4 border-destructive/20 bg-destructive/5 max-w-4xl mx-auto">
           <CardContent className="p-4">
-            <h4 className="font-medium text-red-900 mb-2">Please fix the following errors:</h4>
-            <ul className="text-sm text-red-700 space-y-1">
+            <h4 className="font-medium text-destructive mb-2">Please fix the following errors:</h4>
+            <ul className="text-sm text-destructive/80 space-y-1">
               {Object.entries(errors).map(([field, error]) => (
                 <li key={field}>• {error?.message}</li>
               ))}

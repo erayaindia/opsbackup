@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { WORK_LOCATIONS, EMPLOYMENT_TYPES, USER_ROLES, DEPARTMENTS, RELATIONSHIPS } from '@/types/onboarding.types'
+import { WORK_LOCATIONS, EMPLOYMENT_TYPES, USER_ROLES, DEPARTMENTS, RELATIONSHIPS, INDIAN_BANKS } from '@/types/onboarding.types'
 
 // Step 1: Basic Information Schema
 export const basicInfoSchema = z.object({
@@ -16,7 +16,16 @@ export const basicInfoSchema = z.object({
     .string()
     .regex(/^\+?[\d\s\-\(\)]{10,15}$/, 'Please enter a valid phone number')
     .optional()
-    .or(z.literal(''))
+    .or(z.literal('')),
+  date_of_birth: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Please select a valid date')
+    .refine((date) => {
+      const birthDate = new Date(date)
+      const today = new Date()
+      const age = today.getFullYear() - birthDate.getFullYear()
+      return age >= 18 && age <= 80
+    }, 'Age must be between 18 and 80 years')
 })
 
 // Step 2: Address & Emergency Schema
@@ -69,7 +78,40 @@ export const workDetailsSchema = z.object({
     .or(z.literal(''))
 })
 
-// Step 4: Documents Schema
+// Step 4: Bank Details Schema
+export const bankDetailsSchema = z.object({
+  bank_details: z.object({
+    account_number: z
+      .string()
+      .min(8, 'Account number must be at least 8 digits')
+      .max(20, 'Account number must be less than 20 digits')
+      .regex(/^\d+$/, 'Account number should contain only digits'),
+    account_holder_name: z
+      .string()
+      .min(2, 'Account holder name must be at least 2 characters')
+      .max(100, 'Account holder name must be less than 100 characters')
+      .regex(/^[a-zA-Z\s\.]+$/, 'Account holder name can only contain letters, spaces, and periods'),
+    bank_name: z
+      .string()
+      .min(1, 'Bank name is required'),
+    ifsc_code: z
+      .string()
+      .regex(/^[A-Z]{4}0[A-Z0-9]{6}$/, 'Please enter a valid IFSC code (e.g., SBIN0000123)'),
+    branch_name: z
+      .string()
+      .min(2, 'Branch name must be at least 2 characters')
+      .max(100, 'Branch name must be less than 100 characters')
+      .optional()
+      .or(z.literal('')),
+    upi_id: z
+      .string()
+      .regex(/^[\w.-]+@[\w.-]+$/, 'Please enter a valid UPI ID (e.g., username@paytm)')
+      .optional()
+      .or(z.literal(''))
+  }).default({})
+})
+
+// Step 5: Documents Schema
 export const documentsSchema = z.object({
   documents: z.array(z.object({
     type: z.string(),
@@ -79,7 +121,14 @@ export const documentsSchema = z.object({
     mime_type: z.string(),
     uploaded_at: z.string(),
     signed_url: z.string().optional()
-  })).default([]),
+  })).default([])
+  .refine((docs) => {
+    const requiredTypes = ['Aadhaar', 'PAN', 'BankPassbook', 'Photo', 'Education'];
+    const uploadedTypes = docs.map(doc => doc.type);
+    return requiredTypes.every(type => uploadedTypes.includes(type));
+  }, {
+    message: 'Please upload all required documents: Aadhaar Card, PAN Card, Bank Passbook Photo, Profile Photo, and Education Certificates'
+  }),
   notes: z
     .string()
     .max(2000, 'Notes must be less than 2000 characters')
@@ -92,6 +141,7 @@ export const onboardingFormSchema = z.object({
   ...basicInfoSchema.shape,
   ...addressEmergencySchema.shape,
   ...workDetailsSchema.shape,
+  ...bankDetailsSchema.shape,
   ...documentsSchema.shape
 })
 
@@ -118,6 +168,8 @@ export const validateStep = (step: number, data: any) => {
     case 3:
       return workDetailsSchema.safeParse(data)
     case 4:
+      return bankDetailsSchema.safeParse(data)
+    case 5:
       return documentsSchema.safeParse(data)
     default:
       return { success: false, error: { message: 'Invalid step' } }
@@ -136,6 +188,7 @@ export const validateApproval = (data: any) => {
 export type BasicInfoFormData = z.infer<typeof basicInfoSchema>
 export type AddressEmergencyFormData = z.infer<typeof addressEmergencySchema>
 export type WorkDetailsFormData = z.infer<typeof workDetailsSchema>
+export type BankDetailsFormData = z.infer<typeof bankDetailsSchema>
 export type DocumentsFormData = z.infer<typeof documentsSchema>
 export type OnboardingFormData = z.infer<typeof onboardingFormSchema>
 export type ApprovalFormData = z.infer<typeof approvalFormSchema>

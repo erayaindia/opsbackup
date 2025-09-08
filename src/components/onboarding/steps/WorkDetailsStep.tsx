@@ -15,10 +15,10 @@ export function WorkDetailsStep({ form }: WorkDetailsStepProps) {
 
   return (
     <div className="space-y-6">
-      <Card className="bg-green-50/50 border-green-200">
+      <Card className="bg-slate-50/50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 backdrop-blur-sm">
         <CardContent className="p-4">
-          <p className="text-sm text-green-800">
-            <span className="font-medium">Work Information:</span> Please provide your employment details. 
+          <p className="text-sm text-slate-700 dark:text-slate-300">
+            <span className="font-medium text-slate-900 dark:text-white">Work Information:</span> Please provide your employment details. 
             Some fields may be filled in by HR during the approval process.
           </p>
         </CardContent>
@@ -27,8 +27,10 @@ export function WorkDetailsStep({ form }: WorkDetailsStepProps) {
       <div className="grid grid-cols-1 gap-6">
         {/* Designation */}
         <div className="space-y-2">
-          <Label htmlFor="designation" className="flex items-center gap-2 text-sm font-medium">
-            <Briefcase className="w-4 h-4" />
+          <Label htmlFor="designation" className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300">
+            <div className="w-5 h-5 bg-slate-100 dark:bg-slate-800 rounded-md flex items-center justify-center">
+              <Briefcase className="w-3 h-3 text-slate-600 dark:text-slate-400" />
+            </div>
             Job Title / Designation
           </Label>
           <Input
@@ -36,27 +38,29 @@ export function WorkDetailsStep({ form }: WorkDetailsStepProps) {
             type="text"
             placeholder="e.g., Software Engineer, Content Writer, Marketing Executive"
             {...register('designation')}
-            className={errors.designation ? 'border-red-300 focus:ring-red-500' : ''}
+            className={`bg-white/50 dark:bg-slate-800/50 border-slate-300 dark:border-slate-600 focus:border-slate-500 dark:focus:border-slate-400 ${errors.designation ? 'border-red-400 focus:border-red-500 dark:border-red-400' : ''}`}
           />
           {errors.designation && (
-            <p className="text-sm text-red-600">{errors.designation.message}</p>
+            <p className="text-sm text-red-500 dark:text-red-400">{errors.designation.message}</p>
           )}
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-slate-500 dark:text-slate-400">
             Enter your official job title as mentioned in your offer letter
           </p>
         </div>
 
         {/* Work Location */}
         <div className="space-y-2">
-          <Label htmlFor="work_location" className="flex items-center gap-2 text-sm font-medium">
-            <MapPin className="w-4 h-4" />
+          <Label htmlFor="work_location" className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300">
+            <div className="w-5 h-5 bg-slate-100 dark:bg-slate-800 rounded-md flex items-center justify-center">
+              <MapPin className="w-3 h-3 text-slate-600 dark:text-slate-400" />
+            </div>
             Work Location *
           </Label>
           <Select
             onValueChange={(value) => setValue('work_location', value)}
             defaultValue={watch('work_location')}
           >
-            <SelectTrigger className={errors.work_location ? 'border-red-300' : ''}>
+            <SelectTrigger className={`bg-white/50 dark:bg-slate-800/50 border-slate-300 dark:border-slate-600 focus:border-slate-500 dark:focus:border-slate-400 ${errors.work_location ? 'border-red-400 focus:border-red-500 dark:border-red-400' : ''}`}>
               <SelectValue placeholder="Select your work location" />
             </SelectTrigger>
             <SelectContent>
@@ -68,24 +72,26 @@ export function WorkDetailsStep({ form }: WorkDetailsStepProps) {
             </SelectContent>
           </Select>
           {errors.work_location && (
-            <p className="text-sm text-red-600">{errors.work_location.message}</p>
+            <p className="text-sm text-red-500 dark:text-red-400">{errors.work_location.message}</p>
           )}
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-slate-500 dark:text-slate-400">
             Select your primary work location
           </p>
         </div>
 
         {/* Employment Type */}
         <div className="space-y-2">
-          <Label htmlFor="employment_type" className="flex items-center gap-2 text-sm font-medium">
-            <Clock className="w-4 h-4" />
+          <Label htmlFor="employment_type" className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300">
+            <div className="w-5 h-5 bg-slate-100 dark:bg-slate-800 rounded-md flex items-center justify-center">
+              <Clock className="w-3 h-3 text-slate-600 dark:text-slate-400" />
+            </div>
             Employment Type *
           </Label>
           <Select
             onValueChange={(value) => setValue('employment_type', value)}
             defaultValue={watch('employment_type')}
           >
-            <SelectTrigger className={errors.employment_type ? 'border-red-300' : ''}>
+            <SelectTrigger className={`bg-white/50 dark:bg-slate-800/50 border-slate-300 dark:border-slate-600 focus:border-slate-500 dark:focus:border-slate-400 ${errors.employment_type ? 'border-red-400 focus:border-red-500 dark:border-red-400' : ''}`}>
               <SelectValue placeholder="Select employment type" />
             </SelectTrigger>
             <SelectContent>
@@ -97,29 +103,31 @@ export function WorkDetailsStep({ form }: WorkDetailsStepProps) {
             </SelectContent>
           </Select>
           {errors.employment_type && (
-            <p className="text-sm text-red-600">{errors.employment_type.message}</p>
+            <p className="text-sm text-red-500 dark:text-red-400">{errors.employment_type.message}</p>
           )}
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-slate-500 dark:text-slate-400">
             Select your employment type as per your contract
           </p>
         </div>
 
         {/* Joining Date */}
         <div className="space-y-2">
-          <Label htmlFor="joined_at" className="flex items-center gap-2 text-sm font-medium">
-            <Calendar className="w-4 h-4" />
+          <Label htmlFor="joined_at" className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300">
+            <div className="w-5 h-5 bg-slate-100 dark:bg-slate-800 rounded-md flex items-center justify-center">
+              <Calendar className="w-3 h-3 text-slate-600 dark:text-slate-400" />
+            </div>
             Joining Date
           </Label>
           <Input
             id="joined_at"
             type="date"
             {...register('joined_at')}
-            className={errors.joined_at ? 'border-red-300 focus:ring-red-500' : ''}
+            className={`bg-white/50 dark:bg-slate-800/50 border-slate-300 dark:border-slate-600 focus:border-slate-500 dark:focus:border-slate-400 ${errors.joined_at ? 'border-red-400 focus:border-red-500 dark:border-red-400' : ''}`}
           />
           {errors.joined_at && (
-            <p className="text-sm text-red-600">{errors.joined_at.message}</p>
+            <p className="text-sm text-red-500 dark:text-red-400">{errors.joined_at.message}</p>
           )}
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-slate-500 dark:text-slate-400">
             Select your official joining date (leave blank if not yet determined)
           </p>
         </div>
@@ -127,36 +135,36 @@ export function WorkDetailsStep({ form }: WorkDetailsStepProps) {
 
       {/* Information Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card className="bg-blue-50 border-blue-200">
+        <Card className="bg-slate-50/30 dark:bg-slate-800/30 border-slate-200 dark:border-slate-700">
           <CardContent className="p-4">
-            <h4 className="font-medium text-blue-900 mb-2">Work Locations</h4>
-            <div className="text-sm text-blue-700 space-y-1">
-              <div><span className="font-medium">Patna:</span> Main office location</div>
-              <div><span className="font-medium">Delhi:</span> Branch office</div>
-              <div><span className="font-medium">Remote:</span> Work from home</div>
-              <div><span className="font-medium">Hybrid:</span> Mix of office and remote</div>
+            <h4 className="font-medium text-slate-900 dark:text-white mb-2">Work Locations</h4>
+            <div className="text-sm text-slate-700 dark:text-slate-300 space-y-1">
+              <div><span className="font-medium text-slate-800 dark:text-slate-200">Patna:</span> Main office location</div>
+              <div><span className="font-medium text-slate-800 dark:text-slate-200">Delhi:</span> Branch office</div>
+              <div><span className="font-medium text-slate-800 dark:text-slate-200">Remote:</span> Work from home</div>
+              <div><span className="font-medium text-slate-800 dark:text-slate-200">Hybrid:</span> Mix of office and remote</div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-purple-50 border-purple-200">
+        <Card className="bg-slate-50/30 dark:bg-slate-800/30 border-slate-200 dark:border-slate-700">
           <CardContent className="p-4">
-            <h4 className="font-medium text-purple-900 mb-2">Employment Types</h4>
-            <div className="text-sm text-purple-700 space-y-1">
-              <div><span className="font-medium">Full-time:</span> Regular permanent position</div>
-              <div><span className="font-medium">Part-time:</span> Reduced hours position</div>
-              <div><span className="font-medium">Intern:</span> Internship position</div>
-              <div><span className="font-medium">Contractor:</span> Contract-based work</div>
+            <h4 className="font-medium text-slate-900 dark:text-white mb-2">Employment Types</h4>
+            <div className="text-sm text-slate-700 dark:text-slate-300 space-y-1">
+              <div><span className="font-medium text-slate-800 dark:text-slate-200">Full-time:</span> Regular permanent position</div>
+              <div><span className="font-medium text-slate-800 dark:text-slate-200">Part-time:</span> Reduced hours position</div>
+              <div><span className="font-medium text-slate-800 dark:text-slate-200">Intern:</span> Internship position</div>
+              <div><span className="font-medium text-slate-800 dark:text-slate-200">Contractor:</span> Contract-based work</div>
             </div>
           </CardContent>
         </Card>
       </div>
 
       {/* Additional Info */}
-      <Card className="bg-gray-50 border-gray-200">
+      <Card className="bg-slate-50/30 dark:bg-slate-800/30 border-slate-200 dark:border-slate-700">
         <CardContent className="p-4">
-          <p className="text-xs text-gray-600">
-            <span className="font-medium">Note:</span> Some details like department and reporting manager 
+          <p className="text-xs text-slate-600 dark:text-slate-400">
+            <span className="font-medium text-slate-700 dark:text-slate-300">Note:</span> Some details like department and reporting manager 
             will be assigned during the approval process. You can update your work information later through 
             your employee profile.
           </p>

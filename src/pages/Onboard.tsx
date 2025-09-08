@@ -20,10 +20,12 @@ export default function Onboard() {
       full_name: '',
       personal_email: '',
       phone: '',
+      date_of_birth: '',
       work_location: 'Patna',
       employment_type: 'Full-time',
       addresses: {},
       emergency: {},
+      bank_details: {},
       documents: [],
       notes: ''
     },
@@ -55,70 +57,70 @@ export default function Onboard() {
 
   if (isSubmitted) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 flex items-center justify-center p-4">
         <div className="w-full max-w-2xl">
-          <Card className="shadow-xl border-0 bg-white/90 backdrop-blur-sm">
+          <Card className="shadow-2xl border border-border/50 bg-card/95 backdrop-blur-xl">
             <CardHeader className="text-center pb-8">
-              <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
-                <CheckCircle className="w-8 h-8 text-green-600" />
+              <div className="mx-auto w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mb-4 ring-2 ring-green-500/30">
+                <CheckCircle className="w-8 h-8 text-green-500" />
               </div>
-              <CardTitle className="text-2xl font-bold text-gray-900">
+              <CardTitle className="text-2xl font-bold text-foreground">
                 Application Submitted Successfully!
               </CardTitle>
-              <CardDescription className="text-lg text-gray-600 mt-2">
+              <CardDescription className="text-lg text-muted-foreground mt-2">
                 Thank you for applying to join Eraya Style
               </CardDescription>
             </CardHeader>
             
             <CardContent className="space-y-6">
-              <div className="bg-blue-50 p-6 rounded-lg border border-blue-200">
-                <h3 className="font-semibold text-blue-900 mb-2">Application Details</h3>
-                <p className="text-blue-700">
+              <div className="bg-primary/10 p-6 rounded-lg border border-primary/20">
+                <h3 className="font-semibold text-foreground mb-2">Application Details</h3>
+                <p className="text-foreground/80">
                   <span className="font-medium">Application ID:</span> {applicationId}
                 </p>
-                <p className="text-blue-700 mt-1">
+                <p className="text-foreground/80 mt-1">
                   <span className="font-medium">Status:</span> Submitted for Review
                 </p>
               </div>
 
               <div className="space-y-4">
-                <h3 className="font-semibold text-gray-900">What happens next?</h3>
+                <h3 className="font-semibold text-foreground">What happens next?</h3>
                 
                 <div className="space-y-3">
                   <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                      <span className="text-blue-600 font-semibold text-sm">1</span>
+                    <div className="w-8 h-8 bg-primary/20 rounded-full flex items-center justify-center flex-shrink-0 ring-1 ring-primary/30">
+                      <span className="text-primary font-semibold text-sm">1</span>
                     </div>
                     <div>
-                      <p className="font-medium text-gray-900">Application Review</p>
-                      <p className="text-gray-600 text-sm">Our HR team will review your application and documents</p>
+                      <p className="font-medium text-foreground">Application Review</p>
+                      <p className="text-muted-foreground text-sm">Our HR team will review your application and documents</p>
                     </div>
                   </div>
 
                   <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                      <span className="text-blue-600 font-semibold text-sm">2</span>
+                    <div className="w-8 h-8 bg-primary/20 rounded-full flex items-center justify-center flex-shrink-0 ring-1 ring-primary/30">
+                      <span className="text-primary font-semibold text-sm">2</span>
                     </div>
                     <div>
-                      <p className="font-medium text-gray-900">Account Creation</p>
-                      <p className="text-gray-600 text-sm">If approved, we'll create your company account</p>
+                      <p className="font-medium text-foreground">Account Creation</p>
+                      <p className="text-muted-foreground text-sm">If approved, we'll create your company account</p>
                     </div>
                   </div>
 
                   <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                      <span className="text-blue-600 font-semibold text-sm">3</span>
+                    <div className="w-8 h-8 bg-primary/20 rounded-full flex items-center justify-center flex-shrink-0 ring-1 ring-primary/30">
+                      <span className="text-primary font-semibold text-sm">3</span>
                     </div>
                     <div>
-                      <p className="font-medium text-gray-900">Welcome Email</p>
-                      <p className="text-gray-600 text-sm">You'll receive login credentials via email</p>
+                      <p className="font-medium text-foreground">Welcome Email</p>
+                      <p className="text-muted-foreground text-sm">You'll receive login credentials via email</p>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
-                <p className="text-yellow-800 text-sm">
+              <div className="bg-yellow-500/10 p-4 rounded-lg border border-yellow-500/20">
+                <p className="text-yellow-600 dark:text-yellow-400 text-sm">
                   <span className="font-medium">Please note:</span> Keep this Application ID safe. 
                   You may need it for future reference. We typically review applications within 2-3 business days.
                 </p>
@@ -131,68 +133,97 @@ export default function Onboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
-      {/* Header */}
-      <div className="bg-white/80 backdrop-blur-sm border-b border-gray-200 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-              <Building2 className="w-6 h-6 text-white" />
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 flex flex-col">
+      {/* Modern Header */}
+      <header className="sticky top-0 z-50 w-full bg-white/95 dark:bg-slate-900/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 dark:supports-[backdrop-filter]:bg-slate-900/60 border-b border-slate-200 dark:border-slate-700 shrink-0">
+        <div className="w-full flex h-16 items-center justify-between px-6 max-w-none">
+          <div className="flex items-center space-x-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-r from-blue-600 to-purple-600">
+              <Building2 className="h-5 w-5 text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-gray-900">Eraya Style</h1>
-              <p className="text-sm text-gray-600">Employee Onboarding</p>
+              <h1 className="text-lg font-semibold text-slate-900 dark:text-white">Eraya Style</h1>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Employee Onboarding Portal</p>
+            </div>
+          </div>
+          <div className="hidden md:flex items-center space-x-2 text-sm text-slate-500 dark:text-slate-400">
+            <Shield className="h-4 w-4" />
+            <span>Secure Application</span>
+          </div>
+        </div>
+      </header>
+
+      {/* Hero Section */}
+      <div className="relative overflow-hidden bg-gradient-to-b from-white to-slate-50 dark:from-slate-900 dark:to-slate-800 py-12 shrink-0">
+        <div className="absolute inset-0 bg-grid-slate-100 dark:bg-grid-slate-700/25 [mask-image:linear-gradient(0deg,#fff,rgba(255,255,255,0.6))] dark:[mask-image:linear-gradient(0deg,rgba(255,255,255,0.1),rgba(255,255,255,0.5))]" />
+        <div className="relative px-6 max-w-none w-full">
+          <div className="mx-auto max-w-4xl text-center">
+            <div className="mb-8">
+              <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-r from-blue-500 to-purple-600 shadow-lg shadow-blue-500/25">
+                <Users className="h-8 w-8 text-white" />
+              </div>
+              <h1 className="mb-4 text-3xl font-bold tracking-tight text-slate-900 dark:text-white sm:text-4xl">
+                Join <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Eraya Style</span>
+              </h1>
+              <p className="mx-auto max-w-2xl text-base text-slate-600 dark:text-slate-300">
+                Start your journey with us by completing this simple 5-step onboarding process. 
+                We'll guide you through each step to ensure a smooth experience.
+              </p>
+            </div>
+            
+            {/* Modern Trust Indicators */}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 max-w-3xl mx-auto">
+              <div className="group relative overflow-hidden rounded-xl bg-white/50 dark:bg-slate-800/50 p-4 backdrop-blur-sm transition-all hover:bg-white/80 dark:hover:bg-slate-800/80">
+                <div className="absolute -right-3 -top-3 h-16 w-16 rounded-full bg-green-500/10 dark:bg-green-400/10" />
+                <Shield className="relative mb-2 h-5 w-5 text-green-600 dark:text-green-400" />
+                <h3 className="mb-1 font-semibold text-sm text-slate-900 dark:text-white">Secure & Private</h3>
+                <p className="text-xs text-slate-600 dark:text-slate-400">Your data is encrypted and protected</p>
+              </div>
+              
+              <div className="group relative overflow-hidden rounded-xl bg-white/50 dark:bg-slate-800/50 p-4 backdrop-blur-sm transition-all hover:bg-white/80 dark:hover:bg-slate-800/80">
+                <div className="absolute -right-3 -top-3 h-16 w-16 rounded-full bg-blue-500/10 dark:bg-blue-400/10" />
+                <Users className="relative mb-2 h-5 w-5 text-blue-600 dark:text-blue-400" />
+                <h3 className="mb-1 font-semibold text-sm text-slate-900 dark:text-white">HR Reviewed</h3>
+                <p className="text-xs text-slate-600 dark:text-slate-400">Professionally reviewed by our team</p>
+              </div>
+              
+              <div className="group relative overflow-hidden rounded-xl bg-white/50 dark:bg-slate-800/50 p-4 backdrop-blur-sm transition-all hover:bg-white/80 dark:hover:bg-slate-800/80">
+                <div className="absolute -right-3 -top-3 h-16 w-16 rounded-full bg-purple-500/10 dark:bg-purple-400/10" />
+                <CheckCircle className="relative mb-2 h-5 w-5 text-purple-600 dark:text-purple-400" />
+                <h3 className="mb-1 font-semibold text-sm text-slate-900 dark:text-white">Quick Process</h3>
+                <p className="text-xs text-slate-600 dark:text-slate-400">Complete in just a few minutes</p>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        {/* Welcome Section */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">
-            Welcome to Eraya Style!
-          </h1>
-          <p className="text-lg text-gray-600 mb-6 max-w-2xl mx-auto">
-            We're excited to have you join our team. Please fill out the following information 
-            to complete your onboarding application.
-          </p>
-          
-          {/* Trust Indicators */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-2xl mx-auto">
-            <div className="flex items-center gap-2 justify-center">
-              <Shield className="w-5 h-5 text-green-600" />
-              <span className="text-sm text-gray-600">Secure & Private</span>
-            </div>
-            <div className="flex items-center gap-2 justify-center">
-              <Users className="w-5 h-5 text-blue-600" />
-              <span className="text-sm text-gray-600">HR Reviewed</span>
-            </div>
-            <div className="flex items-center gap-2 justify-center">
-              <CheckCircle className="w-5 h-5 text-purple-600" />
-              <span className="text-sm text-gray-600">Quick Process</span>
-            </div>
-          </div>
+      {/* Form Section - Full Width */}
+      <div className="flex-1 px-6 py-6 max-w-none">
+        <div className="w-full max-w-none">
+          <OnboardingWizard
+            form={form}
+            onSubmit={handleSubmit}
+            isSubmitting={isSubmitting}
+          />
         </div>
-
-        {/* Onboarding Wizard */}
-        <OnboardingWizard
-          form={form}
-          onSubmit={handleSubmit}
-          isSubmitting={isSubmitting}
-        />
       </div>
       
-      {/* Footer */}
-      <footer className="border-t border-gray-200 bg-white/50 backdrop-blur-sm mt-16">
-        <div className="max-w-7xl mx-auto px-4 py-6">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-            <div className="text-sm text-gray-600">
-              © 2024 Eraya Style. All rights reserved.
+      {/* Modern Footer */}
+      <footer className="border-t border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-slate-900/50 backdrop-blur shrink-0">
+        <div className="w-full px-6 py-6 max-w-none">
+          <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
+            <div className="flex items-center space-x-4">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-r from-blue-600 to-purple-600">
+                <Building2 className="h-4 w-4 text-white" />
+              </div>
+              <p className="text-sm text-slate-600 dark:text-slate-400">© 2024 Eraya Style. All rights reserved.</p>
             </div>
-            <div className="text-sm text-gray-500">
-              Need help? Contact HR at hr@erayastyle.com
+            <div className="flex items-center space-x-2 text-sm text-slate-600 dark:text-slate-400">
+              <span>Need help?</span>
+              <a href="mailto:hr@erayastyle.com" className="font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400">
+                hr@erayastyle.com
+              </a>
             </div>
           </div>
         </div>

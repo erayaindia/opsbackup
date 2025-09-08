@@ -17,7 +17,9 @@
       "Bash(find:*)",
       "Bash(tail:*)",
       "Bash(npx supabase db dump:*)",
-      "Bash(npx supabase db push:*)"
+      "Bash(npx supabase db push:*)",
+      "Read(//c/Users/ASUS/OneDrive/Pictures/Screenshots/**)",
+      "Read(//c/Users/ASUS/Downloads/**)"
     ],
     "deny": [],
     "ask": []

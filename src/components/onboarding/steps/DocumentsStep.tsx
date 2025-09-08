@@ -35,9 +35,11 @@ export function DocumentsStep({ form }: DocumentsStepProps) {
       return
     }
 
-    // Check if document type already exists
+    // Check if document type already exists (only for types that don't allow multiple)
+    const docTypeConfig = DOCUMENT_TYPES.find(dt => dt.value === type)
     const existingDoc = documents.find(doc => doc.type === type)
-    if (existingDoc) {
+    
+    if (existingDoc && !docTypeConfig?.allowMultiple) {
       toast.error(`A document of type "${type}" is already uploaded. Please remove it first to upload a new one.`)
       return
     }
@@ -60,7 +62,14 @@ export function DocumentsStep({ form }: DocumentsStepProps) {
 
         const updatedDocuments = [...documents, newDocument]
         setValue('documents', updatedDocuments)
-        toast.success(`${type} document uploaded successfully!`)
+        
+        // Show appropriate success message
+        const existingCount = documents.filter(doc => doc.type === type).length
+        if (existingCount > 0) {
+          toast.success(`Additional ${type} document uploaded successfully!`)
+        } else {
+          toast.success(`${type} document uploaded successfully!`)
+        }
       } else {
         throw new Error(response.error?.message || 'Upload failed')
       }
@@ -99,27 +108,29 @@ export function DocumentsStep({ form }: DocumentsStepProps) {
 
   return (
     <div className="space-y-6">
-      <Card className="bg-orange-50/50 border-orange-200">
+      <Card className="bg-slate-50/50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 backdrop-blur-sm">
         <CardContent className="p-4">
-          <p className="text-sm text-orange-800">
-            <span className="font-medium">Document Upload:</span> Please upload the required documents. 
+          <p className="text-sm text-slate-700 dark:text-slate-300">
+            <span className="font-medium text-slate-900 dark:text-white">Document Upload:</span> Please upload the required documents marked with *. 
             Accepted formats: PDF, DOC, DOCX, JPG, PNG. Maximum file size: 50MB per document.
           </p>
         </CardContent>
       </Card>
 
       {/* Upload Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Upload className="w-5 h-5" />
+      <Card className="bg-white/50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 backdrop-blur-sm">
+        <CardHeader className="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
+          <CardTitle className="flex items-center gap-2 text-slate-900 dark:text-white">
+            <div className="w-6 h-6 bg-slate-100 dark:bg-slate-800 rounded-md flex items-center justify-center">
+              <Upload className="w-4 h-4 text-slate-600 dark:text-slate-400" />
+            </div>
             Upload Documents
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="document_type">Document Type</Label>
+              <Label htmlFor="document_type" className="text-slate-700 dark:text-slate-300 font-medium">Document Type</Label>
               <Select
                 value={selectedDocType}
                 onValueChange={(value: DocumentType) => setSelectedDocType(value)}
@@ -130,7 +141,7 @@ export function DocumentsStep({ form }: DocumentsStepProps) {
                 <SelectContent>
                   {DOCUMENT_TYPES.map((doc) => (
                     <SelectItem key={doc.value} value={doc.value}>
-                      {doc.label}
+                      {doc.label} {doc.required && '*'}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -138,7 +149,7 @@ export function DocumentsStep({ form }: DocumentsStepProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="file_upload">Select File</Label>
+              <Label htmlFor="file_upload" className="text-slate-700 dark:text-slate-300 font-medium">Select File</Label>
               <Input
                 id="file_upload"
                 type="file"
@@ -151,6 +162,7 @@ export function DocumentsStep({ form }: DocumentsStepProps) {
                   }
                 }}
                 disabled={!!uploading}
+                className="bg-white/50 dark:bg-slate-800/50 border-slate-300 dark:border-slate-600 focus:border-slate-500 dark:focus:border-slate-400 file:bg-slate-100 dark:file:bg-slate-700 file:text-slate-700 dark:file:text-slate-300 file:border-slate-300 dark:file:border-slate-600"
               />
             </div>
           </div>
@@ -160,22 +172,22 @@ export function DocumentsStep({ form }: DocumentsStepProps) {
             onDragOver={handleDragOver}
             onDrop={handleDrop}
             className={`
-              border-2 border-dashed border-gray-300 rounded-lg p-6 text-center
-              ${uploading ? 'bg-gray-50 cursor-not-allowed' : 'hover:border-gray-400 cursor-pointer'}
+              border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg p-6 text-center bg-slate-50/30 dark:bg-slate-800/30
+              ${uploading ? 'bg-slate-100/50 dark:bg-slate-700/50 cursor-not-allowed' : 'hover:border-slate-400 dark:hover:border-slate-500 cursor-pointer'}
             `}
           >
             {uploading ? (
               <div className="flex items-center justify-center gap-2">
-                <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                <span className="text-gray-600">Uploading {uploading}...</span>
+                <div className="w-5 h-5 border-2 border-slate-600 border-t-transparent rounded-full animate-spin" />
+                <span className="text-slate-600 dark:text-slate-400">Uploading {uploading}...</span>
               </div>
             ) : (
               <>
-                <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                <p className="text-gray-600 mb-1">
+                <Upload className="w-8 h-8 text-slate-400 dark:text-slate-500 mx-auto mb-2" />
+                <p className="text-slate-600 dark:text-slate-400 mb-1">
                   Drag and drop your {selectedDocType} document here, or click to browse
                 </p>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   {getDocumentTypeInfo(selectedDocType)?.description}
                 </p>
               </>
@@ -186,10 +198,12 @@ export function DocumentsStep({ form }: DocumentsStepProps) {
 
       {/* Uploaded Documents */}
       {documents.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <File className="w-5 h-5" />
+        <Card className="bg-white/50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 backdrop-blur-sm">
+          <CardHeader className="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
+            <CardTitle className="flex items-center gap-2 text-slate-900 dark:text-white">
+              <div className="w-6 h-6 bg-slate-100 dark:bg-slate-800 rounded-md flex items-center justify-center">
+                <File className="w-4 h-4 text-slate-600 dark:text-slate-400" />
+              </div>
               Uploaded Documents ({documents.length})
             </CardTitle>
           </CardHeader>
@@ -198,15 +212,15 @@ export function DocumentsStep({ form }: DocumentsStepProps) {
               {documents.map((doc, index) => (
                 <div
                   key={index}
-                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border"
+                  className="flex items-center justify-between p-3 bg-slate-50/50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                      <Check className="w-4 h-4 text-green-600" />
+                    <div className="w-8 h-8 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+                      <Check className="w-4 h-4 text-green-600 dark:text-green-400" />
                     </div>
                     <div>
-                      <p className="font-medium text-sm">{doc.type}</p>
-                      <p className="text-xs text-gray-500">
+                      <p className="font-medium text-sm text-slate-900 dark:text-white">{doc.type}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
                         {doc.filename} • {formatFileSize(doc.size)}
                       </p>
                     </div>
@@ -216,7 +230,7 @@ export function DocumentsStep({ form }: DocumentsStepProps) {
                     variant="ghost"
                     size="sm"
                     onClick={() => removeDocument(index)}
-                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                    className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20"
                   >
                     <X className="w-4 h-4" />
                   </Button>
@@ -228,27 +242,29 @@ export function DocumentsStep({ form }: DocumentsStepProps) {
       )}
 
       {/* Additional Notes */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="w-5 h-5" />
+      <Card className="bg-white/50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 backdrop-blur-sm">
+        <CardHeader className="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
+          <CardTitle className="flex items-center gap-2 text-slate-900 dark:text-white">
+            <div className="w-6 h-6 bg-slate-100 dark:bg-slate-800 rounded-md flex items-center justify-center">
+              <FileText className="w-4 h-4 text-slate-600 dark:text-slate-400" />
+            </div>
             Additional Notes (Optional)
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
-            <Label htmlFor="notes">Notes or Comments</Label>
+            <Label htmlFor="notes" className="text-slate-700 dark:text-slate-300 font-medium">Notes or Comments</Label>
             <Textarea
               id="notes"
               placeholder="Any additional information, special circumstances, or notes you'd like to share with the HR team..."
               rows={4}
               {...register('notes')}
-              className={errors.notes ? 'border-red-300' : ''}
+              className={`bg-white/50 dark:bg-slate-800/50 border-slate-300 dark:border-slate-600 focus:border-slate-500 dark:focus:border-slate-400 ${errors.notes ? 'border-red-400 focus:border-red-500 dark:border-red-400' : ''}`}
             />
             {errors.notes && (
-              <p className="text-sm text-red-600">{errors.notes.message}</p>
+              <p className="text-sm text-red-500 dark:text-red-400">{errors.notes.message}</p>
             )}
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               You can mention any special circumstances, document issues, or other relevant information
             </p>
           </div>
@@ -256,27 +272,26 @@ export function DocumentsStep({ form }: DocumentsStepProps) {
       </Card>
 
       {/* Document Requirements */}
-      <Card className="bg-blue-50 border-blue-200">
+      <Card className="bg-slate-50/30 dark:bg-slate-800/30 border-slate-200 dark:border-slate-700">
         <CardHeader>
-          <CardTitle className="text-lg text-blue-900">Document Requirements</CardTitle>
+          <CardTitle className="text-lg text-slate-900 dark:text-white">Document Requirements</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <h4 className="font-medium text-blue-900 mb-2">Required Documents:</h4>
-              <ul className="text-sm text-blue-700 space-y-1">
-                <li>• Aadhaar Card (Identity Proof)</li>
-                <li>• PAN Card (Tax ID)</li>
-                <li>• Bank Account Proof</li>
-                <li>• Recent Passport Photo</li>
+              <h4 className="font-medium text-slate-800 dark:text-slate-200 mb-2">Required Documents * :</h4>
+              <ul className="text-sm text-slate-600 dark:text-slate-400 space-y-1">
+                <li>• Aadhaar Card (Government Identity Proof)</li>
+                <li>• PAN Card (Tax Identification)</li>
+                <li>• Bank Passbook Photo (Clear front page photo)</li>
+                <li>• Profile Photo (For employee profile)</li>
+                <li>• Education Certificates (Can upload multiple)</li>
               </ul>
             </div>
             <div>
-              <h4 className="font-medium text-blue-900 mb-2">Optional Documents:</h4>
-              <ul className="text-sm text-blue-700 space-y-1">
-                <li>• Education Certificates</li>
-                <li>• Experience Letters</li>
-                <li>• Updated Resume/CV</li>
+              <h4 className="font-medium text-slate-800 dark:text-slate-200 mb-2">Optional Documents:</h4>
+              <ul className="text-sm text-slate-600 dark:text-slate-400 space-y-1">
+                <li>• Resume/CV</li>
                 <li>• Other Relevant Documents</li>
               </ul>
             </div>
@@ -285,12 +300,12 @@ export function DocumentsStep({ form }: DocumentsStepProps) {
       </Card>
 
       {/* Security Notice */}
-      <Card className="bg-red-50 border-red-200">
+      <Card className="bg-red-50/50 dark:bg-red-900/20 border-red-200 dark:border-red-800">
         <CardContent className="p-4">
           <div className="flex items-start gap-2">
-            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-            <div className="text-sm text-red-800">
-              <p className="font-medium mb-1">Security & Privacy Notice:</p>
+            <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+            <div className="text-sm text-red-800 dark:text-red-300">
+              <p className="font-medium mb-1 text-red-900 dark:text-red-200">Security & Privacy Notice:</p>
               <p>
                 All uploaded documents are securely encrypted and stored. Access is restricted to authorized 
                 HR personnel only. Your documents will be used solely for employment verification and 

@@ -5,6 +5,7 @@ export interface OnboardingFormData {
   full_name: string
   personal_email: string
   phone?: string
+  date_of_birth: string
 
   // Step 2: Address & Emergency
   addresses: {
@@ -35,7 +36,17 @@ export interface OnboardingFormData {
   employment_type: string
   joined_at?: string
 
-  // Step 4: Documents
+  // Step 4: Bank Details
+  bank_details: {
+    account_number?: string
+    account_holder_name?: string
+    bank_name?: string
+    ifsc_code?: string
+    branch_name?: string
+    upi_id?: string
+  }
+
+  // Step 5: Documents
   documents: DocumentUpload[]
   notes?: string
 }
@@ -53,9 +64,8 @@ export interface DocumentUpload {
 export type DocumentType = 
   | 'Aadhaar'
   | 'PAN'
-  | 'BankProof'
+  | 'BankPassbook'
   | 'Education'
-  | 'Experience'
   | 'Resume'
   | 'Photo'
   | 'Other'
@@ -72,6 +82,7 @@ export interface OnboardingApplicant {
   joined_at?: string
   addresses: Record<string, any>
   emergency: Record<string, any>
+  bank_details: Record<string, any>
   documents: DocumentUpload[]
   notes?: string
   mapped_app_user_id?: string
@@ -165,15 +176,14 @@ export const DEPARTMENTS = [
   'IT'
 ] as const
 
-export const DOCUMENT_TYPES: Array<{value: DocumentType, label: string, description: string}> = [
-  { value: 'Aadhaar', label: 'Aadhaar Card', description: 'Government issued identity proof' },
-  { value: 'PAN', label: 'PAN Card', description: 'Permanent Account Number card' },
-  { value: 'BankProof', label: 'Bank Account Proof', description: 'Bank statement or passbook' },
-  { value: 'Education', label: 'Education Certificates', description: 'Degree/diploma certificates' },
-  { value: 'Experience', label: 'Experience Letters', description: 'Previous employment proof' },
-  { value: 'Resume', label: 'Resume/CV', description: 'Current resume or CV' },
-  { value: 'Photo', label: 'Passport Photo', description: 'Recent passport size photo' },
-  { value: 'Other', label: 'Other Documents', description: 'Any other relevant documents' }
+export const DOCUMENT_TYPES: Array<{value: DocumentType, label: string, description: string, required: boolean, allowMultiple?: boolean}> = [
+  { value: 'Aadhaar', label: 'Aadhaar Card', description: 'Government issued identity proof (Required)', required: true },
+  { value: 'PAN', label: 'PAN Card', description: 'Permanent Account Number card (Required)', required: true },
+  { value: 'BankPassbook', label: 'Bank Passbook Photo', description: 'Clear photo of bank passbook front page (Required)', required: true },
+  { value: 'Photo', label: 'Profile Photo', description: 'Your clear photo for profile (Required)', required: true },
+  { value: 'Education', label: 'Education Certificates', description: 'Degree/diploma certificates (Required - can upload multiple)', required: true, allowMultiple: true },
+  { value: 'Resume', label: 'Resume/CV', description: 'Current resume or CV (Optional)', required: false },
+  { value: 'Other', label: 'Other Documents', description: 'Any other relevant documents (Optional)', required: false, allowMultiple: true }
 ]
 
 export const RELATIONSHIPS = [
@@ -185,5 +195,40 @@ export const RELATIONSHIPS = [
   'Son',
   'Daughter',
   'Friend',
+  'Other'
+] as const
+
+export const INDIAN_BANKS = [
+  'State Bank of India (SBI)',
+  'HDFC Bank',
+  'ICICI Bank', 
+  'Axis Bank',
+  'Punjab National Bank (PNB)',
+  'Bank of Baroda',
+  'Canara Bank',
+  'Union Bank of India',
+  'Bank of India',
+  'Indian Bank',
+  'Central Bank of India',
+  'IDBI Bank',
+  'UCO Bank',
+  'Indian Overseas Bank',
+  'Punjab & Sind Bank',
+  'Kotak Mahindra Bank',
+  'IndusInd Bank',
+  'Yes Bank',
+  'Federal Bank',
+  'South Indian Bank',
+  'Karur Vysya Bank',
+  'Tamilnad Mercantile Bank',
+  'City Union Bank',
+  'DCB Bank',
+  'RBL Bank',
+  'Bandhan Bank',
+  'AU Small Finance Bank',
+  'Equitas Small Finance Bank',
+  'Jana Small Finance Bank',
+  'Paytm Payments Bank',
+  'Airtel Payments Bank',
   'Other'
 ] as const
