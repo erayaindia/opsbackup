@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Search, Plus, Users2, UserCheck, UserX, UserMinus } from 'lucide-react'
 import { UsersTable } from '@/components/users/UsersTable'
-import { AddUserDrawer } from '@/components/users/AddUserDrawer'
+import { AddUserModal } from '@/components/users/AddUserModal'
 import { getUsers, User } from '@/services/usersService'
 import { toast } from 'sonner'
 import { useReadOnly } from '@/components/ReadOnlyGuard'
@@ -16,7 +16,7 @@ export const Users: React.FC = () => {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
-  const [showAddUserDrawer, setShowAddUserDrawer] = useState(false)
+  const [showAddUserModal, setShowAddUserModal] = useState(false)
   const isReadOnly = useReadOnly()
 
   const fetchUsers = async () => {
@@ -74,7 +74,7 @@ export const Users: React.FC = () => {
         </div>
         <Button 
           className="gap-2" 
-          onClick={() => setShowAddUserDrawer(true)}
+          onClick={() => setShowAddUserModal(true)}
           disabled={isReadOnly}
         >
           <Plus className="w-4 h-4" />
@@ -174,10 +174,10 @@ export const Users: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Add User Drawer */}
-      <AddUserDrawer
-        open={showAddUserDrawer}
-        onOpenChange={setShowAddUserDrawer}
+      {/* Add User Modal */}
+      <AddUserModal
+        open={showAddUserModal}
+        onOpenChange={setShowAddUserModal}
         onUserCreated={handleUserUpdate}
       />
     </div>
