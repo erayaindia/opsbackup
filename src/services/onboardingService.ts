@@ -60,25 +60,23 @@ export async function submitOnboardingApplication(
     // Transform the form data to match database schema
     const dbData = transformFormDataToDatabase(data)
     
-    // For onboarding applications, we allow anonymous submissions
-    // The created_by field will be null for anonymous users
-    const { data: { user } } = await supabase.auth.getUser()
+    // For anonymous submissions, don't try to get user info at all
+    // This avoids any potential auth-related issues
     
-    // Insert the application into the database
-    // Don't include app_user_id for anonymous submissions - it will be set during approval
+    // Insert the application into the database with minimal required fields only
     const { data: insertResult, error: insertError } = await supabase
       .from('employees_details')
       .insert({
         ...dbData,
         status: 'submitted',
         submission_date: new Date().toISOString(),
-        created_by: user?.id || null, // Allow null for anonymous users
+        // Don't include any auth-related fields for anonymous users
         nda_accepted: data.ndaAccepted || false,
         data_privacy_accepted: data.dataPrivacyAccepted || false,
         nda_accepted_at: data.ndaAccepted ? new Date().toISOString() : null,
         data_privacy_accepted_at: data.dataPrivacyAccepted ? new Date().toISOString() : null
       })
-      .select('id, application_id')
+      .select('id')
       .single()
 
     if (insertError) {
@@ -98,7 +96,7 @@ export async function submitOnboardingApplication(
     return {
       ok: true,
       data: {
-        applicant_id: insertResult.application_id,
+        applicant_id: insertResult.id,
         message: 'Application submitted successfully',
         status: 'submitted'
       },
