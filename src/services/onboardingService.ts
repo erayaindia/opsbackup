@@ -57,15 +57,12 @@ export async function submitOnboardingApplication(
   data: OnboardingFormData
 ): Promise<OnboardingSubmissionResponse> {
   try {
-    // Get current user
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    
-    if (authError || !user) {
-      throw new Error('Authentication required')
-    }
-
     // Transform the form data to match database schema
     const dbData = transformFormDataToDatabase(data)
+    
+    // For onboarding applications, we allow anonymous submissions
+    // The created_by field will be null for anonymous users
+    const { data: { user } } = await supabase.auth.getUser()
     
     // Insert the application into the database
     const { data: insertResult, error: insertError } = await supabase
@@ -74,14 +71,22 @@ export async function submitOnboardingApplication(
         ...dbData,
         status: 'submitted',
         submission_date: new Date().toISOString(),
-        created_by: user.id
+        created_by: user?.id || null // Allow null for anonymous users
       })
       .select('id, application_id')
       .single()
 
     if (insertError) {
       console.error('Database insert error:', insertError)
-      throw new Error(insertError.message || 'Failed to submit application')
+      
+      // Provide more specific error messages
+      if (insertError.message.includes('new row violates row-level security')) {
+        throw new Error('Database permission error. Please check if anonymous submissions are allowed.')
+      } else if (insertError.message.includes('null value in column')) {
+        throw new Error('Required field missing. Please fill in all required information.')
+      } else {
+        throw new Error(insertError.message || 'Failed to submit application')
+      }
     }
 
     // Return success response
@@ -114,13 +119,6 @@ export async function uploadDocument(
   applicationId?: string
 ): Promise<DocumentUploadResponse> {
   try {
-    // Get current user
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    
-    if (authError || !user) {
-      throw new Error('Authentication required')
-    }
-
     // Validate file
     if (!isValidFileType(file)) {
       throw new Error('Invalid file type. Please upload PDF, DOC, DOCX, or image files.')
@@ -134,9 +132,11 @@ export async function uploadDocument(
     const timestamp = Date.now()
     const fileExt = file.name.split('.').pop()
     const fileName = `${type}_${timestamp}.${fileExt}`
-    const filePath = applicationId 
-      ? `onboarding/${applicationId}/${type}/${fileName}`
-      : `onboarding/temp/${user.id}/${type}/${fileName}`
+    
+    // For onboarding uploads, we don't require authentication
+    // Generate a unique session ID for anonymous users
+    const sessionId = applicationId || crypto.randomUUID()
+    const filePath = `onboarding/temp/${sessionId}/${type}/${fileName}`
 
     // Upload to storage
     const { data: uploadData, error: uploadError } = await supabase.storage
@@ -148,7 +148,17 @@ export async function uploadDocument(
 
     if (uploadError) {
       console.error('Storage upload error:', uploadError)
-      throw new Error(uploadError.message || 'Failed to upload file')
+      
+      // Provide more specific error messages
+      if (uploadError.message.includes('new row violates row-level security')) {
+        throw new Error('Storage permission error. Please check if anonymous uploads are allowed.')
+      } else if (uploadError.message.includes('JWT expired')) {
+        throw new Error('Session expired. Please refresh the page and try again.')
+      } else if (uploadError.message.includes('Invalid JWT')) {
+        throw new Error('Authentication error. Please refresh the page and try again.')
+      } else {
+        throw new Error(uploadError.message || 'Failed to upload file')
+      }
     }
 
     // Get signed URL for the uploaded file
