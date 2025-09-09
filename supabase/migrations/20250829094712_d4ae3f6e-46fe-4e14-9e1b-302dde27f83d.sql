@@ -1,8 +1,0 @@
--- Enable RLS on missing tables
-ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.channels ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.channel_members ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.reactions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.message_reads ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.message_attachments ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.pinned_messages ENABLE ROW LEVEL SECURITY;
