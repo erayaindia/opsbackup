@@ -65,13 +65,18 @@ export async function submitOnboardingApplication(
     const { data: { user } } = await supabase.auth.getUser()
     
     // Insert the application into the database
+    // Don't include app_user_id for anonymous submissions - it will be set during approval
     const { data: insertResult, error: insertError } = await supabase
       .from('employees_details')
       .insert({
         ...dbData,
         status: 'submitted',
         submission_date: new Date().toISOString(),
-        created_by: user?.id || null // Allow null for anonymous users
+        created_by: user?.id || null, // Allow null for anonymous users
+        nda_accepted: data.ndaAccepted || false,
+        data_privacy_accepted: data.dataPrivacyAccepted || false,
+        nda_accepted_at: data.ndaAccepted ? new Date().toISOString() : null,
+        data_privacy_accepted_at: data.dataPrivacyAccepted ? new Date().toISOString() : null
       })
       .select('id, application_id')
       .single()

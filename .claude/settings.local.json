@@ -20,7 +20,11 @@
       "Bash(npx supabase db push:*)",
       "Read(//c/Users/ASUS/OneDrive/Pictures/Screenshots/**)",
       "Read(//c/Users/ASUS/Downloads/**)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(dir package.json)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
     ],
     "deny": [],
     "ask": []
