@@ -57,6 +57,8 @@ import InfluencerCollabs from "./pages/marketing/InfluencerCollabs";
 
 // Product Management pages
 import ProductsVariants from "./pages/products/ProductsVariants";
+import Lifecycle from "./pages/products/Lifecycle";
+import PerformanceInsight from "./pages/products/PerformanceInsight";
 import Suppliers from "./pages/products/Suppliers";
 import InventoryManagement from "./pages/products/InventoryManagement";
 import SampleTesting from "./pages/products/SampleTesting";
@@ -120,7 +122,11 @@ const App = () => (
                   </PermissionGuard>
                 } />
                 <Route path="settings" element={<Settings />} />
-                <Route path="analytics" element={<Analytics />} />
+                <Route path="analytics" element={
+                  <PermissionGuard requiredModule="analytics">
+                    <Analytics />
+                  </PermissionGuard>
+                } />
                 <Route path="security" element={<Security />} />
                 
                 {/* Fulfillment routes */}
@@ -195,37 +201,139 @@ const App = () => (
                 } />
                 
                 {/* Team Hub routes */}
-                <Route path="team-hub/attendance" element={<Attendance />} />
-                <Route path="team-hub/tasks" element={<TasksTodos />} />
-                <Route path="team-hub/chat" element={<TeamChat />} />
-                <Route path="team-hub/chat/:channelId" element={<TeamChat />} />
-                <Route path="team-hub/announcements" element={<Announcements />} />
+                <Route path="team-hub/attendance" element={
+                  <PermissionGuard requiredModule="team-hub">
+                    <Attendance />
+                  </PermissionGuard>
+                } />
+                <Route path="team-hub/tasks" element={
+                  <PermissionGuard requiredModule="team-hub">
+                    <TasksTodos />
+                  </PermissionGuard>
+                } />
+                <Route path="team-hub/chat" element={
+                  <PermissionGuard requiredModule="team-hub">
+                    <TeamChat />
+                  </PermissionGuard>
+                } />
+                <Route path="team-hub/chat/:channelId" element={
+                  <PermissionGuard requiredModule="team-hub">
+                    <TeamChat />
+                  </PermissionGuard>
+                } />
+                <Route path="team-hub/announcements" element={
+                  <PermissionGuard requiredModule="team-hub">
+                    <Announcements />
+                  </PermissionGuard>
+                } />
                 
                 {/* Marketing & Growth routes */}
-                <Route path="marketing/campaigns" element={<Campaigns />} />
-                <Route path="marketing/ads-testing" element={<AdsTesting />} />
-                <Route path="marketing/performance-reports" element={<PerformanceReports />} />
-                <Route path="marketing/influencer-collabs" element={<InfluencerCollabs />} />
+                <Route path="marketing/campaigns" element={
+                  <PermissionGuard requiredModule="marketing">
+                    <Campaigns />
+                  </PermissionGuard>
+                } />
+                <Route path="marketing/ads-testing" element={
+                  <PermissionGuard requiredModule="marketing">
+                    <AdsTesting />
+                  </PermissionGuard>
+                } />
+                <Route path="marketing/performance-reports" element={
+                  <PermissionGuard requiredModule="marketing">
+                    <PerformanceReports />
+                  </PermissionGuard>
+                } />
+                <Route path="marketing/influencer-collabs" element={
+                  <PermissionGuard requiredModule="marketing">
+                    <InfluencerCollabs />
+                  </PermissionGuard>
+                } />
                 
                 {/* Product Management routes */}
-                <Route path="products/products-variants" element={<ProductsVariants />} />
-                <Route path="products/suppliers" element={<Suppliers />} />
-                <Route path="products/inventory-management" element={<InventoryManagement />} />
-                <Route path="products/sample-testing" element={<SampleTesting />} />
+                <Route path="products/products-variants" element={
+                  <PermissionGuard requiredModule="products">
+                    <ProductsVariants />
+                  </PermissionGuard>
+                } />
+                <Route path="products/lifecycle" element={
+                  <PermissionGuard requiredModule="products">
+                    <Lifecycle />
+                  </PermissionGuard>
+                } />
+                <Route path="products/performance-insight" element={
+                  <PermissionGuard requiredModule="products">
+                    <PerformanceInsight />
+                  </PermissionGuard>
+                } />
+                <Route path="products/suppliers" element={
+                  <PermissionGuard requiredModule="products">
+                    <Suppliers />
+                  </PermissionGuard>
+                } />
+                <Route path="product/inventory" element={
+                  <PermissionGuard requiredModule="products">
+                    <InventoryManagement />
+                  </PermissionGuard>
+                } />
+                <Route path="products/sample-testing" element={
+                  <PermissionGuard requiredModule="products">
+                    <SampleTesting />
+                  </PermissionGuard>
+                } />
                 
                 {/* Accounts & Finance routes */}
-                <Route path="finance/bank-accounts" element={<BankAccounts />} />
-                <Route path="finance/sales-revenue" element={<SalesRevenue />} />
-                <Route path="finance/expenses-payouts" element={<ExpensesPayouts />} />
-                <Route path="finance/profit-loss" element={<ProfitLoss />} />
-                <Route path="finance/gst-tax" element={<GSTTax />} />
-                <Route path="finance/pending-remittances" element={<PendingRemittances />} />
+                <Route path="finance/bank-accounts" element={
+                  <PermissionGuard requiredModule="finance">
+                    <BankAccounts />
+                  </PermissionGuard>
+                } />
+                <Route path="finance/sales-revenue" element={
+                  <PermissionGuard requiredModule="finance">
+                    <SalesRevenue />
+                  </PermissionGuard>
+                } />
+                <Route path="finance/expenses-payouts" element={
+                  <PermissionGuard requiredModule="finance">
+                    <ExpensesPayouts />
+                  </PermissionGuard>
+                } />
+                <Route path="finance/profit-loss" element={
+                  <PermissionGuard requiredModule="finance">
+                    <ProfitLoss />
+                  </PermissionGuard>
+                } />
+                <Route path="finance/gst-tax" element={
+                  <PermissionGuard requiredModule="finance">
+                    <GSTTax />
+                  </PermissionGuard>
+                } />
+                <Route path="finance/pending-remittances" element={
+                  <PermissionGuard requiredModule="finance">
+                    <PendingRemittances />
+                  </PermissionGuard>
+                } />
                 
                 {/* Management & Admin routes */}
-                <Route path="management/people-roles" element={<PeopleRoles />} />
-                <Route path="management/system-settings" element={<SystemSettings />} />
-                <Route path="management/integrations" element={<Integrations />} />
-                <Route path="management/analytics-insights" element={<AnalyticsInsights />} />
+                <Route path="management/people-roles" element={
+                  <PermissionGuard requiredModule="management">
+                    <PeopleRoles />
+                  </PermissionGuard>
+                } />
+                <Route path="management/system-settings" element={
+                  <PermissionGuard requiredModule="management">
+                    <SystemSettings />
+                  </PermissionGuard>
+                } />
+                <Route path="management/integrations" element={
+                  <PermissionGuard requiredModule="management">
+                    <Integrations />
+                  </PermissionGuard>
+                } />
+                <Route path="management/analytics-insights" element={
+                  <PermissionGuard requiredModule="management">
+                    <AnalyticsInsights />
+                  </PermissionGuard>
+                } />
                 
                 {/* Admin routes */}
                 <Route path="admin/onboarding" element={
@@ -235,14 +343,38 @@ const App = () => (
                 } />
                 
                 {/* Alerts routes */}
-                <Route path="alerts/inventory" element={<InventoryAlerts />} />
-                <Route path="alerts/disputes" element={<DisputeAlerts />} />
-                <Route path="alerts/system" element={<SystemNotifications />} />
+                <Route path="alerts/inventory" element={
+                  <PermissionGuard requiredModule="alerts">
+                    <InventoryAlerts />
+                  </PermissionGuard>
+                } />
+                <Route path="alerts/disputes" element={
+                  <PermissionGuard requiredModule="alerts">
+                    <DisputeAlerts />
+                  </PermissionGuard>
+                } />
+                <Route path="alerts/system" element={
+                  <PermissionGuard requiredModule="alerts">
+                    <SystemNotifications />
+                  </PermissionGuard>
+                } />
                 
                 {/* Training routes */}
-                <Route path="training/hub" element={<TrainingKnowledge />} />
-                <Route path="training/sops" element={<TrainingKnowledge />} />
-                <Route path="training/onboarding" element={<TrainingKnowledge />} />
+                <Route path="training/hub" element={
+                  <PermissionGuard requiredModule="training">
+                    <TrainingKnowledge />
+                  </PermissionGuard>
+                } />
+                <Route path="training/sops" element={
+                  <PermissionGuard requiredModule="training">
+                    <TrainingKnowledge />
+                  </PermissionGuard>
+                } />
+                <Route path="training/onboarding" element={
+                  <PermissionGuard requiredModule="training">
+                    <TrainingKnowledge />
+                  </PermissionGuard>
+                } />
               </Route>
               
               {/* Dynamic content detail routes - outside main layout - moved to more specific path */}

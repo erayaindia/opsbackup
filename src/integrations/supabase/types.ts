@@ -659,6 +659,44 @@ export type Database = {
           }
         ]
       }
+      content_planning_data: {
+        Row: {
+          id: string
+          content_id: string
+          concept: string
+          body: string
+          cta: string
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          content_id: string
+          concept?: string
+          body?: string
+          cta?: string
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          content_id?: string
+          concept?: string
+          body?: string
+          cta?: string
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_planning_data_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: true
+            referencedRelation: "content_items"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       content_comments: {
         Row: {
           id: string

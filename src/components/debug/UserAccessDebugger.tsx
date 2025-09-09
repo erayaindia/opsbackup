@@ -1,17 +1,21 @@
 import { useState } from 'react';
 import { useModuleAccess } from '@/hooks/useModuleAccess';
+import { usePermissionsContext } from '@/contexts/PermissionsContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { triggerGlobalPermissionRefresh } from '@/contexts/PermissionsContext';
 import { linkUserAccount } from '@/utils/linkUserAccount';
-import { RefreshCw, Link } from 'lucide-react';
+import { fixAllUserLinks } from '@/utils/fixUserLinks';
+import { RefreshCw, Link, Database, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
 export function UserAccessDebugger() {
   const { canAccessModule, getUserInfo, currentUser, isLoading } = useModuleAccess();
+  const permissionsContext = usePermissionsContext();
   const [showDebug, setShowDebug] = useState(false);
+  const [dbData, setDbData] = useState<any>(null);
 
   // Always show debug in development, even if there are issues
   if (isLoading) {
@@ -30,6 +34,62 @@ export function UserAccessDebugger() {
   const handleRefreshPermissions = () => {
     console.log('🔄 [UserAccessDebugger] Manual permission refresh triggered');
     triggerGlobalPermissionRefresh();
+  };
+
+  const handleCheckDatabase = async () => {
+    try {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) {
+        toast.error('No auth user found');
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('app_users')
+        .select('*')
+        .eq('auth_user_id', authUser.id)
+        .single();
+
+      if (error) {
+        console.error('Database query error:', error);
+        toast.error(`Database error: ${error.message}`);
+        setDbData({ error: error.message });
+        return;
+      }
+
+      console.log('Raw database data:', data);
+      setDbData(data);
+      toast.success('Database data loaded');
+    } catch (err) {
+      console.error('Failed to check database:', err);
+      toast.error('Failed to query database');
+    }
+  };
+
+  const handleFixAllLinks = async () => {
+    console.log('🔧 [UserAccessDebugger] Fixing all user links...');
+    toast.loading('Fixing all user links...');
+    
+    try {
+      const result = await fixAllUserLinks();
+      
+      if (result.success) {
+        toast.success(`${result.message}. Refreshing...`);
+        // Refresh permissions and page after successful linking
+        triggerGlobalPermissionRefresh();
+        setTimeout(() => {
+          window.location.reload();
+        }, 2000);
+      } else {
+        toast.error(`Fix failed: ${result.message}`);
+        if (result.errors && result.errors.length > 0) {
+          console.error('Link fix errors:', result.errors);
+        }
+      }
+    } catch (error) {
+      console.error('Error fixing all links:', error);
+      toast.error('Failed to fix user links');
+    }
   };
 
   const handleFixLink = async () => {
@@ -65,6 +125,21 @@ export function UserAccessDebugger() {
         >
           <RefreshCw className="h-4 w-4" />
         </Button>
+        <Button 
+          onClick={handleCheckDatabase}
+          variant="outline"
+          size="sm"
+        >
+          <Database className="h-4 w-4" />
+        </Button>
+        <Button 
+          onClick={handleFixAllLinks}
+          variant="outline"
+          size="sm"
+          className="text-blue-600 border-blue-300 hover:bg-blue-50"
+        >
+          <Users className="h-4 w-4" />
+        </Button>
         {!currentUser && (
           <Button 
             onClick={handleFixLink}
@@ -94,6 +169,9 @@ export function UserAccessDebugger() {
               <p className="text-sm font-medium">Debug Status:</p>
               <p className="text-xs text-muted-foreground">
                 {!currentUser ? "❌ NO USER LOADED" : `✅ User loaded: ${userInfo.name}`}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Refresh Trigger: {permissionsContext?.refreshTrigger || 0}
               </p>
               {currentUser && (
                 <>
@@ -132,6 +210,15 @@ export function UserAccessDebugger() {
                     ))}
                   </div>
                 </div>
+                
+                {dbData && (
+                  <div>
+                    <p className="text-sm font-medium mb-2">Raw Database Data:</p>
+                    <div className="text-xs bg-gray-100 p-2 rounded max-h-32 overflow-auto">
+                      <pre>{JSON.stringify(dbData, null, 2)}</pre>
+                    </div>
+                  </div>
+                )}
               </>
             ) : (
               <div>
@@ -141,6 +228,15 @@ export function UserAccessDebugger() {
                   <li>Database permission issue</li>
                   <li>User activation failed</li>
                 </ul>
+                
+                {dbData && (
+                  <div className="mt-2">
+                    <p className="text-sm font-medium mb-2">Raw Database Data:</p>
+                    <div className="text-xs bg-gray-100 p-2 rounded max-h-32 overflow-auto">
+                      <pre>{JSON.stringify(dbData, null, 2)}</pre>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </CardContent>

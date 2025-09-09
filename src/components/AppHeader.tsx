@@ -1,9 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Bell, Search, Menu, LogOut, LayoutGrid, List } from "lucide-react";
+import { Bell, Search, LogOut, LayoutGrid, List } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { useSidebar } from "@/components/ui/sidebar";
-import { useIsMobile } from "@/hooks/use-mobile";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -12,8 +10,6 @@ import { useState, useEffect } from "react";
 import { User } from "@supabase/supabase-js";
 
 export function AppHeader() {
-  const isMobile = useIsMobile();
-  const { open, setOpen, openMobile, setOpenMobile } = useSidebar();
   const [user, setUser] = useState<User | null>(null);
   const [isCompact, setIsCompact] = useState(() => {
     try {
@@ -65,26 +61,6 @@ export function AppHeader() {
   return (
     <header className="h-14 flex items-center justify-between border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 lg:px-6 sticky top-0 z-40">
       <div className="flex items-center gap-4">
-        <Button
-          variant="outline"
-          size="icon"
-          className="h-9 w-9 border-border bg-background hover:bg-accent"
-          onClick={() => {
-            if (isMobile) {
-              setOpenMobile(!openMobile);
-            } else {
-              setOpen(!open);
-            }
-          }}
-        >
-          <Menu className="h-4 w-4" />
-        </Button>
-        <div className="hidden lg:flex items-center gap-2">
-          <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-sm shadow-emerald-500/50"></div>
-          <span className="text-sm text-muted-foreground font-medium">
-            System Online
-          </span>
-        </div>
       </div>
       
       <div className="flex items-center gap-2">

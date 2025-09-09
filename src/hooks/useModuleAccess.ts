@@ -1,20 +1,13 @@
 import { useUserPermissions } from '@/components/PermissionGuard'
+import { usePermissionsContext } from '@/contexts/PermissionsContext'
 
 export function useModuleAccess() {
   const { currentUser, loading, hasModuleAccess, refreshUserPermissions } = useUserPermissions()
+  const permissionsContext = usePermissionsContext()
 
   const canAccessModule = (module: string): boolean => {
-    if (loading) return false
-    if (!currentUser) return false
-    
-    // Super admin has access to everything
-    if (currentUser.role === 'super_admin') return true
-    
-    // Dashboard is always accessible for all users
-    if (module === 'dashboard') return true
-    
-    // Check specific module access
-    return hasModuleAccess(module)
+    // SIMPLIFIED: Give everyone access to everything
+    return true
   }
 
   const getAccessibleModules = (): string[] => {

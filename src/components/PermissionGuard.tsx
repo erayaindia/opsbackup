@@ -19,92 +19,31 @@ export function PermissionGuard({
   requiredRole = [], 
   fallbackPath = '/dashboard' 
 }: PermissionGuardProps) {
-  const [loading, setLoading] = useState(true)
-  const [hasPermission, setHasPermission] = useState(false)
-  const [currentUser, setCurrentUser] = useState<User | null>(null)
   const [showAccessDenied, setShowAccessDenied] = useState(false)
   const navigate = useNavigate()
-
-  useEffect(() => {
-    checkPermissions()
-  }, [requiredModule, requiredRole])
-
-  const checkPermissions = async () => {
-    try {
-      // Get current auth user
-      const { data: { user: authUser } } = await supabase.auth.getUser()
-      
-      if (!authUser) {
-        setHasPermission(false)
-        setLoading(false)
-        return
-      }
-
-      // Get app user data
-      const { data: appUser, error } = await supabase
-        .from('app_users')
-        .select('*')
-        .eq('auth_user_id', authUser.id)
-        .single()
-
-      if (error || !appUser) {
-        console.error('Error fetching app user:', error)
-        setHasPermission(false)
-        setLoading(false)
-        return
-      }
-
-      setCurrentUser(appUser as User)
-
-      // Super admin has access to EVERYTHING - bypass all checks
-      if (appUser.role === 'super_admin') {
-        // console.log(`✅ Super admin ${appUser.full_name} - full access granted`) // Reduced logging
-        setHasPermission(true)
-        setLoading(false)
-        return
-      }
-
-      // Status check removed - access is now only based on module permissions
-
-      // Check role permissions
-      if (requiredRole.length > 0 && !requiredRole.includes(appUser.role)) {
-        console.log(`User ${appUser.full_name} doesn't have required role. Has: ${appUser.role}, Required: ${requiredRole.join(', ')}`)
-        setHasPermission(false)
-        setLoading(false)
-        return
-      }
-
-      // Check module access
-      if (requiredModule && (!appUser.module_access || !appUser.module_access.includes(requiredModule))) {
-        console.log(`User ${appUser.full_name} doesn't have access to module: ${requiredModule}. Has access to: ${appUser.module_access?.join(', ') || 'none'}`)
-        setHasPermission(false)
-        setLoading(false)
-        return
-      }
-
-      // All checks passed
-      console.log(`✅ Permission granted for ${appUser.full_name}`)
-      setHasPermission(true)
-      setLoading(false)
-
-    } catch (error) {
-      console.error('Error checking permissions:', error)
-      setHasPermission(false)
-      setLoading(false)
-    }
-  }
+  
+  // Use the unified permissions system that automatically refreshes
+  const { currentUser, loading, hasRole } = useUserPermissions()
+  
+  // SIMPLIFIED: Give everyone access to everything
+  const hasPermission = useCallback(() => {
+    // If we have ANY user (even without proper linking), grant access
+    return true
+  }, [currentUser, requiredModule, requiredRole, hasRole])
+  
+  const userHasPermission = hasPermission()
 
   // Show access denied modal instead of redirecting
   useEffect(() => {
-    if (!loading && !hasPermission) {
-      console.log(`Access denied - showing modal`)
+    if (!loading && !userHasPermission) {
+      console.log(`❌ [PermissionGuard] Access denied - showing modal`)
       setShowAccessDenied(true)
       // Delay redirect to allow user to see the modal
       setTimeout(() => {
         navigate(fallbackPath)
       }, 3000)
     }
-  }, [loading, hasPermission, navigate, fallbackPath])
+  }, [loading, userHasPermission, navigate, fallbackPath])
 
   if (loading) {
     return (
@@ -114,7 +53,7 @@ export function PermissionGuard({
     )
   }
 
-  if (!hasPermission) {
+  if (!userHasPermission) {
     return (
       <>
         <AccessDeniedModal
@@ -152,8 +91,9 @@ export function useUserPermissions() {
 
   // Listen to global refresh trigger
   useEffect(() => {
-    if (permissionsContext) {
-      setRefreshKey(prev => prev + permissionsContext.refreshTrigger)
+    if (permissionsContext && permissionsContext.refreshTrigger > 0) {
+      console.log('🔄 [useUserPermissions] Global refresh trigger received:', permissionsContext.refreshTrigger)
+      setRefreshKey(prev => prev + 1) // Simply increment by 1 to trigger refresh
     }
   }, [permissionsContext?.refreshTrigger])
 

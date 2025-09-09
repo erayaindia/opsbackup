@@ -168,19 +168,48 @@ export function useDashboardKPIs() {
     try {
       const { data, error } = await supabase
         .from('shopify_orders' as any)
-        .select('order_id, name, email, Order Status, Order Time')
+        .select(`
+          order_id, 
+          name, 
+          email, 
+          phone,
+          "Order Status", 
+          "Order Time", 
+          total_price,
+          financial_status,
+          "Customer Address",
+          "Order Note",
+          "Feedback Score"
+        `)
         .order('Order Time', { ascending: false })
-        .limit(8);
+        .limit(5);
 
       if (error) throw error;
 
-      const formattedOrders = (data || []).map((order: any) => ({
-        id: order.order_id,
-        customer: order.name || order.email?.split('@')[0] || 'Unknown',
-        items: Math.floor(Math.random() * 5) + 1, // Mock items count
-        status: order['Order Status'] || 'pending',
-        time: getRelativeTime(order['Order Time'])
-      }));
+      const formattedOrders = (data || [])
+        .filter((order: any) => {
+          // Filter out demo/invalid orders
+          return order.order_id && 
+                 order.order_id !== '' &&
+                 (order.name || order.email) &&
+                 order.total_price && 
+                 Number(order.total_price) > 0 &&
+                 order['Order Time'];
+        })
+        .map((order: any) => ({
+          id: order.order_id,
+          customer: order.name || order.email?.split('@')[0] || 'Customer',
+          email: order.email || 'N/A',
+          phone: order.phone || 'N/A',
+          amount: order.total_price ? `₹${Number(order.total_price).toLocaleString()}` : '₹0',
+          status: order['Order Status'] || 'pending',
+          financialStatus: order.financial_status || 'pending',
+          address: order['Customer Address'] || 'N/A',
+          note: order['Order Note'] || '',
+          feedbackScore: order['Feedback Score'] || 0,
+          time: getRelativeTime(order['Order Time']),
+          orderTime: order['Order Time']
+        }));
 
       setRecentOrders(formattedOrders);
     } catch (error) {

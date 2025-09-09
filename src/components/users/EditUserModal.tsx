@@ -43,6 +43,7 @@ import {
 } from 'lucide-react'
 import { User as UserType, UpdateUserData, updateUser } from '@/services/usersService'
 import { toast } from 'sonner'
+import { triggerGlobalPermissionRefresh } from '@/contexts/PermissionsContext'
 
 const AVAILABLE_MODULES = [
   { id: 'dashboard', label: 'Dashboard', description: 'View analytics and KPIs' },
@@ -153,6 +154,12 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({
       
       if (result.success) {
         toast.success(`User ${data.full_name} updated successfully!`)
+        // Trigger global permission refresh to update UI immediately
+        try {
+          triggerGlobalPermissionRefresh()
+        } catch (refreshError) {
+          console.warn('Could not trigger permission refresh:', refreshError)
+        }
         onUserUpdated()
         onOpenChange(false)
       } else {

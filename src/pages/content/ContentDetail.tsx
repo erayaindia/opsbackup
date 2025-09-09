@@ -380,6 +380,35 @@ export default function ContentDetail() {
     };
   }, [slug, navigate]);
 
+  // Auto-save planning data when it changes
+  useEffect(() => {
+    if (!contentId || !editable?.planning) return;
+
+    const savePlanningData = async () => {
+      try {
+        const { concept = '', body = '', cta = '' } = editable.planning;
+        
+        // Only save if there's actual content or if content was cleared
+        if (concept || body || cta) {
+          await ContentService.savePlanningData(contentId, {
+            concept,
+            body,
+            cta
+          });
+          console.log('✅ Planning data auto-saved');
+          setLastSaved(new Date());
+        }
+      } catch (error) {
+        console.error('❌ Failed to auto-save planning data:', error);
+      }
+    };
+
+    // Debounce saving by 1 second to avoid too many API calls
+    const timeoutId = setTimeout(savePlanningData, 1000);
+    
+    return () => clearTimeout(timeoutId);
+  }, [contentId, editable?.planning?.concept, editable?.planning?.body, editable?.planning?.cta]);
+
   const loadContent = async () => {
     console.log('📥 loadContent called for slug:', slug);
     
@@ -579,6 +608,24 @@ export default function ContentDetail() {
         setError(`Content not found for "${slug}". The content may have been moved or deleted. Please return to the planning page to find the correct content.`);
         setLoading(false);
         return;
+      }
+      
+      // Ensure planning data is loaded if missing
+      if (content.id && (!content.planning || (!content.planning.concept && !content.planning.body && !content.planning.cta))) {
+        try {
+          console.log('📖 Loading planning data separately for content:', content.id);
+          const planningData = await ContentService.getPlanningData(content.id);
+          if (planningData && (planningData.concept || planningData.body || planningData.cta)) {
+            content.planning = {
+              concept: planningData.concept || '',
+              body: planningData.body || '',
+              cta: planningData.cta || ''
+            };
+            console.log('✅ Planning data loaded separately:', planningData);
+          }
+        } catch (planningError) {
+          console.error('❌ Failed to load planning data separately:', planningError);
+        }
       }
       
       setEditable(content);

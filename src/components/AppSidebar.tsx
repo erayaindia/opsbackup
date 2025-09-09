@@ -63,7 +63,10 @@ import {
   UserCheck,
   Link,
   PieChart as PieChartIcon,
-  Plus
+  Plus,
+  Menu,
+  Repeat,
+  Activity
 } from "lucide-react";
 import {
   Sidebar,
@@ -79,9 +82,11 @@ import {
   SidebarMenuSubItem,
   useSidebar,
 } from "@/components/ui/sidebar";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { Button } from "@/components/ui/button";
 import { useModuleAccess } from "@/hooks/useModuleAccess";
+import { usePermissionsContext } from "@/contexts/PermissionsContext";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { RippleEffect } from "@/components/ui/ripple-effect";
 import { SkeletonMenu, SkeletonCollapsible } from "@/components/ui/skeleton-menu";
@@ -137,9 +142,11 @@ const marketingGrowthItems = [
 
 // Product Management Section  
 const productManagementItems = [
-  { title: "Products & Variants", url: "/products/products-variants", icon: Box },
+  { title: "Active Products", url: "/products/products-variants", icon: Box },
+  { title: "Lifecycle", url: "/products/lifecycle", icon: Repeat },
+  { title: "Performance Insight", url: "/products/performance-insight", icon: Activity },
   { title: "Suppliers", url: "/products/suppliers", icon: Truck },
-  { title: "Inventory Management", url: "/products/inventory-management", icon: ClipboardList },
+  { title: "Inventory Management", url: "/product/inventory", icon: ClipboardList },
   { title: "Sample Testing / QC", url: "/products/sample-testing", icon: FlaskConical },
 ];
 
@@ -205,6 +212,7 @@ export function AppSidebar() {
   const isCollapsed = state === "collapsed";
   const isMobile = useIsMobile();
   const { canAccessModule, isLoading: permissionsLoading, getUserInfo } = useModuleAccess();
+  const permissionsContext = usePermissionsContext();
   
   // Collapsible group states
   const [fulfillmentOpen, setFulfillmentOpen] = useState(currentPath.startsWith('/fulfillment'));
@@ -221,6 +229,16 @@ export function AppSidebar() {
   const [alertsOpen, setAlertsOpen] = useState(currentPath.startsWith('/alerts'));
   const [hoverExpanded, setHoverExpanded] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Force re-render when permissions change
+  useEffect(() => {
+    if (permissionsContext?.refreshTrigger) {
+      console.log('🔄 [AppSidebar] Permissions refreshed, forcing re-render:', permissionsContext.refreshTrigger)
+      // Force a re-render by updating the loading state temporarily
+      setIsLoading(true)
+      setTimeout(() => setIsLoading(false), 50)
+    }
+  }, [permissionsContext?.refreshTrigger])
 
   const isActive = (path: string) => currentPath === path;
   const isFulfillmentActive = currentPath.startsWith('/fulfillment');
@@ -242,33 +260,18 @@ export function AppSidebar() {
       return <SkeletonMenu count={items.length} showLabels={shouldShowLabels} />;
     }
 
-    // Filter items based on permissions
-    const accessibleItems = items.filter(item => {
-      // Dashboard is always accessible
-      if (item.url === '/') return true;
-      
-      // If a specific module is required for this section
-      if (requiredModule) {
-        return canAccessModule(requiredModule);
-      }
-      
-      // For individual items, derive module from URL
-      const urlModule = item.url.split('/')[1] || 'dashboard';
-      return canAccessModule(urlModule);
-    });
-
-    // Don't render section if no accessible items
-    if (accessibleItems.length === 0) return null;
+    // SIMPLIFIED: Show all items to everyone
+    const accessibleItems = items;
 
     return (
-      <SidebarGroup className="px-3 py-1">
-        {shouldShowLabels && (
-          <SidebarGroupLabel className="text-xs uppercase tracking-wider text-sidebar-foreground/60 font-semibold mb-2 px-2 transition-opacity duration-200 animate-fade-in">
+      <SidebarGroup className={`${isCollapsed && !hoverExpanded ? 'px-2' : 'px-3'} ${label ? 'py-1' : 'pt-2 pb-1'}`}>
+        {shouldShowLabels && label && (
+          <SidebarGroupLabel className="text-xs uppercase tracking-wider text-sidebar-foreground/60 font-semibold mb-2 px-2 transition-all duration-500 ease-in-out animate-fade-in">
             {label}
           </SidebarGroupLabel>
         )}
         <SidebarGroupContent>
-          <SidebarMenu className="space-y-0.5">
+          <SidebarMenu className={`${isCollapsed && !hoverExpanded ? 'space-y-2' : 'space-y-0.5'}`}>
             {accessibleItems.map((item, index) => {
               const active = isActive(item.url);
               
@@ -278,19 +281,19 @@ export function AppSidebar() {
                     <SidebarMenuButton 
                       asChild 
                       className={`
-                        h-9 rounded-lg transition-all duration-300 group relative
+                        h-9 rounded-lg transition-all duration-400 ease-in-out group relative
                         hover:scale-105 active:scale-95 animate-spring-in
                         ${active 
                           ? 'bg-sidebar-primary text-sidebar-primary-foreground shadow-sm shadow-sidebar-primary/20' 
                           : 'hover:bg-sidebar-accent/50 text-sidebar-foreground/80 hover:text-sidebar-foreground hover:shadow-sm'
                         }
-                        ${isCollapsed && !hoverExpanded ? 'justify-center' : ''}
+                        ${isCollapsed && !hoverExpanded ? 'justify-center w-full' : ''}
                       `}
                     >
-                      <NavLink to={item.url} end>
-                        <item.icon className={`h-4 w-4 transition-transform duration-200 group-hover:scale-110 ${active ? 'text-sidebar-primary-foreground' : ''} ${isCollapsed && !hoverExpanded ? '' : 'mr-2'}`} />
+                      <NavLink to={item.url} end className={`${isCollapsed && !hoverExpanded ? 'flex items-center justify-center w-full h-full' : 'flex items-center'}`}>
+                        <item.icon className={`h-4 w-4 transition-all duration-300 ease-in-out group-hover:scale-110 ${active ? 'text-sidebar-primary-foreground' : ''} ${isCollapsed && !hoverExpanded ? '' : 'mr-2'}`} />
                         {shouldShowLabels && (
-                          <span className={`${active ? 'font-medium' : ''} transition-opacity duration-200`}>
+                          <span className={`${active ? 'font-medium' : ''} transition-all duration-500 ease-in-out whitespace-nowrap text-sm`}>
                             {item.title}
                           </span>
                         )}
@@ -339,12 +342,8 @@ export function AppSidebar() {
       return <SkeletonCollapsible showLabels={shouldShowLabels} />;
     }
 
-    // Check if user can access this module
-    const hasAccess = canAccessModule(requiredModule);
-    console.log(`🔍 [AppSidebar] renderCollapsibleSection('${title}', requiredModule: '${requiredModule}'): ${hasAccess ? 'VISIBLE' : 'HIDDEN'}`);
-    if (!hasAccess) {
-      return null;
-    }
+    // SIMPLIFIED: Show all sections to everyone
+    console.log(`🔍 [AppSidebar] renderCollapsibleSection('${title}', requiredModule: '${requiredModule}'): VISIBLE (universal access)`);
 
     const sectionButton = (
       <SidebarGroup className="px-3 py-1">
@@ -355,30 +354,32 @@ export function AppSidebar() {
                 <SidebarMenuButton
                   onClick={() => setIsOpen(!isOpen)}
                   className={`
-                    h-9 rounded-lg transition-all duration-300 group relative
+                    h-9 rounded-lg transition-all duration-400 ease-in-out group relative
                     hover:scale-105 active:scale-95 animate-spring-in
                     ${isActive 
                       ? 'bg-sidebar-primary text-sidebar-primary-foreground shadow-sm shadow-sidebar-primary/20' 
                       : 'hover:bg-sidebar-accent/50 text-sidebar-foreground/80 hover:text-sidebar-foreground hover:shadow-sm'
                     }
-                    ${isCollapsed && !hoverExpanded ? 'justify-center' : ''}
+                    ${isCollapsed && !hoverExpanded ? 'justify-center w-full' : ''}
                   `}
                 >
-                  {React.createElement(icon, { 
-                    className: `h-4 w-4 transition-transform duration-200 group-hover:scale-110 ${isActive ? 'text-sidebar-primary-foreground' : ''} ${isCollapsed && !hoverExpanded ? '' : 'mr-2'}` 
-                  })}
-                  {shouldShowLabels && (
-                    <>
-                      <span className={`${isActive ? 'font-medium' : ''} transition-opacity duration-200`}>
-                        {title}
-                      </span>
-                      {isOpen ? (
-                        <ChevronDown className="ml-auto h-4 w-4 transition-transform duration-200" />
-                      ) : (
-                        <ChevronRight className="ml-auto h-4 w-4 transition-transform duration-200" />
-                      )}
-                    </>
-                  )}
+                  <div className={`${isCollapsed && !hoverExpanded ? 'flex items-center justify-center w-full h-full' : 'flex items-center w-full'}`}>
+                    {React.createElement(icon, { 
+                      className: `h-4 w-4 transition-all duration-300 ease-in-out group-hover:scale-110 ${isActive ? 'text-sidebar-primary-foreground' : ''} ${isCollapsed && !hoverExpanded ? '' : 'mr-2'}` 
+                    })}
+                    {shouldShowLabels && (
+                      <>
+                        <span className={`${isActive ? 'font-medium' : ''} transition-all duration-500 ease-in-out whitespace-nowrap text-sm flex-1`}>
+                          {title}
+                        </span>
+                        {isOpen ? (
+                          <ChevronDown className="ml-auto h-4 w-4 transition-all duration-400 ease-in-out" />
+                        ) : (
+                          <ChevronRight className="ml-auto h-4 w-4 transition-all duration-400 ease-in-out" />
+                        )}
+                      </>
+                    )}
+                  </div>
                   {isActive && shouldShowLabels && (
                     <div className="absolute right-8 w-1 h-1 bg-sidebar-primary-foreground rounded-full animate-bounce-in" />
                   )}
@@ -444,14 +445,16 @@ export function AppSidebar() {
   };
 
   const handleMouseEnter = () => {
-    if (isCollapsed && !isMobile) {
+    if (!isMobile) {
       setHoverExpanded(true);
+      setOpen(true); // Auto-open sidebar on hover
     }
   };
 
   const handleMouseLeave = () => {
-    if (isCollapsed && !isMobile) {
+    if (!isMobile) {
       setHoverExpanded(false);
+      setOpen(false); // Auto-close sidebar when hover ends
     }
   };
 
@@ -459,7 +462,7 @@ export function AppSidebar() {
     <TooltipProvider>
       <Sidebar 
         className={`
-          border-r border-sidebar-border transition-all duration-300 ease-in-out
+          border-r border-sidebar-border transition-all duration-500 ease-in-out
           ${isCollapsed && !hoverExpanded ? "w-16" : "w-64"}
           ${isMobile && openMobile ? 'fixed inset-y-0 left-0 z-50 shadow-lg' : ''}
           ${isMobile && !openMobile ? 'translate-x-[-100%]' : ''}
@@ -476,24 +479,43 @@ export function AppSidebar() {
           />
         )}
         
+        
         <SidebarContent className="bg-sidebar/95 backdrop-blur supports-[backdrop-filter]:bg-sidebar/95 relative z-50">
-          <div className={`p-4 border-b border-sidebar-border transition-all duration-300 ${isCollapsed && !hoverExpanded ? 'px-2' : ''}`}>
-            <div className={`flex items-center gap-3 ${isCollapsed && !hoverExpanded ? 'justify-center' : ''}`}>
-              <div className="h-8 w-8 rounded-lg bg-sidebar-primary flex items-center justify-center flex-shrink-0 transition-transform duration-300 hover:scale-110 animate-spring-in">
-                <BarChart3 className="h-4 w-4 text-sidebar-primary-foreground transition-transform duration-200" />
-              </div>
+          <div className={`p-4 border-b border-sidebar-border transition-all duration-500 ease-in-out ${isCollapsed && !hoverExpanded ? 'px-2' : ''}`}>
+            <div className="flex items-center justify-between w-full">
+              {/* Toggle Button - Always visible */}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 hover:bg-sidebar-accent/50 transition-all duration-300 ease-in-out flex-shrink-0"
+                onClick={() => {
+                  if (isMobile) {
+                    setOpenMobile(!openMobile);
+                  } else {
+                    setOpen(!open);
+                  }
+                }}
+              >
+                <Menu className="h-4 w-4 text-sidebar-foreground" />
+              </Button>
+              
+              {/* Logo and Title - Show when expanded */}
               {shouldShowLabels && (
-                <div className="transition-opacity duration-200 animate-fade-in">
-                  <h2 className="font-semibold text-sidebar-foreground">Eraya Ops</h2>
-                  <p className="text-xs text-sidebar-foreground/60">Operations Management</p>
+                <div className="flex items-center gap-3 flex-1 ml-3">
+                  <div className="h-8 w-8 rounded-lg bg-sidebar-primary flex items-center justify-center flex-shrink-0 transition-transform duration-300 hover:scale-110 animate-spring-in">
+                    <BarChart3 className="h-4 w-4 text-sidebar-primary-foreground transition-transform duration-200" />
+                  </div>
+                  <div className="transition-all duration-500 ease-in-out animate-fade-in">
+                    <h2 className="font-semibold text-sidebar-foreground">Eraya Ops</h2>
+                  </div>
                 </div>
               )}
             </div>
           </div>
 
-          <div className="flex-1 py-1 overflow-y-auto space-y-1">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden">
             {/* 1. Dashboard & Orders (Operations) */}
-            {renderMenuSection(operationsItems, "Operations")}
+            {renderMenuSection(operationsItems, "")}
             
             {/* 2. Fulfillment - Collapsible with sub-sections */}
             {renderCollapsibleSection(
@@ -531,7 +553,7 @@ export function AppSidebar() {
                             <SidebarMenuButton 
                               asChild 
                               className={`
-                                h-8 rounded-md transition-all duration-200 ml-6 group
+                                h-8 rounded-md transition-all duration-400 ease-in-out ml-6 group
                                 hover:scale-105 active:scale-95
                                 ${active 
                                   ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium shadow-sm' 
@@ -539,9 +561,9 @@ export function AppSidebar() {
                                 }
                               `}
                             >
-                              <NavLink to={item.url}>
-                                <item.icon className="h-4 w-4 mr-2 transition-transform duration-200 group-hover:scale-110" />
-                                <span>{item.title}</span>
+                              <NavLink to={item.url} className="flex items-center">
+                                <item.icon className="h-4 w-4 mr-2 transition-transform duration-300 ease-in-out group-hover:scale-110 flex-shrink-0" />
+                                <span className="whitespace-nowrap text-sm">{item.title}</span>
                               </NavLink>
                             </SidebarMenuButton>
                           </RippleEffect>
@@ -574,7 +596,7 @@ export function AppSidebar() {
                             <SidebarMenuButton 
                               asChild 
                               className={`
-                                h-8 rounded-md transition-all duration-200 ml-6 group
+                                h-8 rounded-md transition-all duration-400 ease-in-out ml-6 group
                                 hover:scale-105 active:scale-95
                                 ${active 
                                   ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium shadow-sm' 
@@ -582,9 +604,9 @@ export function AppSidebar() {
                                 }
                               `}
                             >
-                              <NavLink to={item.url}>
-                                <item.icon className="h-4 w-4 mr-2 transition-transform duration-200 group-hover:scale-110" />
-                                <span>{item.title}</span>
+                              <NavLink to={item.url} className="flex items-center">
+                                <item.icon className="h-4 w-4 mr-2 transition-transform duration-300 ease-in-out group-hover:scale-110 flex-shrink-0" />
+                                <span className="whitespace-nowrap text-sm">{item.title}</span>
                               </NavLink>
                             </SidebarMenuButton>
                           </RippleEffect>
@@ -617,7 +639,7 @@ export function AppSidebar() {
                             <SidebarMenuButton 
                               asChild 
                               className={`
-                                h-8 rounded-md transition-all duration-200 ml-6 group
+                                h-8 rounded-md transition-all duration-400 ease-in-out ml-6 group
                                 hover:scale-105 active:scale-95
                                 ${active 
                                   ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium shadow-sm' 
@@ -625,9 +647,9 @@ export function AppSidebar() {
                                 }
                               `}
                             >
-                              <NavLink to={item.url}>
-                                <item.icon className="h-4 w-4 mr-2 transition-transform duration-200 group-hover:scale-110" />
-                                <span>{item.title}</span>
+                              <NavLink to={item.url} className="flex items-center">
+                                <item.icon className="h-4 w-4 mr-2 transition-transform duration-300 ease-in-out group-hover:scale-110 flex-shrink-0" />
+                                <span className="whitespace-nowrap text-sm">{item.title}</span>
                               </NavLink>
                             </SidebarMenuButton>
                           </RippleEffect>
@@ -660,7 +682,7 @@ export function AppSidebar() {
                             <SidebarMenuButton 
                               asChild 
                               className={`
-                                h-8 rounded-md transition-all duration-200 ml-6 group
+                                h-8 rounded-md transition-all duration-400 ease-in-out ml-6 group
                                 hover:scale-105 active:scale-95
                                 ${active 
                                   ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium shadow-sm' 
@@ -668,9 +690,9 @@ export function AppSidebar() {
                                 }
                               `}
                             >
-                              <NavLink to={item.url}>
-                                <item.icon className="h-4 w-4 mr-2 transition-transform duration-200 group-hover:scale-110" />
-                                <span>{item.title}</span>
+                              <NavLink to={item.url} className="flex items-center">
+                                <item.icon className="h-4 w-4 mr-2 transition-transform duration-300 ease-in-out group-hover:scale-110 flex-shrink-0" />
+                                <span className="whitespace-nowrap text-sm">{item.title}</span>
                               </NavLink>
                             </SidebarMenuButton>
                           </RippleEffect>
@@ -703,7 +725,7 @@ export function AppSidebar() {
                             <SidebarMenuButton 
                               asChild 
                               className={`
-                                h-8 rounded-md transition-all duration-200 ml-6 group
+                                h-8 rounded-md transition-all duration-400 ease-in-out ml-6 group
                                 hover:scale-105 active:scale-95
                                 ${active 
                                   ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium shadow-sm' 
@@ -711,9 +733,9 @@ export function AppSidebar() {
                                 }
                               `}
                             >
-                              <NavLink to={item.url}>
-                                <item.icon className="h-4 w-4 mr-2 transition-transform duration-200 group-hover:scale-110" />
-                                <span>{item.title}</span>
+                              <NavLink to={item.url} className="flex items-center">
+                                <item.icon className="h-4 w-4 mr-2 transition-transform duration-300 ease-in-out group-hover:scale-110 flex-shrink-0" />
+                                <span className="whitespace-nowrap text-sm">{item.title}</span>
                               </NavLink>
                             </SidebarMenuButton>
                           </RippleEffect>
@@ -746,7 +768,7 @@ export function AppSidebar() {
                             <SidebarMenuButton 
                               asChild 
                               className={`
-                                h-8 rounded-md transition-all duration-200 ml-6 group
+                                h-8 rounded-md transition-all duration-400 ease-in-out ml-6 group
                                 hover:scale-105 active:scale-95
                                 ${active 
                                   ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium shadow-sm' 
@@ -754,9 +776,9 @@ export function AppSidebar() {
                                 }
                               `}
                             >
-                              <NavLink to={item.url}>
-                                <item.icon className="h-4 w-4 mr-2 transition-transform duration-200 group-hover:scale-110" />
-                                <span>{item.title}</span>
+                              <NavLink to={item.url} className="flex items-center">
+                                <item.icon className="h-4 w-4 mr-2 transition-transform duration-300 ease-in-out group-hover:scale-110 flex-shrink-0" />
+                                <span className="whitespace-nowrap text-sm">{item.title}</span>
                               </NavLink>
                             </SidebarMenuButton>
                           </RippleEffect>
@@ -789,7 +811,7 @@ export function AppSidebar() {
                             <SidebarMenuButton 
                               asChild 
                               className={`
-                                h-8 rounded-md transition-all duration-200 ml-6 group
+                                h-8 rounded-md transition-all duration-400 ease-in-out ml-6 group
                                 hover:scale-105 active:scale-95
                                 ${active 
                                   ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium shadow-sm' 
@@ -797,9 +819,9 @@ export function AppSidebar() {
                                 }
                               `}
                             >
-                              <NavLink to={item.url}>
-                                <item.icon className="h-4 w-4 mr-2 transition-transform duration-200 group-hover:scale-110" />
-                                <span>{item.title}</span>
+                              <NavLink to={item.url} className="flex items-center">
+                                <item.icon className="h-4 w-4 mr-2 transition-transform duration-300 ease-in-out group-hover:scale-110 flex-shrink-0" />
+                                <span className="whitespace-nowrap text-sm">{item.title}</span>
                               </NavLink>
                             </SidebarMenuButton>
                           </RippleEffect>
@@ -832,7 +854,7 @@ export function AppSidebar() {
                             <SidebarMenuButton 
                               asChild 
                               className={`
-                                h-8 rounded-md transition-all duration-200 ml-6 group
+                                h-8 rounded-md transition-all duration-400 ease-in-out ml-6 group
                                 hover:scale-105 active:scale-95
                                 ${active 
                                   ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium shadow-sm' 
@@ -840,9 +862,9 @@ export function AppSidebar() {
                                 }
                               `}
                             >
-                              <NavLink to={item.url}>
-                                <item.icon className="h-4 w-4 mr-2 transition-transform duration-200 group-hover:scale-110" />
-                                <span>{item.title}</span>
+                              <NavLink to={item.url} className="flex items-center">
+                                <item.icon className="h-4 w-4 mr-2 transition-transform duration-300 ease-in-out group-hover:scale-110 flex-shrink-0" />
+                                <span className="whitespace-nowrap text-sm">{item.title}</span>
                               </NavLink>
                             </SidebarMenuButton>
                           </RippleEffect>
@@ -875,7 +897,7 @@ export function AppSidebar() {
                             <SidebarMenuButton 
                               asChild 
                               className={`
-                                h-8 rounded-md transition-all duration-200 ml-6 group
+                                h-8 rounded-md transition-all duration-400 ease-in-out ml-6 group
                                 hover:scale-105 active:scale-95
                                 ${active 
                                   ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium shadow-sm' 
@@ -883,9 +905,9 @@ export function AppSidebar() {
                                 }
                               `}
                             >
-                              <NavLink to={item.url}>
-                                <item.icon className="h-4 w-4 mr-2 transition-transform duration-200 group-hover:scale-110" />
-                                <span>{item.title}</span>
+                              <NavLink to={item.url} className="flex items-center">
+                                <item.icon className="h-4 w-4 mr-2 transition-transform duration-300 ease-in-out group-hover:scale-110 flex-shrink-0" />
+                                <span className="whitespace-nowrap text-sm">{item.title}</span>
                               </NavLink>
                             </SidebarMenuButton>
                           </RippleEffect>
@@ -918,7 +940,7 @@ export function AppSidebar() {
                             <SidebarMenuButton 
                               asChild 
                               className={`
-                                h-8 rounded-md transition-all duration-200 ml-6 group
+                                h-8 rounded-md transition-all duration-400 ease-in-out ml-6 group
                                 hover:scale-105 active:scale-95
                                 ${active 
                                   ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium shadow-sm' 
@@ -926,9 +948,9 @@ export function AppSidebar() {
                                 }
                               `}
                             >
-                              <NavLink to={item.url}>
-                                <item.icon className="h-4 w-4 mr-2 transition-transform duration-200 group-hover:scale-110" />
-                                <span>{item.title}</span>
+                              <NavLink to={item.url} className="flex items-center">
+                                <item.icon className="h-4 w-4 mr-2 transition-transform duration-300 ease-in-out group-hover:scale-110 flex-shrink-0" />
+                                <span className="whitespace-nowrap text-sm">{item.title}</span>
                               </NavLink>
                             </SidebarMenuButton>
                           </RippleEffect>

@@ -20,11 +20,31 @@ import {
   Bell,
   Timer,
   AlertTriangle,
-  PackageSearch
+  PackageSearch,
+  Sun,
+  Sunset,
+  Moon,
+  Sunrise
 } from "lucide-react";
 
 export default function Dashboard() {
   const { kpis, recentOrders, recentOrdersLoading } = useDashboardKPIs();
+
+  const getGreeting = () => {
+    const now = new Date();
+    const istTime = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
+    const hour = istTime.getHours();
+
+    if (hour >= 5 && hour < 12) {
+      return { text: "Good Morning!", icon: <Sunrise className="h-8 w-8 text-orange-500" /> };
+    } else if (hour >= 12 && hour < 17) {
+      return { text: "Good Afternoon!", icon: <Sun className="h-8 w-8 text-yellow-500" /> };
+    } else if (hour >= 17 && hour < 21) {
+      return { text: "Good Evening!", icon: <Sunset className="h-8 w-8 text-orange-600" /> };
+    } else {
+      return { text: "Good Night!", icon: <Moon className="h-8 w-8 text-blue-400" /> };
+    }
+  };
 
   const getStatusBadgeVariant = (status: string) => {
     switch (status?.toLowerCase()) {
@@ -44,8 +64,9 @@ export default function Dashboard() {
       {/* Header with Greeting */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-4xl font-bold font-poppins bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
-            Good Morning! 👋
+          <h1 className="text-4xl font-bold font-poppins bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent flex items-center gap-3">
+            {getGreeting().text}
+            {getGreeting().icon}
           </h1>
           <p className="text-muted-foreground mt-2">
             {new Date().toLocaleDateString('en-US', { 
@@ -178,7 +199,7 @@ export default function Dashboard() {
           <CardContent>
             {recentOrdersLoading ? (
               <div className="space-y-3">
-                {Array.from({ length: 5 }).map((_, index) => (
+                {Array.from({ length: 3 }).map((_, index) => (
                   <div key={index} className="flex items-center justify-between">
                     <div className="space-y-1">
                       <Skeleton className="h-4 w-16" />
@@ -192,28 +213,43 @@ export default function Dashboard() {
                 ))}
               </div>
             ) : (
-              <div className="space-y-3">
-                {recentOrders.slice(0, 6).map((order, index) => (
-                  <div key={index} className="flex items-center justify-between hover:bg-muted/20 rounded-lg p-2 transition-colors">
-                    <div>
-                      <div className="font-medium text-sm">{order.id}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {order.customer} • {order.items} items
-                      </div>
-                    </div>
-                    <div className="text-right">
+              <div className="space-y-2">
+                {recentOrders.slice(0, 5).map((order, index) => (
+                  <div key={index} className="border rounded-md p-2 hover:bg-muted/20 transition-colors">
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="font-medium text-sm">#{order.id}</div>
                       <Badge 
                         variant={getStatusBadgeVariant(order.status)}
-                        className="text-xs"
+                        className="text-xs px-2 py-0"
                       >
                         {order.status}
                       </Badge>
-                      <div className="text-xs text-muted-foreground mt-1">
-                        {order.time}
-                      </div>
+                    </div>
+                    
+                    <div className="flex items-center justify-between text-xs">
+                      <div>{order.customer}</div>
+                      <div className="font-medium text-green-600">{order.amount}</div>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <div className="truncate flex-1 mr-2">{order.email}</div>
+                      <div className="flex-shrink-0">{order.time}</div>
                     </div>
                   </div>
                 ))}
+                
+                {recentOrders.length > 5 && (
+                  <div className="pt-2 border-t">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="w-full"
+                      onClick={() => window.location.href = '/orders'}
+                    >
+                      View All Orders ({recentOrders.length})
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
           </CardContent>
