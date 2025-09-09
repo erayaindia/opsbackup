@@ -67,19 +67,27 @@ DECLARE
 BEGIN
     -- Find and drop all foreign key constraints on employees_details that reference app_users
     FOR constraint_record IN 
-        SELECT constraint_name
+        SELECT tc.constraint_name
         FROM information_schema.table_constraints tc
         JOIN information_schema.key_column_usage kcu 
             ON tc.constraint_name = kcu.constraint_name
+            AND tc.table_schema = kcu.table_schema
         JOIN information_schema.constraint_column_usage ccu
             ON ccu.constraint_name = tc.constraint_name
+            AND ccu.table_schema = tc.table_schema
         WHERE tc.constraint_type = 'FOREIGN KEY' 
             AND tc.table_name = 'employees_details'
+            AND tc.table_schema = 'public'
             AND ccu.table_name = 'app_users'
     LOOP
         EXECUTE 'ALTER TABLE employees_details DROP CONSTRAINT ' || constraint_record.constraint_name;
         RAISE NOTICE 'Dropped constraint: %', constraint_record.constraint_name;
     END LOOP;
+    
+    -- If no constraints found, just notify
+    IF NOT FOUND THEN
+        RAISE NOTICE 'No foreign key constraints to app_users found';
+    END IF;
 END $$;
 
 -- =============================================================================
