@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { WORK_LOCATIONS, EMPLOYMENT_TYPES, USER_ROLES, DEPARTMENTS, RELATIONSHIPS, INDIAN_BANKS } from '@/types/onboarding.types'
+import { WORK_LOCATIONS, EMPLOYMENT_TYPES, USER_ROLES, DEPARTMENTS, RELATIONSHIPS, INDIAN_BANKS, GENDERS } from '@/types/onboarding.types'
 
 // Step 1: Basic Information Schema
 export const basicInfoSchema = z.object({
@@ -14,9 +14,8 @@ export const basicInfoSchema = z.object({
     .transform(val => val.toLowerCase()),
   phone: z
     .string()
-    .regex(/^\+?[\d\s\-\(\)]{10,15}$/, 'Please enter a valid phone number')
-    .optional()
-    .or(z.literal('')),
+    .min(1, 'Phone number is required')
+    .regex(/^\+?[\d\s\-\(\)]{10,15}$/, 'Please enter a valid phone number'),
   date_of_birth: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'Please select a valid date')
@@ -25,7 +24,8 @@ export const basicInfoSchema = z.object({
       const today = new Date()
       const age = today.getFullYear() - birthDate.getFullYear()
       return age >= 18 && age <= 80
-    }, 'Age must be between 18 and 80 years')
+    }, 'Age must be between 18 and 80 years'),
+  gender: z.enum(GENDERS)
 })
 
 // Step 2: Address & Emergency Schema
@@ -46,15 +46,17 @@ export const addressEmergencySchema = z.object({
     same_as_current: z.boolean().default(false)
   }).default({}),
   emergency: z.object({
-    name: z.string().min(2, 'Emergency contact name is required').optional(),
-    relationship: z.enum(RELATIONSHIPS).optional(),
+    name: z.string().min(2, 'Emergency contact name is required'),
+    relationship: z.enum(RELATIONSHIPS),
     phone: z
       .string()
-      .regex(/^\+?[\d\s\-\(\)]{10,15}$/, 'Please enter a valid phone number')
-      .optional()
-      .or(z.literal('')),
+      .min(1, 'Emergency contact phone is required')
+      .regex(/^\+?[\d\s\-\(\)]{10,15}$/, 'Please enter a valid phone number'),
     email: z.string().email('Please enter a valid email').optional().or(z.literal(''))
   }).default({})
+  .refine((data) => {
+    return true; // Will add phone validation in complete form schema
+  })
 })
 
 // Step 3: Work Details Schema
@@ -66,16 +68,13 @@ export const workDetailsSchema = z.object({
     .optional()
     .or(z.literal('')),
   work_location: z
-    .enum(WORK_LOCATIONS)
-    .default('Patna'),
+    .enum(WORK_LOCATIONS),
   employment_type: z
-    .enum(EMPLOYMENT_TYPES)
-    .default('Full-time'),
+    .enum(EMPLOYMENT_TYPES),
   joined_at: z
     .string()
+    .min(1, 'Joining date is required')
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'Please select a valid date')
-    .optional()
-    .or(z.literal(''))
 })
 
 // Step 4: Bank Details Schema
@@ -83,11 +82,13 @@ export const bankDetailsSchema = z.object({
   bank_details: z.object({
     account_number: z
       .string()
+      .min(1, 'Account number is required')
       .min(8, 'Account number must be at least 8 digits')
       .max(20, 'Account number must be less than 20 digits')
       .regex(/^\d+$/, 'Account number should contain only digits'),
     account_holder_name: z
       .string()
+      .min(1, 'Account holder name is required')
       .min(2, 'Account holder name must be at least 2 characters')
       .max(100, 'Account holder name must be less than 100 characters')
       .regex(/^[a-zA-Z\s\.]+$/, 'Account holder name can only contain letters, spaces, and periods'),
@@ -96,6 +97,7 @@ export const bankDetailsSchema = z.object({
       .min(1, 'Bank name is required'),
     ifsc_code: z
       .string()
+      .min(1, 'IFSC code is required')
       .regex(/^[A-Z]{4}0[A-Z0-9]{6}$/, 'Please enter a valid IFSC code (e.g., SBIN0000123)'),
     branch_name: z
       .string()
@@ -123,11 +125,11 @@ export const documentsSchema = z.object({
     signed_url: z.string().optional()
   })).default([])
   .refine((docs) => {
-    const requiredTypes = ['Aadhaar', 'PAN', 'BankPassbook', 'Photo', 'Education'];
+    const requiredTypes = ['Aadhaar Front', 'Aadhaar Back', 'PAN', 'BankPassbook', 'Photo', 'Education'];
     const uploadedTypes = docs.map(doc => doc.type);
     return requiredTypes.every(type => uploadedTypes.includes(type));
   }, {
-    message: 'Please upload all required documents: Aadhaar Card, PAN Card, Bank Passbook Photo, Profile Photo, and Education Certificates'
+    message: 'Please upload all required documents: Aadhaar Card Front, Aadhaar Card Back, PAN Card, Bank Passbook Photo, Profile Photo, and Education Certificates'
   }),
   notes: z
     .string()
@@ -143,6 +145,19 @@ export const onboardingFormSchema = z.object({
   ...workDetailsSchema.shape,
   ...bankDetailsSchema.shape,
   ...documentsSchema.shape
+})
+.refine((data) => {
+  // Validate emergency contact phone is different from user phone
+  const userPhone = data.phone?.replace(/[\s\-\(\)]/g, '');
+  const emergencyPhone = data.emergency?.phone?.replace(/[\s\-\(\)]/g, '');
+  
+  if (userPhone && emergencyPhone && userPhone === emergencyPhone) {
+    return false;
+  }
+  return true;
+}, {
+  message: 'Emergency contact phone number must be different from your phone number',
+  path: ['emergency', 'phone']
 })
 
 // Admin Approval Schema

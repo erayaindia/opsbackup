@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { OnboardingWizard } from '@/components/onboarding/OnboardingWizard'
+import EmployeeOnboardingWizard from '@/components/onboarding/EmployeeOnboardingWizard'
 import { OnboardingFormData } from '@/types/onboarding.types'
 import { onboardingFormSchema } from '@/schemas/onboarding.schemas'
 import { submitOnboardingApplication } from '@/services/onboardingService'
@@ -21,8 +21,10 @@ export default function Onboard() {
       personal_email: '',
       phone: '',
       date_of_birth: '',
-      work_location: 'Patna',
-      employment_type: 'Full-time',
+      gender: 'Male',
+      work_location: '',
+      employment_type: '',
+      joined_at: '',
       addresses: {},
       emergency: {},
       bank_details: {},
@@ -171,29 +173,6 @@ export default function Onboard() {
               </p>
             </div>
             
-            {/* Modern Trust Indicators */}
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 max-w-3xl mx-auto">
-              <div className="group relative overflow-hidden rounded-xl bg-white/50 dark:bg-slate-800/50 p-4 backdrop-blur-sm transition-all hover:bg-white/80 dark:hover:bg-slate-800/80">
-                <div className="absolute -right-3 -top-3 h-16 w-16 rounded-full bg-green-500/10 dark:bg-green-400/10" />
-                <Shield className="relative mb-2 h-5 w-5 text-green-600 dark:text-green-400" />
-                <h3 className="mb-1 font-semibold text-sm text-slate-900 dark:text-white">Secure & Private</h3>
-                <p className="text-xs text-slate-600 dark:text-slate-400">Your data is encrypted and protected</p>
-              </div>
-              
-              <div className="group relative overflow-hidden rounded-xl bg-white/50 dark:bg-slate-800/50 p-4 backdrop-blur-sm transition-all hover:bg-white/80 dark:hover:bg-slate-800/80">
-                <div className="absolute -right-3 -top-3 h-16 w-16 rounded-full bg-blue-500/10 dark:bg-blue-400/10" />
-                <Users className="relative mb-2 h-5 w-5 text-blue-600 dark:text-blue-400" />
-                <h3 className="mb-1 font-semibold text-sm text-slate-900 dark:text-white">HR Reviewed</h3>
-                <p className="text-xs text-slate-600 dark:text-slate-400">Professionally reviewed by our team</p>
-              </div>
-              
-              <div className="group relative overflow-hidden rounded-xl bg-white/50 dark:bg-slate-800/50 p-4 backdrop-blur-sm transition-all hover:bg-white/80 dark:hover:bg-slate-800/80">
-                <div className="absolute -right-3 -top-3 h-16 w-16 rounded-full bg-purple-500/10 dark:bg-purple-400/10" />
-                <CheckCircle className="relative mb-2 h-5 w-5 text-purple-600 dark:text-purple-400" />
-                <h3 className="mb-1 font-semibold text-sm text-slate-900 dark:text-white">Quick Process</h3>
-                <p className="text-xs text-slate-600 dark:text-slate-400">Complete in just a few minutes</p>
-              </div>
-            </div>
           </div>
         </div>
       </div>
@@ -201,11 +180,7 @@ export default function Onboard() {
       {/* Form Section - Full Width */}
       <div className="flex-1 px-6 py-6 max-w-none">
         <div className="w-full max-w-none">
-          <OnboardingWizard
-            form={form}
-            onSubmit={handleSubmit}
-            isSubmitting={isSubmitting}
-          />
+          <EmployeeOnboardingWizard />
         </div>
       </div>
       

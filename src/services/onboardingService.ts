@@ -9,63 +9,182 @@ import {
   ApprovalFormData
 } from '@/types/onboarding.types'
 
-// API Base URL
-const getApiUrl = (endpoint: string) => {
-  const supabaseUrl = supabase.supabaseUrl
-  return `${supabaseUrl}/functions/v1/${endpoint}`
+// Helper function to transform form data to database format
+function transformFormDataToDatabase(data: any) {
+  return {
+    full_name: data.fullName,
+    personal_email: data.personalEmail,
+    phone_number: data.phoneNumber,
+    date_of_birth: data.dateOfBirth,
+    gender: data.gender,
+    designation: data.designation,
+    work_location: data.workLocation,
+    employment_type: data.employmentType,
+    joining_date: data.joiningDate,
+    current_address: {
+      street: data.currentAddress?.street || '',
+      city: data.currentAddress?.city || '',
+      state: data.currentAddress?.state || '',
+      pincode: data.currentAddress?.pincode || ''
+    },
+    permanent_address: {
+      street: data.permanentAddress?.street || '',
+      city: data.permanentAddress?.city || '',
+      state: data.permanentAddress?.state || '',
+      pincode: data.permanentAddress?.pincode || ''
+    },
+    same_as_current: data.sameAsCurrentAddress || false,
+    emergency_contact: {
+      name: data.emergencyName,
+      relationship: data.emergencyRelationship,
+      phone: data.emergencyPhone
+    },
+    bank_details: {
+      account_holder_name: data.accountHolderName,
+      account_number: data.bankAccountNumber,
+      bank_name: data.bankName,
+      ifsc_code: data.ifscCode,
+      branch_name: data.branchName || '',
+      upi_id: data.upiId || ''
+    },
+    documents: data.documents || [],
+    notes: data.notes || ''
+  }
 }
 
-// Submit onboarding application
+// Submit onboarding application directly to database
 export async function submitOnboardingApplication(
   data: OnboardingFormData
 ): Promise<OnboardingSubmissionResponse> {
   try {
-    const response = await fetch(getApiUrl('onboarding-submit'), {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(data)
-    })
-
-    const result = await response.json()
+    // Get current user
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
     
-    if (!response.ok) {
-      throw new Error(result.error?.message || 'Submission failed')
+    if (authError || !user) {
+      throw new Error('Authentication required')
     }
 
-    return result
+    // Transform the form data to match database schema
+    const dbData = transformFormDataToDatabase(data)
+    
+    // Insert the application into the database
+    const { data: insertResult, error: insertError } = await supabase
+      .from('employees_details')
+      .insert({
+        ...dbData,
+        status: 'submitted',
+        submission_date: new Date().toISOString(),
+        created_by: user.id
+      })
+      .select('id, application_id')
+      .single()
+
+    if (insertError) {
+      console.error('Database insert error:', insertError)
+      throw new Error(insertError.message || 'Failed to submit application')
+    }
+
+    // Return success response
+    return {
+      ok: true,
+      data: {
+        applicant_id: insertResult.application_id,
+        message: 'Application submitted successfully',
+        status: 'submitted'
+      },
+      timestamp: new Date().toISOString()
+    }
+
   } catch (error) {
     console.error('Error submitting onboarding application:', error)
-    throw error
+    return {
+      ok: false,
+      error: {
+        message: error instanceof Error ? error.message : 'Failed to submit application'
+      },
+      timestamp: new Date().toISOString()
+    }
   }
 }
 
-// Upload document file
+// Upload document file to storage bucket
 export async function uploadDocument(
   file: File,
-  type: string
+  type: string,
+  applicationId?: string
 ): Promise<DocumentUploadResponse> {
   try {
-    const formData = new FormData()
-    formData.append('file', file)
-    formData.append('type', type)
-
-    const response = await fetch(getApiUrl('onboarding-upload'), {
-      method: 'POST',
-      body: formData
-    })
-
-    const result = await response.json()
+    // Get current user
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
     
-    if (!response.ok) {
-      throw new Error(result.error?.message || 'Upload failed')
+    if (authError || !user) {
+      throw new Error('Authentication required')
     }
 
-    return result
+    // Validate file
+    if (!isValidFileType(file)) {
+      throw new Error('Invalid file type. Please upload PDF, DOC, DOCX, or image files.')
+    }
+
+    if (!isValidFileSize(file)) {
+      throw new Error('File too large. Maximum size is 50MB.')
+    }
+
+    // Generate unique file path
+    const timestamp = Date.now()
+    const fileExt = file.name.split('.').pop()
+    const fileName = `${type}_${timestamp}.${fileExt}`
+    const filePath = applicationId 
+      ? `onboarding/${applicationId}/${type}/${fileName}`
+      : `onboarding/temp/${user.id}/${type}/${fileName}`
+
+    // Upload to storage
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('employee-documents')
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: true
+      })
+
+    if (uploadError) {
+      console.error('Storage upload error:', uploadError)
+      throw new Error(uploadError.message || 'Failed to upload file')
+    }
+
+    // Get signed URL for the uploaded file
+    const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+      .from('employee-documents')
+      .createSignedUrl(filePath, 3600) // 1 hour expiry
+
+    if (signedUrlError) {
+      console.error('Signed URL error:', signedUrlError)
+      // Continue without signed URL - not critical
+    }
+
+    // Return success response
+    return {
+      ok: true,
+      data: {
+        path: filePath,
+        type: type,
+        filename: file.name,
+        size: file.size,
+        mime_type: file.type,
+        signed_url: signedUrlData?.signedUrl,
+        uploaded_at: new Date().toISOString()
+      },
+      timestamp: new Date().toISOString()
+    }
+
   } catch (error) {
     console.error('Error uploading document:', error)
-    throw error
+    return {
+      ok: false,
+      error: {
+        message: error instanceof Error ? error.message : 'Failed to upload document'
+      },
+      timestamp: new Date().toISOString()
+    }
   }
 }
 
@@ -73,17 +192,65 @@ export async function uploadDocument(
 export async function getOnboardingApplications(): Promise<OnboardingApplicant[]> {
   try {
     const { data, error } = await supabase
-      .from('onboarding_applicants')
-      .select('*')
+      .from('employees_details')
+      .select(`
+        id,
+        application_id,
+        status,
+        full_name,
+        personal_email,
+        phone_number,
+        designation,
+        work_location,
+        employment_type,
+        joining_date,
+        current_address,
+        permanent_address,
+        emergency_contact,
+        bank_details,
+        documents,
+        notes,
+        app_user_id,
+        created_at,
+        updated_at,
+        submission_date,
+        approval_date
+      `)
       .order('created_at', { ascending: false })
 
     if (error) {
-      // Return mock data for testing when database is not set up
+      console.error('Database error:', error)
+      // Return mock data for testing when database is not available
       console.log('Database not available, returning mock data for testing')
       return getMockOnboardingApplications()
     }
 
-    return data || []
+    // Transform database results to match OnboardingApplicant interface
+    const transformedData = (data || []).map(item => ({
+      id: item.application_id, // Use application_id as the public ID
+      status: item.status as 'submitted' | 'approved' | 'rejected' | 'withdrawn',
+      full_name: item.full_name,
+      personal_email: item.personal_email,
+      phone: item.phone_number,
+      designation: item.designation,
+      work_location: item.work_location,
+      employment_type: item.employment_type,
+      joined_at: item.joining_date,
+      addresses: {
+        current: item.current_address,
+        permanent: item.permanent_address,
+        same_as_current: item.permanent_address === item.current_address
+      },
+      emergency: item.emergency_contact,
+      bank_details: item.bank_details,
+      documents: item.documents || [],
+      notes: item.notes,
+      mapped_app_user_id: item.app_user_id,
+      created_at: item.created_at,
+      updated_at: item.updated_at
+    }))
+
+    return transformedData
   } catch (error) {
     console.error('Error fetching onboarding applications:', error)
     // Return mock data for testing
@@ -413,9 +580,31 @@ function getMockOnboardingApplications(): OnboardingApplicant[] {
 export async function getOnboardingApplication(id: string): Promise<OnboardingApplicant | null> {
   try {
     const { data, error } = await supabase
-      .from('onboarding_applicants')
-      .select('*')
-      .eq('id', id)
+      .from('employees_details')
+      .select(`
+        id,
+        application_id,
+        status,
+        full_name,
+        personal_email,
+        phone_number,
+        designation,
+        work_location,
+        employment_type,
+        joining_date,
+        current_address,
+        permanent_address,
+        emergency_contact,
+        bank_details,
+        documents,
+        notes,
+        app_user_id,
+        created_at,
+        updated_at,
+        submission_date,
+        approval_date
+      `)
+      .eq('application_id', id)
       .single()
 
     if (error) {
@@ -425,45 +614,182 @@ export async function getOnboardingApplication(id: string): Promise<OnboardingAp
       throw new Error(error.message)
     }
 
-    return data
+    // Transform to match OnboardingApplicant interface
+    return {
+      id: data.application_id,
+      status: data.status as 'submitted' | 'approved' | 'rejected' | 'withdrawn',
+      full_name: data.full_name,
+      personal_email: data.personal_email,
+      phone: data.phone_number,
+      designation: data.designation,
+      work_location: data.work_location,
+      employment_type: data.employment_type,
+      joined_at: data.joining_date,
+      addresses: {
+        current: data.current_address,
+        permanent: data.permanent_address,
+        same_as_current: data.permanent_address === data.current_address
+      },
+      emergency: data.emergency_contact,
+      bank_details: data.bank_details,
+      documents: data.documents || [],
+      notes: data.notes,
+      mapped_app_user_id: data.app_user_id,
+      created_at: data.created_at,
+      updated_at: data.updated_at
+    }
   } catch (error) {
     console.error('Error fetching onboarding application:', error)
     throw error
   }
 }
 
-// Admin: Approve onboarding application
+// Admin: Approve onboarding application and create app user
 export async function approveOnboardingApplication(
   data: ApprovalFormData
 ): Promise<ApprovalResponse> {
   try {
-    // Get current user's session token
-    const { data: { session } } = await supabase.auth.getSession()
+    // Get current user's session
+    const { data: { session, user }, error: sessionError } = await supabase.auth.getSession()
     
-    if (!session) {
+    if (sessionError || !session || !user) {
       throw new Error('Authentication required')
     }
 
-    const response = await fetch(getApiUrl('admin-approve-onboarding'), {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.access_token}`
-      },
-      body: JSON.stringify(data)
-    })
+    // Check if current user is admin
+    const { data: adminUser, error: adminError } = await supabase
+      .from('app_users')
+      .select('role, status')
+      .eq('auth_user_id', user.id)
+      .single()
 
-    const result = await response.json()
-    
-    if (!response.ok) {
-      throw new Error(result.error?.message || 'Approval failed')
+    if (adminError || !adminUser || !['super_admin', 'admin'].includes(adminUser.role) || adminUser.status !== 'active') {
+      throw new Error('Admin privileges required')
     }
 
-    return result
+    // Get the onboarding application
+    const { data: application, error: fetchError } = await supabase
+      .from('employees_details')
+      .select('*')
+      .eq('application_id', data.applicant_id)
+      .single()
+
+    if (fetchError || !application) {
+      throw new Error('Application not found')
+    }
+
+    if (application.status !== 'submitted' && application.status !== 'under_review') {
+      throw new Error('Application is not in a state that can be approved')
+    }
+
+    // Create auth user account
+    const tempPassword = generateTempPassword()
+    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+      email: data.company_email,
+      password: tempPassword,
+      email_confirm: true,
+      user_metadata: {
+        full_name: application.full_name,
+        created_from_onboarding: true
+      }
+    })
+
+    if (authError || !authData.user) {
+      throw new Error(`Failed to create auth user: ${authError?.message}`)
+    }
+
+    // Create app user record
+    const { data: appUser, error: appUserError } = await supabase
+      .from('app_users')
+      .insert({
+        auth_user_id: authData.user.id,
+        full_name: application.full_name,
+        company_email: data.company_email,
+        personal_email: application.personal_email,
+        phone: application.phone_number,
+        role: data.role,
+        department: data.department,
+        designation: application.designation,
+        work_location: application.work_location,
+        employment_type: application.employment_type,
+        joined_at: application.joining_date,
+        status: data.set_active ? 'active' : 'pending',
+        module_access: ['dashboard'] // Default access, can be expanded
+      })
+      .select('id')
+      .single()
+
+    if (appUserError || !appUser) {
+      // Rollback auth user if app user creation fails
+      await supabase.auth.admin.deleteUser(authData.user.id)
+      throw new Error(`Failed to create app user: ${appUserError?.message}`)
+    }
+
+    // Update onboarding application status (trigger will auto-assign employee_id)
+    const { data: updatedApplication, error: updateError } = await supabase
+      .from('employees_details')
+      .update({
+        status: 'approved',
+        approval_date: new Date().toISOString(),
+        approved_by: adminUser.id,
+        app_user_id: appUser.id
+      })
+      .eq('application_id', data.applicant_id)
+      .select('employee_id')
+      .single()
+
+    if (updateError) {
+      throw new Error(`Failed to update application status: ${updateError.message}`)
+    }
+
+    // Sync the auto-generated employee_id to app_users table
+    if (updatedApplication?.employee_id) {
+      const { error: syncError } = await supabase
+        .from('app_users')
+        .update({ employee_id: updatedApplication.employee_id })
+        .eq('id', appUser.id)
+
+      if (syncError) {
+        console.error('Warning: Failed to sync employee_id to app_users:', syncError)
+        // Don't throw error here as the main approval was successful
+      }
+    }
+
+    return {
+      ok: true,
+      data: {
+        app_user_id: appUser.id,
+        auth_user_id: authData.user.id,
+        employee_id: updatedApplication?.employee_id,
+        company_email: data.company_email,
+        temp_password: tempPassword,
+        tempPasswordSet: true,
+        status: 'approved',
+        message: `Application approved and user account created successfully${updatedApplication?.employee_id ? ` (Employee ID: ${updatedApplication.employee_id})` : ''}`
+      },
+      timestamp: new Date().toISOString()
+    }
+
   } catch (error) {
     console.error('Error approving onboarding application:', error)
-    throw error
+    return {
+      ok: false,
+      error: {
+        message: error instanceof Error ? error.message : 'Failed to approve application'
+      },
+      timestamp: new Date().toISOString()
+    }
   }
+}
+
+// Helper function to generate temporary password
+function generateTempPassword(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%'
+  let password = ''
+  for (let i = 0; i < 12; i++) {
+    password += chars.charAt(Math.floor(Math.random() * chars.length))
+  }
+  return password
 }
 
 // Admin: Reject onboarding application
@@ -472,14 +798,33 @@ export async function rejectOnboardingApplication(
   reason?: string
 ): Promise<void> {
   try {
+    // Get current user for admin check
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    
+    if (authError || !user) {
+      throw new Error('Authentication required')
+    }
+
+    // Check if current user is admin
+    const { data: adminUser, error: adminError } = await supabase
+      .from('app_users')
+      .select('id, role, status')
+      .eq('auth_user_id', user.id)
+      .single()
+
+    if (adminError || !adminUser || !['super_admin', 'admin'].includes(adminUser.role) || adminUser.status !== 'active') {
+      throw new Error('Admin privileges required')
+    }
+
     const { error } = await supabase
-      .from('onboarding_applicants')
+      .from('employees_details')
       .update({ 
         status: 'rejected',
-        notes: reason ? `Rejection reason: ${reason}` : undefined,
-        updated_at: new Date().toISOString()
+        rejection_reason: reason || 'Application rejected by admin',
+        approval_date: new Date().toISOString(),
+        approved_by: adminUser.id
       })
-      .eq('id', applicantId)
+      .eq('application_id', applicantId)
 
     if (error) {
       throw new Error(error.message)
@@ -556,4 +901,35 @@ export function isValidFileType(file: File): boolean {
 export function isValidFileSize(file: File): boolean {
   const maxSize = 50 * 1024 * 1024 // 50MB
   return file.size <= maxSize
+}
+
+// Get employee ID statistics and next available ID
+export async function getEmployeeIdStats() {
+  try {
+    const { data, error } = await supabase.rpc('preview_next_employee_id')
+    
+    if (error) {
+      console.error('Error fetching employee ID stats:', error)
+      return null
+    }
+
+    // Get total approved employees with IDs
+    const { data: approvedCount, error: countError } = await supabase
+      .from('employees_details')
+      .select('employee_id', { count: 'exact' })
+      .eq('status', 'approved')
+      .not('employee_id', 'is', null)
+
+    if (countError) {
+      console.error('Error counting approved employees:', countError)
+    }
+
+    return {
+      nextEmployeeId: data,
+      totalApprovedEmployees: approvedCount?.length || 0
+    }
+  } catch (error) {
+    console.error('Error in getEmployeeIdStats:', error)
+    return null
+  }
 }

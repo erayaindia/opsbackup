@@ -46,7 +46,8 @@ export function BankDetailsStep({ form }: BankDetailsStepProps) {
               <Input
                 id="account_number"
                 type="text"
-                placeholder="Enter your bank account number"
+                placeholder="e.g. 1234567890123456"
+                autoComplete="off"
                 {...register('bank_details.account_number')}
                 className={`bg-white/50 dark:bg-slate-800/50 border-slate-300 dark:border-slate-600 focus:border-slate-500 dark:focus:border-slate-400 ${errors.bank_details?.account_number ? 'border-red-400 focus:border-red-500 dark:border-red-400' : ''}`}
               />
@@ -68,7 +69,8 @@ export function BankDetailsStep({ form }: BankDetailsStepProps) {
               <Input
                 id="account_holder_name"
                 type="text"
-                placeholder="Name as per bank account"
+                placeholder="e.g. Ravi Kumar Singh"
+                autoComplete="name"
                 {...register('bank_details.account_holder_name')}
                 className={`bg-white/50 dark:bg-slate-800/50 border-slate-300 dark:border-slate-600 focus:border-slate-500 dark:focus:border-slate-400 ${errors.bank_details?.account_holder_name ? 'border-red-400 focus:border-red-500 dark:border-red-400' : ''}`}
               />
@@ -118,6 +120,7 @@ export function BankDetailsStep({ form }: BankDetailsStepProps) {
                 id="ifsc_code"
                 type="text"
                 placeholder="e.g., SBIN0000123"
+                autoComplete="off"
                 {...register('bank_details.ifsc_code')}
                 className={`bg-white/50 dark:bg-slate-800/50 border-slate-300 dark:border-slate-600 focus:border-slate-500 dark:focus:border-slate-400 uppercase ${errors.bank_details?.ifsc_code ? 'border-red-400 focus:border-red-500 dark:border-red-400' : ''}`}
                 style={{ textTransform: 'uppercase' }}
@@ -140,7 +143,8 @@ export function BankDetailsStep({ form }: BankDetailsStepProps) {
               <Input
                 id="branch_name"
                 type="text"
-                placeholder="Enter branch name"
+                placeholder="e.g. Patna Main Branch"
+                autoComplete="off"
                 {...register('bank_details.branch_name')}
                 className={`bg-white/50 dark:bg-slate-800/50 border-slate-300 dark:border-slate-600 focus:border-slate-500 dark:focus:border-slate-400 ${errors.bank_details?.branch_name ? 'border-red-400 focus:border-red-500 dark:border-red-400' : ''}`}
               />
@@ -171,7 +175,8 @@ export function BankDetailsStep({ form }: BankDetailsStepProps) {
             <Input
               id="upi_id"
               type="text"
-              placeholder="e.g., username@paytm, mobile@upi"
+              placeholder="e.g., 9876543210@paytm"
+              autoComplete="off"
               {...register('bank_details.upi_id')}
               className={`bg-white/50 dark:bg-slate-800/50 border-slate-300 dark:border-slate-600 focus:border-slate-500 dark:focus:border-slate-400 ${errors.bank_details?.upi_id ? 'border-red-400 focus:border-red-500 dark:border-red-400' : ''}`}
             />

@@ -6,6 +6,7 @@ export interface OnboardingFormData {
   personal_email: string
   phone?: string
   date_of_birth: string
+  gender: 'Male' | 'Female'
 
   // Step 2: Address & Emergency
   addresses: {
@@ -62,7 +63,8 @@ export interface DocumentUpload {
 }
 
 export type DocumentType = 
-  | 'Aadhaar'
+  | 'Aadhaar Front'
+  | 'Aadhaar Back'
   | 'PAN'
   | 'BankPassbook'
   | 'Education'
@@ -177,7 +179,8 @@ export const DEPARTMENTS = [
 ] as const
 
 export const DOCUMENT_TYPES: Array<{value: DocumentType, label: string, description: string, required: boolean, allowMultiple?: boolean}> = [
-  { value: 'Aadhaar', label: 'Aadhaar Card', description: 'Government issued identity proof (Required)', required: true },
+  { value: 'Aadhaar Front', label: 'Aadhaar Card (Front)', description: 'Clear photo of Aadhaar card front side (Required)', required: true },
+  { value: 'Aadhaar Back', label: 'Aadhaar Card (Back)', description: 'Clear photo of Aadhaar card back side (Required)', required: true },
   { value: 'PAN', label: 'PAN Card', description: 'Permanent Account Number card (Required)', required: true },
   { value: 'BankPassbook', label: 'Bank Passbook Photo', description: 'Clear photo of bank passbook front page (Required)', required: true },
   { value: 'Photo', label: 'Profile Photo', description: 'Your clear photo for profile (Required)', required: true },
@@ -232,3 +235,5 @@ export const INDIAN_BANKS = [
   'Airtel Payments Bank',
   'Other'
 ] as const
+
+export const GENDERS = ['Male', 'Female'] as const

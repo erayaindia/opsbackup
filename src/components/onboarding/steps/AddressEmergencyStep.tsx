@@ -43,7 +43,7 @@ export function AddressEmergencyStep({ form }: AddressEmergencyStepProps) {
             <Label htmlFor="current_street" className="text-slate-700 dark:text-slate-300 font-medium">Street Address</Label>
             <Input
               id="current_street"
-              placeholder="House/Flat number, Street name"
+              placeholder="e.g. 123, Boring Road, Patna"
               {...register('addresses.current.street')}
               className={`bg-white/50 dark:bg-slate-800/50 border-slate-300 dark:border-slate-600 focus:border-slate-500 dark:focus:border-slate-400 ${errors.addresses?.current?.street ? 'border-red-400 focus:border-red-500 dark:border-red-400' : ''}`}
             />
@@ -57,7 +57,7 @@ export function AddressEmergencyStep({ form }: AddressEmergencyStepProps) {
               <Label htmlFor="current_city" className="text-slate-700 dark:text-slate-300 font-medium">City</Label>
               <Input
                 id="current_city"
-                placeholder="City name"
+                placeholder="e.g. Patna"
                 {...register('addresses.current.city')}
                 className={`bg-white/50 dark:bg-slate-800/50 border-slate-300 dark:border-slate-600 focus:border-slate-500 dark:focus:border-slate-400 ${errors.addresses?.current?.city ? 'border-red-400 focus:border-red-500 dark:border-red-400' : ''}`}
               />
@@ -70,7 +70,7 @@ export function AddressEmergencyStep({ form }: AddressEmergencyStepProps) {
               <Label htmlFor="current_state" className="text-slate-700 dark:text-slate-300 font-medium">State</Label>
               <Input
                 id="current_state"
-                placeholder="State name"
+                placeholder="e.g. Bihar"
                 {...register('addresses.current.state')}
                 className={`bg-white/50 dark:bg-slate-800/50 border-slate-300 dark:border-slate-600 focus:border-slate-500 dark:focus:border-slate-400 ${errors.addresses?.current?.state ? 'border-red-400 focus:border-red-500 dark:border-red-400' : ''}`}
               />
@@ -84,7 +84,7 @@ export function AddressEmergencyStep({ form }: AddressEmergencyStepProps) {
             <Label htmlFor="current_pin" className="text-slate-700 dark:text-slate-300 font-medium">PIN Code</Label>
             <Input
               id="current_pin"
-              placeholder="6-digit PIN code"
+              placeholder="e.g. 800001"
               maxLength={6}
               {...register('addresses.current.pin')}
               className={`bg-white/50 dark:bg-slate-800/50 border-slate-300 dark:border-slate-600 focus:border-slate-500 dark:focus:border-slate-400 ${errors.addresses?.current?.pin ? 'border-red-400 focus:border-red-500 dark:border-red-400' : ''}`}
@@ -182,10 +182,10 @@ export function AddressEmergencyStep({ form }: AddressEmergencyStepProps) {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="emergency_name" className="text-slate-700 dark:text-slate-300 font-medium">Contact Name</Label>
+            <Label htmlFor="emergency_name" className="text-slate-700 dark:text-slate-300 font-medium">Contact Name *</Label>
             <Input
               id="emergency_name"
-              placeholder="Full name of emergency contact"
+              placeholder="e.g. Sunita Kumar"
               {...register('emergency.name')}
               className={`bg-white/50 dark:bg-slate-800/50 border-slate-300 dark:border-slate-600 focus:border-slate-500 dark:focus:border-slate-400 ${errors.emergency?.name ? 'border-red-400 focus:border-red-500 dark:border-red-400' : ''}`}
             />
@@ -195,7 +195,7 @@ export function AddressEmergencyStep({ form }: AddressEmergencyStepProps) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="emergency_relationship" className="text-slate-700 dark:text-slate-300 font-medium">Relationship</Label>
+            <Label htmlFor="emergency_relationship" className="text-slate-700 dark:text-slate-300 font-medium">Relationship *</Label>
             <Select
               onValueChange={(value) => setValue('emergency.relationship', value)}
               defaultValue={watch('emergency.relationship')}
@@ -218,12 +218,12 @@ export function AddressEmergencyStep({ form }: AddressEmergencyStepProps) {
               <div className="w-4 h-4 bg-slate-100 dark:bg-slate-800 rounded flex items-center justify-center">
                 <Phone className="w-3 h-3 text-slate-600 dark:text-slate-400" />
               </div>
-              Phone Number
+              Phone Number *
             </Label>
             <Input
               id="emergency_phone"
               type="tel"
-              placeholder="+91 98765 43210"
+              placeholder="+91 9876543210"
               {...register('emergency.phone')}
               className={`bg-white/50 dark:bg-slate-800/50 border-slate-300 dark:border-slate-600 focus:border-slate-500 dark:focus:border-slate-400 ${errors.emergency?.phone ? 'border-red-400 focus:border-red-500 dark:border-red-400' : ''}`}
             />
@@ -242,7 +242,7 @@ export function AddressEmergencyStep({ form }: AddressEmergencyStepProps) {
             <Input
               id="emergency_email"
               type="email"
-              placeholder="contact.email@example.com"
+              placeholder="sunita.kumar@gmail.com"
               {...register('emergency.email')}
               className={`bg-white/50 dark:bg-slate-800/50 border-slate-300 dark:border-slate-600 focus:border-slate-500 dark:focus:border-slate-400 ${errors.emergency?.email ? 'border-red-400 focus:border-red-500 dark:border-red-400' : ''}`}
             />

@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { DatePicker } from '@/components/ui/date-picker'
 import { Briefcase, MapPin, Clock, Calendar } from 'lucide-react'
 
 interface WorkDetailsStepProps {
@@ -36,7 +37,7 @@ export function WorkDetailsStep({ form }: WorkDetailsStepProps) {
           <Input
             id="designation"
             type="text"
-            placeholder="e.g., Software Engineer, Content Writer, Marketing Executive"
+            placeholder="e.g., E-commerce Manager, Content Writer, Digital Marketing Executive"
             {...register('designation')}
             className={`bg-white/50 dark:bg-slate-800/50 border-slate-300 dark:border-slate-600 focus:border-slate-500 dark:focus:border-slate-400 ${errors.designation ? 'border-red-400 focus:border-red-500 dark:border-red-400' : ''}`}
           />
@@ -116,19 +117,21 @@ export function WorkDetailsStep({ form }: WorkDetailsStepProps) {
             <div className="w-5 h-5 bg-slate-100 dark:bg-slate-800 rounded-md flex items-center justify-center">
               <Calendar className="w-3 h-3 text-slate-600 dark:text-slate-400" />
             </div>
-            Joining Date
+            Joining Date *
           </Label>
-          <Input
-            id="joined_at"
-            type="date"
-            {...register('joined_at')}
+          <DatePicker
+            value={watch('joined_at') ? new Date(watch('joined_at')) : undefined}
+            onChange={(date) => {
+              setValue('joined_at', date ? date.toISOString().split('T')[0] : '')
+            }}
+            placeholder="Select your joining date"
             className={`bg-white/50 dark:bg-slate-800/50 border-slate-300 dark:border-slate-600 focus:border-slate-500 dark:focus:border-slate-400 ${errors.joined_at ? 'border-red-400 focus:border-red-500 dark:border-red-400' : ''}`}
           />
           {errors.joined_at && (
             <p className="text-sm text-red-500 dark:text-red-400">{errors.joined_at.message}</p>
           )}
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Select your official joining date (leave blank if not yet determined)
+            Select your official joining date as mentioned in your offer letter
           </p>
         </div>
       </div>

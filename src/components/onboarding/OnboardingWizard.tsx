@@ -115,143 +115,80 @@ export function OnboardingWizard({ form, onSubmit, isSubmitting }: OnboardingWiz
   const CurrentStepComponent = currentStepData.component
 
   return (
-    <div className="w-full max-w-none">
-      {/* Step Indicator */}
-      <div className="mb-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold text-foreground">Employee Onboarding</h2>
-          <div className="text-sm text-muted-foreground bg-muted px-3 py-1 rounded-full">
-            Step {currentStep} of {steps.length}
+    <div className="w-full max-w-4xl mx-auto">
+      {/* Header with Progress */}
+      <div className="mb-8">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold text-white">{currentStepData.title}</h2>
+          <div className="flex items-center gap-2 text-purple-400 font-medium">
+            <span>{currentStep}/{steps.length}</span>
+            <div className="px-3 py-1 bg-purple-500/20 rounded-full text-sm">
+              Next
+            </div>
           </div>
-        </div>
-        
-        <Progress value={progress} className="h-2 mb-4" />
-        
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-2 max-w-5xl mx-auto">
-          {steps.map((step) => {
-            const Icon = step.icon
-            const isCompleted = completedSteps.includes(step.id)
-            const isCurrent = step.id === currentStep
-            const isAccessible = step.id <= currentStep || isCompleted
-            
-            return (
-              <button
-                key={step.id}
-                onClick={() => handleStepClick(step.id)}
-                disabled={!isAccessible}
-                className={`
-                  flex items-center gap-3 p-4 rounded-xl text-left transition-all duration-200 border-2
-                  ${isCurrent 
-                    ? 'bg-primary/10 border-primary/50 text-primary shadow-md ring-2 ring-primary/20' 
-                    : isCompleted
-                    ? 'bg-green-500/10 border-green-500/30 text-green-500 hover:bg-green-500/20'
-                    : isAccessible
-                    ? 'bg-muted/50 border-border text-muted-foreground hover:bg-muted'
-                    : 'bg-muted/30 border-muted text-muted-foreground/50 cursor-not-allowed'
-                  }
-                `}
-              >
-                <div className={`
-                  w-8 h-8 rounded-full flex items-center justify-center transition-colors
-                  ${isCurrent 
-                    ? 'bg-primary/20' 
-                    : isCompleted 
-                    ? 'bg-green-500/20' 
-                    : 'bg-muted'
-                  }
-                `}>
-                  {isCompleted ? (
-                    <CheckCircle className="w-4 h-4" />
-                  ) : (
-                    <Icon className="w-4 h-4" />
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm truncate">{step.title}</p>
-                  <p className="text-xs opacity-75 truncate">{step.description}</p>
-                </div>
-              </button>
-            )
-          })}
         </div>
       </div>
 
-      {/* Step Content */}
-      <Card className="shadow-2xl border border-border/50 bg-card/95 backdrop-blur-xl max-w-none">
-        <CardContent className="p-6">
-          <div className="mb-6">
-            <h3 className="text-xl font-semibold text-foreground flex items-center gap-3">
-              <div className="w-7 h-7 bg-primary/20 rounded-lg flex items-center justify-center">
-                <currentStepData.icon className="w-4 h-4 text-primary" />
-              </div>
-              {currentStepData.title}
-            </h3>
-            <p className="text-muted-foreground mt-2 text-sm">{currentStepData.description}</p>
-          </div>
+      {/* Form Content */}
+      <div className="bg-gray-800/50 backdrop-blur-xl rounded-2xl border border-gray-700 p-8">
+        <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-8">
+          <CurrentStepComponent form={form} />
 
-          <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
-            <div className="max-w-4xl mx-auto">
-              <CurrentStepComponent form={form} />
-            </div>
+          {/* Navigation Buttons */}
+          <div className="flex justify-between pt-8 border-t border-gray-700">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={handleBack}
+              disabled={currentStep === 1}
+              className="text-gray-400 hover:text-white hover:bg-gray-700/50"
+            >
+              <ChevronLeft className="w-4 h-4 mr-2" />
+              Back
+            </Button>
 
-            {/* Navigation Buttons */}
-            <div className="flex justify-between pt-6 border-t border-border max-w-4xl mx-auto">
+            {currentStep < steps.length ? (
               <Button
                 type="button"
-                variant="outline"
-                onClick={handleBack}
-                disabled={currentStep === 1}
-                className="flex items-center gap-2 h-10"
+                onClick={handleNext}
+                className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white px-8 py-3 rounded-xl font-semibold flex items-center gap-2"
               >
-                <ChevronLeft className="w-4 h-4" />
-                Back
+                Continue
+                <ChevronRight className="w-4 h-4" />
               </Button>
+            ) : (
+              <Button
+                type="submit"
+                disabled={isSubmitting}
+                className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white px-8 py-3 rounded-xl font-semibold flex items-center gap-2"
+              >
+                {isSubmitting ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Submitting...
+                  </>
+                ) : (
+                  <>
+                    Submit Application
+                    <CheckCircle className="w-4 h-4" />
+                  </>
+                )}
+              </Button>
+            )}
+          </div>
+        </form>
+      </div>
 
-              {currentStep < steps.length ? (
-                <Button
-                  type="button"
-                  onClick={handleNext}
-                  className="flex items-center gap-2 h-10 px-6"
-                >
-                  Next
-                  <ChevronRight className="w-4 h-4" />
-                </Button>
-              ) : (
-                <Button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="flex items-center gap-2 h-10 px-6 bg-green-600 hover:bg-green-700 text-white"
-                >
-                  {isSubmitting ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      Submitting...
-                    </>
-                  ) : (
-                    <>
-                      Submit Application
-                      <CheckCircle className="w-4 h-4" />
-                    </>
-                  )}
-                </Button>
-              )}
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-
-      {/* Form Errors Summary */}
+      {/* Form Errors */}
       {Object.keys(errors).length > 0 && (
-        <Card className="mt-4 border-destructive/20 bg-destructive/5 max-w-4xl mx-auto">
-          <CardContent className="p-4">
-            <h4 className="font-medium text-destructive mb-2">Please fix the following errors:</h4>
-            <ul className="text-sm text-destructive/80 space-y-1">
-              {Object.entries(errors).map(([field, error]) => (
-                <li key={field}>• {error?.message}</li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
+        <div className="mt-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
+          <h4 className="font-medium text-red-400 mb-2">Please fix the following errors:</h4>
+          <ul className="text-sm text-red-300 space-y-1">
+            {Object.entries(errors).map(([field, error]) => (
+              <li key={field}>• {error?.message}</li>
+            ))}
+          </ul>
+        </div>
       )}
     </div>
   )

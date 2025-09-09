@@ -19,7 +19,8 @@
       "Bash(npx supabase db dump:*)",
       "Bash(npx supabase db push:*)",
       "Read(//c/Users/ASUS/OneDrive/Pictures/Screenshots/**)",
-      "Read(//c/Users/ASUS/Downloads/**)"
+      "Read(//c/Users/ASUS/Downloads/**)",
+      "Bash(git checkout:*)"
     ],
     "deny": [],
     "ask": []

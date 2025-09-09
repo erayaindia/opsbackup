@@ -156,6 +156,7 @@ const accountsFinanceItems = [
 // Management & Admin Section
 const managementAdminItems = [
   { title: "Users", url: "/users", icon: UserCog },
+  { title: "Employee Onboarding Form", url: "/onboard", icon: UserPlus },
   { title: "Onboarding Applications", url: "/admin/onboarding", icon: UserPlus },
   { title: "People & Roles", url: "/management/people-roles", icon: UserCheck },
   { title: "System Settings", url: "/management/system-settings", icon: Settings },
