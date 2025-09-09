@@ -27,10 +27,56 @@ export function DatePicker({
   disabled = false,
   className
 }: DatePickerProps) {
-  const [currentMonth, setCurrentMonth] = React.useState<Date>(value || new Date())
+  const [open, setOpen] = React.useState(false)
+  
+  // Create a stable current date
+  const [currentMonth, setCurrentMonth] = React.useState<Date>(() => new Date())
+  
+  // Always reset to current date when opening the picker
+  const handleOpenChange = (newOpen: boolean) => {
+    if (newOpen) {
+      // Always reset to current month when opening
+      const now = new Date()
+      setCurrentMonth(now)
+    }
+    setOpen(newOpen)
+  }
   
   const currentYear = currentMonth.getFullYear()
   const currentMonthIndex = currentMonth.getMonth()
+
+  // Handle date selection with auto-close
+  const handleDateSelect = (date: Date | undefined) => {
+    console.log('🗓️ Original date from calendar:', date)
+    
+    if (date && onChange) {
+      console.log('🗓️ Original date details:', {
+        fullDate: date.toISOString(),
+        year: date.getFullYear(),
+        month: date.getMonth(),
+        date: date.getDate(),
+        day: date.getDay(),
+        timezone: date.getTimezoneOffset()
+      })
+      
+      // Try multiple approaches to fix the date
+      const localDate = new Date(date.getTime() - (date.getTimezoneOffset() * 60000))
+      console.log('🗓️ Timezone corrected date:', localDate)
+      console.log('🗓️ Final date being passed:', {
+        year: localDate.getFullYear(),
+        month: localDate.getMonth(),
+        date: localDate.getDate()
+      })
+      
+      onChange(localDate)
+    } else if (onChange) {
+      onChange(date)
+    }
+    
+    if (date) {
+      setOpen(false) // Auto-close when a date is selected
+    }
+  }
   
   // Generate year options (from 1950 to current year + 10)
   const yearOptions = Array.from({ length: new Date().getFullYear() - 1949 + 10 }, (_, i) => 1950 + i)
@@ -65,7 +111,7 @@ export function DatePicker({
   }
 
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <Button
           variant={"outline"}
@@ -135,7 +181,7 @@ export function DatePicker({
         <Calendar
           mode="single"
           selected={value}
-          onSelect={onChange}
+          onSelect={handleDateSelect}
           month={currentMonth}
           onMonthChange={setCurrentMonth}
           initialFocus

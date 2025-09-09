@@ -11,6 +11,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { DatePicker } from '@/components/ui/date-picker'
 import { submitOnboardingApplication, uploadDocument } from '@/services/onboardingService'
+import { INDIAN_STATES } from '@/types/onboarding.types'
 import { toast } from 'sonner'
 import {
   User,
@@ -931,15 +932,23 @@ export default function EmployeeOnboardingWizard() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="currentState" className="text-gray-300">State</Label>
-                    <Input
-                      id="currentState"
+                    <Select
                       value={formData.currentAddress.state}
-                      onChange={(e) => updateFormData({
-                        currentAddress: { ...formData.currentAddress, state: e.target.value }
+                      onValueChange={(value) => updateFormData({
+                        currentAddress: { ...formData.currentAddress, state: value }
                       })}
-                      className="bg-gray-800 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-purple-500/20"
-                      placeholder="e.g. Delhi"
-                    />
+                    >
+                      <SelectTrigger className="bg-gray-800 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-purple-500/20">
+                        <SelectValue placeholder="Select your state" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {INDIAN_STATES.map((state) => (
+                          <SelectItem key={state} value={state}>
+                            {state}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="currentPin" className="text-gray-300">PIN Code</Label>
@@ -1001,16 +1010,24 @@ export default function EmployeeOnboardingWizard() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="permanentState" className="text-gray-300">State</Label>
-                    <Input
-                      id="permanentState"
+                    <Select
                       value={formData.permanentAddress.state}
-                      onChange={(e) => updateFormData({
-                        permanentAddress: { ...formData.permanentAddress, state: e.target.value }
+                      onValueChange={(value) => updateFormData({
+                        permanentAddress: { ...formData.permanentAddress, state: value }
                       })}
                       disabled={formData.sameAsCurrentAddress}
-                      className="bg-gray-800 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-purple-500/20 disabled:opacity-50"
-                      placeholder="e.g. Delhi"
-                    />
+                    >
+                      <SelectTrigger className="bg-gray-800 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-purple-500/20 disabled:opacity-50">
+                        <SelectValue placeholder="Select your state" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {INDIAN_STATES.map((state) => (
+                          <SelectItem key={state} value={state}>
+                            {state}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="permanentPin" className="text-gray-300">PIN Code</Label>
