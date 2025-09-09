@@ -60,17 +60,16 @@ export async function submitOnboardingApplication(
     // Transform the form data to match database schema
     const dbData = transformFormDataToDatabase(data)
     
-    // For anonymous submissions, don't try to get user info at all
-    // This avoids any potential auth-related issues
+    // For anonymous submissions, use the dedicated anonymous_onboarding_submissions table
+    // This completely bypasses any app_users table dependencies
     
-    // Insert the application into the database with minimal required fields only
+    // Insert the application into the anonymous submissions table
     const { data: insertResult, error: insertError } = await supabase
-      .from('employees_details')
+      .from('anonymous_onboarding_submissions')
       .insert({
         ...dbData,
         status: 'submitted',
         submission_date: new Date().toISOString(),
-        // Don't include any auth-related fields for anonymous users
         nda_accepted: data.ndaAccepted || false,
         data_privacy_accepted: data.dataPrivacyAccepted || false,
         nda_accepted_at: data.ndaAccepted ? new Date().toISOString() : null,
@@ -201,52 +200,111 @@ export async function uploadDocument(
   }
 }
 
-// Admin: Get all onboarding applications
+// Admin: Get all onboarding applications (from both tables)
 export async function getOnboardingApplications(): Promise<OnboardingApplicant[]> {
   try {
-    const { data, error } = await supabase
-      .from('employees_details')
-      .select(`
-        id,
-        application_id,
-        status,
-        full_name,
-        personal_email,
-        phone_number,
-        date_of_birth,
-        gender,
-        designation,
-        work_location,
-        employment_type,
-        joining_date,
-        current_address,
-        permanent_address,
-        same_as_current,
-        emergency_contact,
-        bank_details,
-        documents,
-        notes,
-        app_user_id,
-        created_at,
-        updated_at,
-        submission_date,
-        approval_date,
-        nda_accepted,
-        data_privacy_accepted,
-        nda_accepted_at,
-        data_privacy_accepted_at
-      `)
-      .order('created_at', { ascending: false })
+    // Get applications from both employees_details and anonymous_onboarding_submissions
+    const [employeesResult, anonymousResult] = await Promise.all([
+      // Get from employees_details (existing approved/processed applications)
+      supabase
+        .from('employees_details')
+        .select(`
+          id,
+          application_id,
+          status,
+          full_name,
+          personal_email,
+          phone_number,
+          date_of_birth,
+          gender,
+          designation,
+          work_location,
+          employment_type,
+          joining_date,
+          current_address,
+          permanent_address,
+          same_as_current,
+          emergency_contact,
+          bank_details,
+          documents,
+          notes,
+          app_user_id,
+          created_at,
+          updated_at,
+          submission_date,
+          approval_date,
+          nda_accepted,
+          data_privacy_accepted,
+          nda_accepted_at,
+          data_privacy_accepted_at
+        `)
+        .order('created_at', { ascending: false }),
+      
+      // Get from anonymous_onboarding_submissions (new anonymous applications)
+      supabase
+        .from('anonymous_onboarding_submissions')
+        .select(`
+          id,
+          status,
+          full_name,
+          personal_email,
+          phone_number,
+          date_of_birth,
+          gender,
+          designation,
+          work_location,
+          employment_type,
+          joining_date,
+          current_address,
+          permanent_address,
+          same_as_current,
+          emergency_contact,
+          bank_details,
+          documents,
+          notes,
+          created_at,
+          updated_at,
+          submission_date,
+          nda_accepted,
+          data_privacy_accepted,
+          nda_accepted_at,
+          data_privacy_accepted_at
+        `)
+        .in('status', ['submitted', 'processing'])
+        .order('created_at', { ascending: false })
+    ])
 
-    if (error) {
-      console.error('Database error:', error)
+    let combinedData: any[] = []
+
+    // Process employees_details data
+    if (employeesResult.data) {
+      combinedData = [...employeesResult.data]
+    }
+
+    // Process anonymous submissions data
+    if (anonymousResult.data) {
+      const anonymousDataFormatted = anonymousResult.data.map(item => ({
+        ...item,
+        application_id: `anon_${item.id}`, // Prefix to identify anonymous submissions
+        app_user_id: null,
+        approval_date: null,
+        source: 'anonymous' // Add marker to identify source
+      }))
+      combinedData = [...combinedData, ...anonymousDataFormatted]
+    }
+
+    // Sort combined data by created_at
+    combinedData.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+
+    if (employeesResult.error && anonymousResult.error) {
+      console.error('Database errors:', { employees: employeesResult.error, anonymous: anonymousResult.error })
       // Return mock data for testing when database is not available
       console.log('Database not available, returning mock data for testing')
       return getMockOnboardingApplications()
     }
 
     // Transform database results to match OnboardingApplicant interface
-    const transformedData = (data || []).map(item => ({
+    const transformedData = (combinedData || []).map(item => ({
       id: item.application_id, // Use application_id as the public ID
       status: item.status as 'submitted' | 'approved' | 'rejected' | 'withdrawn',
       full_name: item.full_name,
