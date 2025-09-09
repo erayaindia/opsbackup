@@ -200,12 +200,15 @@ export async function getOnboardingApplications(): Promise<OnboardingApplicant[]
         full_name,
         personal_email,
         phone_number,
+        date_of_birth,
+        gender,
         designation,
         work_location,
         employment_type,
         joining_date,
         current_address,
         permanent_address,
+        same_as_current,
         emergency_contact,
         bank_details,
         documents,
@@ -214,7 +217,11 @@ export async function getOnboardingApplications(): Promise<OnboardingApplicant[]
         created_at,
         updated_at,
         submission_date,
-        approval_date
+        approval_date,
+        nda_accepted,
+        data_privacy_accepted,
+        nda_accepted_at,
+        data_privacy_accepted_at
       `)
       .order('created_at', { ascending: false })
 
@@ -232,6 +239,8 @@ export async function getOnboardingApplications(): Promise<OnboardingApplicant[]
       full_name: item.full_name,
       personal_email: item.personal_email,
       phone: item.phone_number,
+      date_of_birth: item.date_of_birth,
+      gender: item.gender,
       designation: item.designation,
       work_location: item.work_location,
       employment_type: item.employment_type,
@@ -239,7 +248,7 @@ export async function getOnboardingApplications(): Promise<OnboardingApplicant[]
       addresses: {
         current: item.current_address,
         permanent: item.permanent_address,
-        same_as_current: item.permanent_address === item.current_address
+        same_as_current: item.same_as_current || item.permanent_address === item.current_address
       },
       emergency: item.emergency_contact,
       bank_details: item.bank_details,
@@ -247,7 +256,11 @@ export async function getOnboardingApplications(): Promise<OnboardingApplicant[]
       notes: item.notes,
       mapped_app_user_id: item.app_user_id,
       created_at: item.created_at,
-      updated_at: item.updated_at
+      updated_at: item.updated_at,
+      nda_accepted: item.nda_accepted,
+      data_privacy_accepted: item.data_privacy_accepted,
+      nda_accepted_at: item.nda_accepted_at,
+      data_privacy_accepted_at: item.data_privacy_accepted_at
     }))
 
     return transformedData
@@ -588,12 +601,15 @@ export async function getOnboardingApplication(id: string): Promise<OnboardingAp
         full_name,
         personal_email,
         phone_number,
+        date_of_birth,
+        gender,
         designation,
         work_location,
         employment_type,
         joining_date,
         current_address,
         permanent_address,
+        same_as_current,
         emergency_contact,
         bank_details,
         documents,
@@ -602,7 +618,11 @@ export async function getOnboardingApplication(id: string): Promise<OnboardingAp
         created_at,
         updated_at,
         submission_date,
-        approval_date
+        approval_date,
+        nda_accepted,
+        data_privacy_accepted,
+        nda_accepted_at,
+        data_privacy_accepted_at
       `)
       .eq('application_id', id)
       .single()
@@ -621,6 +641,8 @@ export async function getOnboardingApplication(id: string): Promise<OnboardingAp
       full_name: data.full_name,
       personal_email: data.personal_email,
       phone: data.phone_number,
+      date_of_birth: data.date_of_birth,
+      gender: data.gender,
       designation: data.designation,
       work_location: data.work_location,
       employment_type: data.employment_type,
@@ -628,7 +650,7 @@ export async function getOnboardingApplication(id: string): Promise<OnboardingAp
       addresses: {
         current: data.current_address,
         permanent: data.permanent_address,
-        same_as_current: data.permanent_address === data.current_address
+        same_as_current: data.same_as_current || data.permanent_address === data.current_address
       },
       emergency: data.emergency_contact,
       bank_details: data.bank_details,
@@ -636,7 +658,11 @@ export async function getOnboardingApplication(id: string): Promise<OnboardingAp
       notes: data.notes,
       mapped_app_user_id: data.app_user_id,
       created_at: data.created_at,
-      updated_at: data.updated_at
+      updated_at: data.updated_at,
+      nda_accepted: data.nda_accepted,
+      data_privacy_accepted: data.data_privacy_accepted,
+      nda_accepted_at: data.nda_accepted_at,
+      data_privacy_accepted_at: data.data_privacy_accepted_at
     }
   } catch (error) {
     console.error('Error fetching onboarding application:', error)
@@ -839,7 +865,7 @@ export async function rejectOnboardingApplication(
 export async function getDocumentSignedUrl(path: string): Promise<string | null> {
   try {
     const { data, error } = await supabase.storage
-      .from('employee-docs')
+      .from('employee-documents')
       .createSignedUrl(path, 3600) // 1 hour expiry
 
     if (error) {

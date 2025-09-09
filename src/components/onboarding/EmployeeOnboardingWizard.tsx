@@ -141,19 +141,89 @@ const steps: Step[] = [
 ]
 
 const INDIAN_BANKS = [
+  // Public Sector Banks
   'State Bank of India (SBI)',
-  'HDFC Bank',
-  'ICICI Bank',
-  'Axis Bank',
   'Punjab National Bank (PNB)',
   'Bank of Baroda',
   'Canara Bank',
   'Union Bank of India',
+  'Bank of India',
+  'Central Bank of India',
+  'Indian Bank',
+  'Indian Overseas Bank',
+  'UCO Bank',
+  'Bank of Maharashtra',
+  'Punjab & Sind Bank',
+  
+  // Private Sector Banks
+  'HDFC Bank',
+  'ICICI Bank',
+  'Axis Bank',
   'Kotak Mahindra Bank',
   'IndusInd Bank',
   'Yes Bank',
+  'IDFC First Bank',
+  'Bandhan Bank',
+  'RBL Bank',
+  'South Indian Bank',
   'Federal Bank',
-  'India Post Payment Bank'
+  'Karur Vysya Bank',
+  'Tamilnad Mercantile Bank',
+  'City Union Bank',
+  'DCB Bank',
+  'Dhanlaxmi Bank',
+  'IDBI Bank',
+  'Jammu & Kashmir Bank',
+  'Nainital Bank',
+  
+  // Small Finance Banks
+  'AU Small Finance Bank',
+  'Equitas Small Finance Bank',
+  'Ujjivan Small Finance Bank',
+  'Jana Small Finance Bank',
+  'Suryoday Small Finance Bank',
+  'North East Small Finance Bank',
+  'Capital Small Finance Bank',
+  'Fincare Small Finance Bank',
+  'ESAF Small Finance Bank',
+  'Utkarsh Small Finance Bank',
+  
+  // Regional Rural Banks & Co-operative Banks
+  'Andhra Pradesh Grameena Vikas Bank',
+  'Assam Gramin Vikash Bank',
+  'Bihar Gramin Bank',
+  'Chhattisgarh Rajya Gramin Bank',
+  'Himachal Pradesh Gramin Bank',
+  'Jharkhand Rajya Gramin Bank',
+  'Karnataka Gramin Bank',
+  'Kerala Gramin Bank',
+  'Madhya Pradesh Gramin Bank',
+  'Maharashtra Gramin Bank',
+  'Odisha Gramya Bank',
+  'Puduvai Bharathiar Grama Bank',
+  'Punjab Gramin Bank',
+  'Rajasthan Marudhara Gramin Bank',
+  'Tamil Nadu Grama Bank',
+  'Telangana Grameena Bank',
+  'Tripura Gramin Bank',
+  'Uttar Pradesh Gramin Bank',
+  'Uttarakhand Gramin Bank',
+  'West Bengal Gramin Bank',
+  
+  // Payment Banks
+  'Paytm Payments Bank',
+  'Airtel Payments Bank',
+  'India Post Payments Bank',
+  'Fino Payments Bank',
+  'Jio Payments Bank',
+  'NSDL Payments Bank',
+  
+  // Others
+  'The Saraswat Co-operative Bank',
+  'The Mumbai District Central Co-operative Bank',
+  'The Delhi State Co-operative Bank',
+  'Bassein Catholic Co-operative Bank',
+  'Other'
 ]
 
 const RELATIONSHIPS = [
@@ -170,6 +240,30 @@ const RELATIONSHIPS = [
 
 const WORK_LOCATIONS = ['Patna', 'Delhi', 'Remote', 'Hybrid']
 const EMPLOYMENT_TYPES = ['Full-time', 'Part-time', 'Intern', 'Contractor']
+
+const DESIGNATIONS = [
+  'Intern',
+  'Packer',
+  'Machine Operator',
+  'Operations Executive',
+  'Inventory Executive',
+  'Fulfillment Executive',
+  'Warehouse Associate',
+  'Pickup Executive (Field)',
+  'Customer Support Executive',
+  'Sales (Telecaller)',
+  'Catalog Executive',
+  'Marketing Executive',
+  'Content Creator',
+  'Content Manager',
+  'Editor',
+  'Video Editor',
+  'Graphic Designer',
+  'Team Lead',
+  'Manager',
+  'Head of Operations',
+  'Other'
+]
 
 const initialFormData: FormData = {
   fullName: '',
@@ -463,6 +557,7 @@ export default function EmployeeOnboardingWizard() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [applicationId, setApplicationId] = useState<string>('')
+  const [showCustomDesignation, setShowCustomDesignation] = useState(false)
 
   // Load from localStorage on mount
   useEffect(() => {
@@ -470,9 +565,15 @@ export default function EmployeeOnboardingWizard() {
     if (saved) {
       try {
         const parsed = JSON.parse(saved)
-        setFormData(parsed.formData || initialFormData)
+        const loadedFormData = parsed.formData || initialFormData
+        setFormData(loadedFormData)
         setCurrentStep(parsed.currentStep || 1)
         setCompletedSteps(parsed.completedSteps || [])
+        
+        // Check if designation is a custom one (not in the predefined list)
+        if (loadedFormData.designation && !DESIGNATIONS.includes(loadedFormData.designation)) {
+          setShowCustomDesignation(true)
+        }
       } catch (e) {
         console.error('Failed to parse saved onboarding data:', e)
       }
@@ -644,7 +745,7 @@ export default function EmployeeOnboardingWizard() {
                   id="fullName"
                   value={formData.fullName}
                   onChange={(e) => updateFormData({ fullName: e.target.value })}
-                  className={`bg-gray-800 border-gray-600 text-white focus:border-purple-500 focus:ring-purple-500/20 ${errors.fullName ? 'border-red-500' : ''}`}
+                  className={`bg-gray-800 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-purple-500/20 ${errors.fullName ? 'border-red-500' : ''}`}
                   placeholder="e.g. Ravi Kumar Singh"
                 />
                 {errors.fullName && <p className="text-red-400 text-sm mt-1">{errors.fullName}</p>}
@@ -659,7 +760,7 @@ export default function EmployeeOnboardingWizard() {
                   type="email"
                   value={formData.personalEmail}
                   onChange={(e) => updateFormData({ personalEmail: e.target.value })}
-                  className={`bg-gray-800 border-gray-600 text-white focus:border-purple-500 focus:ring-purple-500/20 ${errors.personalEmail ? 'border-red-500' : ''}`}
+                  className={`bg-gray-800 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-purple-500/20 ${errors.personalEmail ? 'border-red-500' : ''}`}
                   placeholder="e.g. ravi.kumar@gmail.com"
                 />
                 {errors.personalEmail && <p className="text-red-400 text-sm mt-1">{errors.personalEmail}</p>}
@@ -674,7 +775,7 @@ export default function EmployeeOnboardingWizard() {
                   type="tel"
                   value={formData.phoneNumber}
                   onChange={(e) => updateFormData({ phoneNumber: e.target.value })}
-                  className={`bg-gray-800 border-gray-600 text-white focus:border-purple-500 focus:ring-purple-500/20 ${errors.phoneNumber ? 'border-red-500' : ''}`}
+                  className={`bg-gray-800 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-purple-500/20 ${errors.phoneNumber ? 'border-red-500' : ''}`}
                   placeholder="e.g. +91 9876543210"
                 />
                 {errors.phoneNumber && <p className="text-red-400 text-sm mt-1">{errors.phoneNumber}</p>}
@@ -690,7 +791,7 @@ export default function EmployeeOnboardingWizard() {
                     updateFormData({ dateOfBirth: date ? date.toISOString().split('T')[0] : '' })
                   }}
                   placeholder="Select your date of birth"
-                  className={`bg-gray-800 border-gray-600 text-white focus:border-purple-500 focus:ring-purple-500/20 ${errors.dateOfBirth ? 'border-red-500' : ''}`}
+                  className={`bg-gray-800 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-purple-500/20 ${errors.dateOfBirth ? 'border-red-500' : ''}`}
                 />
                 {errors.dateOfBirth && <p className="text-red-400 text-sm mt-1">{errors.dateOfBirth}</p>}
               </div>
@@ -703,7 +804,7 @@ export default function EmployeeOnboardingWizard() {
                   value={formData.gender}
                   onValueChange={(value) => updateFormData({ gender: value })}
                 >
-                  <SelectTrigger className={`bg-gray-800 border-gray-600 text-white focus:border-purple-500 focus:ring-purple-500/20 ${errors.gender ? 'border-red-500' : ''}`}>
+                  <SelectTrigger className={`bg-gray-800 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-purple-500/20 ${errors.gender ? 'border-red-500' : ''}`}>
                     <SelectValue placeholder="Select your gender" />
                   </SelectTrigger>
                   <SelectContent className="bg-gray-800 border-gray-600">
@@ -737,8 +838,8 @@ export default function EmployeeOnboardingWizard() {
                       onChange={(e) => updateFormData({
                         currentAddress: { ...formData.currentAddress, street: e.target.value }
                       })}
-                      className={`bg-gray-800 border-gray-600 text-white focus:border-purple-500 focus:ring-purple-500/20 ${errors.currentStreet ? 'border-red-500' : ''}`}
-                      placeholder="e.g. 123, Boring Road, Patna"
+                      className={`bg-gray-800 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-purple-500/20 ${errors.currentStreet ? 'border-red-500' : ''}`}
+                      placeholder="e.g. 123, Connaught Place, New Delhi"
                     />
                     {errors.currentStreet && <p className="text-red-400 text-sm mt-1">{errors.currentStreet}</p>}
                   </div>
@@ -750,8 +851,8 @@ export default function EmployeeOnboardingWizard() {
                       onChange={(e) => updateFormData({
                         currentAddress: { ...formData.currentAddress, city: e.target.value }
                       })}
-                      className={`bg-gray-800 border-gray-600 text-white focus:border-purple-500 focus:ring-purple-500/20 ${errors.currentCity ? 'border-red-500' : ''}`}
-                      placeholder="e.g. Patna"
+                      className={`bg-gray-800 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-purple-500/20 ${errors.currentCity ? 'border-red-500' : ''}`}
+                      placeholder="e.g. New Delhi"
                     />
                     {errors.currentCity && <p className="text-red-400 text-sm mt-1">{errors.currentCity}</p>}
                   </div>
@@ -763,8 +864,8 @@ export default function EmployeeOnboardingWizard() {
                       onChange={(e) => updateFormData({
                         currentAddress: { ...formData.currentAddress, state: e.target.value }
                       })}
-                      className="bg-gray-800 border-gray-600 text-white focus:border-purple-500 focus:ring-purple-500/20"
-                      placeholder="e.g. Bihar"
+                      className="bg-gray-800 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-purple-500/20"
+                      placeholder="e.g. Delhi"
                     />
                   </div>
                   <div className="space-y-2">
@@ -775,8 +876,8 @@ export default function EmployeeOnboardingWizard() {
                       onChange={(e) => updateFormData({
                         currentAddress: { ...formData.currentAddress, pinCode: e.target.value }
                       })}
-                      className="bg-gray-800 border-gray-600 text-white focus:border-purple-500 focus:ring-purple-500/20"
-                      placeholder="e.g. 800001"
+                      className="bg-gray-800 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-purple-500/20"
+                      placeholder="e.g. 110001"
                     />
                   </div>
                 </div>
@@ -808,8 +909,8 @@ export default function EmployeeOnboardingWizard() {
                         permanentAddress: { ...formData.permanentAddress, street: e.target.value }
                       })}
                       disabled={formData.sameAsCurrentAddress}
-                      className="bg-gray-800 border-gray-600 text-white focus:border-purple-500 focus:ring-purple-500/20 disabled:opacity-50"
-                      placeholder="e.g. 123, Boring Road, Patna"
+                      className="bg-gray-800 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-purple-500/20 disabled:opacity-50"
+                      placeholder="e.g. 123, Connaught Place, New Delhi"
                     />
                   </div>
                   <div className="space-y-2">
@@ -821,8 +922,8 @@ export default function EmployeeOnboardingWizard() {
                         permanentAddress: { ...formData.permanentAddress, city: e.target.value }
                       })}
                       disabled={formData.sameAsCurrentAddress}
-                      className="bg-gray-800 border-gray-600 text-white focus:border-purple-500 focus:ring-purple-500/20 disabled:opacity-50"
-                      placeholder="e.g. Patna"
+                      className="bg-gray-800 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-purple-500/20 disabled:opacity-50"
+                      placeholder="e.g. New Delhi"
                     />
                   </div>
                   <div className="space-y-2">
@@ -834,8 +935,8 @@ export default function EmployeeOnboardingWizard() {
                         permanentAddress: { ...formData.permanentAddress, state: e.target.value }
                       })}
                       disabled={formData.sameAsCurrentAddress}
-                      className="bg-gray-800 border-gray-600 text-white focus:border-purple-500 focus:ring-purple-500/20 disabled:opacity-50"
-                      placeholder="e.g. Bihar"
+                      className="bg-gray-800 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-purple-500/20 disabled:opacity-50"
+                      placeholder="e.g. Delhi"
                     />
                   </div>
                   <div className="space-y-2">
@@ -847,8 +948,8 @@ export default function EmployeeOnboardingWizard() {
                         permanentAddress: { ...formData.permanentAddress, pinCode: e.target.value }
                       })}
                       disabled={formData.sameAsCurrentAddress}
-                      className="bg-gray-800 border-gray-600 text-white focus:border-purple-500 focus:ring-purple-500/20 disabled:opacity-50"
-                      placeholder="e.g. 800001"
+                      className="bg-gray-800 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-purple-500/20 disabled:opacity-50"
+                      placeholder="e.g. 110001"
                     />
                   </div>
                 </div>
@@ -866,7 +967,7 @@ export default function EmployeeOnboardingWizard() {
                       onChange={(e) => updateFormData({
                         emergencyContact: { ...formData.emergencyContact, name: e.target.value }
                       })}
-                      className={`bg-gray-800 border-gray-600 text-white focus:border-purple-500 focus:ring-purple-500/20 ${errors.emergencyName ? 'border-red-500' : ''}`}
+                      className={`bg-gray-800 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-purple-500/20 ${errors.emergencyName ? 'border-red-500' : ''}`}
                       placeholder="e.g. Sunita Kumar"
                     />
                     {errors.emergencyName && <p className="text-red-400 text-sm mt-1">{errors.emergencyName}</p>}
@@ -879,7 +980,7 @@ export default function EmployeeOnboardingWizard() {
                         emergencyContact: { ...formData.emergencyContact, relationship: value }
                       })}
                     >
-                      <SelectTrigger className={`bg-gray-800 border-gray-600 text-white focus:border-purple-500 focus:ring-purple-500/20 ${errors.emergencyRelationship ? 'border-red-500' : ''}`}>
+                      <SelectTrigger className={`bg-gray-800 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-purple-500/20 ${errors.emergencyRelationship ? 'border-red-500' : ''}`}>
                         <SelectValue placeholder="Select relationship" />
                       </SelectTrigger>
                       <SelectContent className="bg-gray-800 border-gray-600">
@@ -899,7 +1000,7 @@ export default function EmployeeOnboardingWizard() {
                       onChange={(e) => updateFormData({
                         emergencyContact: { ...formData.emergencyContact, phone: e.target.value }
                       })}
-                      className={`bg-gray-800 border-gray-600 text-white focus:border-purple-500 focus:ring-purple-500/20 ${errors.emergencyPhone ? 'border-red-500' : ''}`}
+                      className={`bg-gray-800 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-purple-500/20 ${errors.emergencyPhone ? 'border-red-500' : ''}`}
                       placeholder="+91 9876543210"
                     />
                     {errors.emergencyPhone && <p className="text-red-400 text-sm mt-1">{errors.emergencyPhone}</p>}
@@ -919,13 +1020,38 @@ export default function EmployeeOnboardingWizard() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2 md:col-span-2">
                 <Label htmlFor="designation" className="text-gray-300">Designation / Job Title <span className="text-red-400">*</span></Label>
-                <Input
-                  id="designation"
-                  value={formData.designation}
-                  onChange={(e) => updateFormData({ designation: e.target.value })}
-                  className={`bg-gray-800 border-gray-600 text-white focus:border-purple-500 focus:ring-purple-500/20 ${errors.designation ? 'border-red-500' : ''}`}
-                  placeholder="e.g. E-commerce Manager, Content Writer, Digital Marketing Executive"
-                />
+                <Select
+                  value={formData.designation && DESIGNATIONS.includes(formData.designation) ? formData.designation : (showCustomDesignation ? 'Other' : formData.designation)}
+                  onValueChange={(value) => {
+                    if (value === 'Other') {
+                      setShowCustomDesignation(true)
+                      updateFormData({ designation: '' })
+                    } else {
+                      setShowCustomDesignation(false)
+                      updateFormData({ designation: value })
+                    }
+                  }}
+                >
+                  <SelectTrigger className={`bg-gray-800 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-purple-500/20 ${errors.designation ? 'border-red-500' : ''}`}>
+                    <SelectValue placeholder="Select your designation" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-gray-800 border-gray-600 max-h-[300px]">
+                    {DESIGNATIONS.map(designation => (
+                      <SelectItem key={designation} value={designation}>{designation}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                
+                {showCustomDesignation && (
+                  <Input
+                    id="customDesignation"
+                    value={formData.designation}
+                    onChange={(e) => updateFormData({ designation: e.target.value })}
+                    className="bg-gray-800 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-purple-500/20 mt-2"
+                    placeholder="Enter your designation"
+                  />
+                )}
+                
                 {errors.designation && <p className="text-red-400 text-sm mt-1">{errors.designation}</p>}
               </div>
 
@@ -935,7 +1061,7 @@ export default function EmployeeOnboardingWizard() {
                   value={formData.workLocation}
                   onValueChange={(value) => updateFormData({ workLocation: value })}
                 >
-                  <SelectTrigger className={`bg-gray-800 border-gray-600 text-white focus:border-purple-500 focus:ring-purple-500/20 ${errors.workLocation ? 'border-red-500' : ''}`}>
+                  <SelectTrigger className={`bg-gray-800 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-purple-500/20 ${errors.workLocation ? 'border-red-500' : ''}`}>
                     <SelectValue placeholder="Select work location" />
                   </SelectTrigger>
                   <SelectContent className="bg-gray-800 border-gray-600">
@@ -953,7 +1079,7 @@ export default function EmployeeOnboardingWizard() {
                   value={formData.employmentType}
                   onValueChange={(value) => updateFormData({ employmentType: value })}
                 >
-                  <SelectTrigger className={`bg-gray-800 border-gray-600 text-white focus:border-purple-500 focus:ring-purple-500/20 ${errors.employmentType ? 'border-red-500' : ''}`}>
+                  <SelectTrigger className={`bg-gray-800 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-purple-500/20 ${errors.employmentType ? 'border-red-500' : ''}`}>
                     <SelectValue placeholder="Select employment type" />
                   </SelectTrigger>
                   <SelectContent className="bg-gray-800 border-gray-600">
@@ -973,7 +1099,7 @@ export default function EmployeeOnboardingWizard() {
                     updateFormData({ joiningDate: date ? date.toISOString().split('T')[0] : '' })
                   }}
                   placeholder="Select your joining date"
-                  className={`bg-gray-800 border-gray-600 text-white focus:border-purple-500 focus:ring-purple-500/20 ${errors.joiningDate ? 'border-red-500' : ''}`}
+                  className={`bg-gray-800 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-purple-500/20 ${errors.joiningDate ? 'border-red-500' : ''}`}
                 />
                 {errors.joiningDate && <p className="text-red-400 text-sm mt-1">{errors.joiningDate}</p>}
               </div>
@@ -997,7 +1123,7 @@ export default function EmployeeOnboardingWizard() {
                     id="accountHolderName"
                     value={formData.accountHolderName}
                     onChange={(e) => updateFormData({ accountHolderName: e.target.value })}
-                    className={`bg-gray-800 border-gray-600 text-white focus:border-purple-500 focus:ring-purple-500/20 ${errors.accountHolderName ? 'border-red-500' : ''}`}
+                    className={`bg-gray-800 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-purple-500/20 ${errors.accountHolderName ? 'border-red-500' : ''}`}
                     placeholder="e.g. Ravi Kumar Singh"
                     autoComplete="off"
                   />
@@ -1013,7 +1139,7 @@ export default function EmployeeOnboardingWizard() {
                     type="text"
                     value={formData.bankAccountNumber}
                     onChange={(e) => updateFormData({ bankAccountNumber: e.target.value })}
-                    className={`bg-gray-800 border-gray-600 text-white focus:border-purple-500 focus:ring-purple-500/20 ${errors.bankAccountNumber ? 'border-red-500' : ''}`}
+                    className={`bg-gray-800 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-purple-500/20 ${errors.bankAccountNumber ? 'border-red-500' : ''}`}
                     placeholder="e.g. 1234567890123456"
                     autoComplete="off"
                   />
@@ -1028,7 +1154,7 @@ export default function EmployeeOnboardingWizard() {
                     value={formData.bankName}
                     onValueChange={(value) => updateFormData({ bankName: value })}
                   >
-                    <SelectTrigger className={`bg-gray-800 border-gray-600 text-white focus:border-purple-500 focus:ring-purple-500/20 ${errors.bankName ? 'border-red-500' : ''}`}>
+                    <SelectTrigger className={`bg-gray-800 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-purple-500/20 ${errors.bankName ? 'border-red-500' : ''}`}>
                       <SelectValue placeholder="Select your bank" />
                     </SelectTrigger>
                     <SelectContent className="bg-gray-800 border-gray-600">
@@ -1049,7 +1175,7 @@ export default function EmployeeOnboardingWizard() {
                       id="ifscCode"
                       value={formData.ifscCode}
                       onChange={(e) => updateFormData({ ifscCode: e.target.value.toUpperCase() })}
-                      className={`bg-gray-800 border-gray-600 text-white focus:border-purple-500 focus:ring-purple-500/20 ${errors.ifscCode ? 'border-red-500' : ''}`}
+                      className={`bg-gray-800 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-purple-500/20 ${errors.ifscCode ? 'border-red-500' : ''}`}
                       placeholder="e.g. SBIN0000123"
                       autoComplete="off"
                     />
@@ -1071,8 +1197,8 @@ export default function EmployeeOnboardingWizard() {
                     id="branchName"
                     value={formData.branchName}
                     onChange={(e) => updateFormData({ branchName: e.target.value })}
-                    className="bg-gray-800 border-gray-600 text-white focus:border-purple-500 focus:ring-purple-500/20"
-                    placeholder="e.g. Patna Main Branch"
+                    className="bg-gray-800 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-purple-500/20"
+                    placeholder="e.g. Connaught Place Branch"
                     autoComplete="off"
                   />
                 </div>
@@ -1083,7 +1209,7 @@ export default function EmployeeOnboardingWizard() {
                     id="upiId"
                     value={formData.upiId}
                     onChange={(e) => updateFormData({ upiId: e.target.value })}
-                    className="bg-gray-800 border-gray-600 text-white focus:border-purple-500 focus:ring-purple-500/20"
+                    className="bg-gray-800 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-purple-500/20"
                     placeholder="e.g. 9876543210@paytm"
                     autoComplete="off"
                   />

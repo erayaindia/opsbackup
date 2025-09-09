@@ -78,6 +78,8 @@ export interface OnboardingApplicant {
   full_name: string
   personal_email: string
   phone?: string
+  date_of_birth?: string
+  gender?: 'Male' | 'Female'
   designation?: string
   work_location: string
   employment_type: string
@@ -90,6 +92,10 @@ export interface OnboardingApplicant {
   mapped_app_user_id?: string
   created_at: string
   updated_at: string
+  nda_accepted?: boolean
+  data_privacy_accepted?: boolean
+  nda_accepted_at?: string
+  data_privacy_accepted_at?: string
 }
 
 export interface ApprovalFormData {
