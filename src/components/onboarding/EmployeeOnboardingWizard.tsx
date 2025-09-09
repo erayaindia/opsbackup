@@ -92,6 +92,10 @@ interface FormData {
     resume: DocumentMetadata | null
     other: DocumentMetadata[]
   }
+
+  // Legal Consents
+  ndaAccepted: boolean
+  dataPrivacyAccepted: boolean
 }
 
 interface Step {
@@ -308,7 +312,9 @@ const initialFormData: FormData = {
     education: [],
     resume: null,
     other: []
-  }
+  },
+  ndaAccepted: false,
+  dataPrivacyAccepted: false
 }
 
 const VerticalStepper: React.FC<{
@@ -651,6 +657,11 @@ export default function EmployeeOnboardingWizard() {
         if (formData.documents.education.length === 0) stepErrors.education = 'Education certificates are required'
         break
         
+      case 6:
+        if (!formData.ndaAccepted) stepErrors.ndaAccepted = 'You must accept the NDA agreement to proceed'
+        if (!formData.dataPrivacyAccepted) stepErrors.dataPrivacyAccepted = 'You must accept the Data Privacy agreement to proceed'
+        break
+        
       default:
         break
     }
@@ -698,10 +709,72 @@ export default function EmployeeOnboardingWizard() {
     try {
       console.log('Submitting onboarding application:', formData)
       
-      const response = await submitOnboardingApplication(formData)
+      // Transform documents object to array format expected by database
+      const documentArray = []
+      if (formData.documents) {
+        // Handle single document fields
+        const singleDocs = ['aadhaarFront', 'aadhaarBack', 'pan', 'bankPassbook', 'profilePhoto', 'resume']
+        singleDocs.forEach(docType => {
+          if (formData.documents[docType]) {
+            documentArray.push({
+              ...formData.documents[docType],
+              type: docType.charAt(0).toUpperCase() + docType.slice(1).replace(/([A-Z])/g, ' $1').trim()
+            })
+          }
+        })
+        
+        // Handle array document fields
+        if (formData.documents.education && formData.documents.education.length > 0) {
+          formData.documents.education.forEach((doc, idx) => {
+            documentArray.push({
+              ...doc,
+              type: `Education ${idx + 1}`
+            })
+          })
+        }
+        
+        if (formData.documents.other && formData.documents.other.length > 0) {
+          formData.documents.other.forEach((doc, idx) => {
+            documentArray.push({
+              ...doc,
+              type: `Other ${idx + 1}`
+            })
+          })
+        }
+      }
+
+      // Transform local formData to match employees_details database schema
+      const transformedData = {
+        fullName: formData.fullName,
+        personalEmail: formData.personalEmail,
+        phoneNumber: formData.phoneNumber,
+        dateOfBirth: formData.dateOfBirth,
+        gender: formData.gender,
+        currentAddress: formData.currentAddress,
+        permanentAddress: formData.permanentAddress,
+        sameAsCurrentAddress: formData.sameAsCurrentAddress,
+        emergencyName: formData.emergencyContact.name,
+        emergencyRelationship: formData.emergencyContact.relationship,
+        emergencyPhone: formData.emergencyContact.phone,
+        designation: formData.designation,
+        workLocation: formData.workLocation,
+        employmentType: formData.employmentType,
+        joiningDate: formData.joiningDate,
+        accountHolderName: formData.accountHolderName,
+        bankAccountNumber: formData.bankAccountNumber,
+        bankName: formData.bankName,
+        ifscCode: formData.ifscCode,
+        branchName: formData.branchName,
+        upiId: formData.upiId,
+        documents: documentArray,
+        notes: '',
+        ndaAccepted: formData.ndaAccepted,
+        dataPrivacyAccepted: formData.dataPrivacyAccepted
+      }
+      
+      const response = await submitOnboardingApplication(transformedData)
       
       if (response.ok && response.data) {
-        setApplicationId(response.data.applicant_id)
         setIsSubmitted(true)
         toast.success('Application submitted successfully!')
         
@@ -1564,6 +1637,48 @@ export default function EmployeeOnboardingWizard() {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Legal Consents */}
+              <Card className="bg-gray-800/50 border-gray-700">
+                <CardContent className="p-6">
+                  <h3 className="text-lg font-semibold text-white mb-4">Legal Agreements</h3>
+                  <div className="space-y-4">
+                    <div className="flex items-start space-x-3">
+                      <Checkbox
+                        id="nda-consent"
+                        checked={formData.ndaAccepted}
+                        onCheckedChange={(checked) => 
+                          setFormData(prev => ({ ...prev, ndaAccepted: checked === true }))
+                        }
+                        className="mt-1"
+                      />
+                      <label htmlFor="nda-consent" className="text-sm text-gray-300 leading-relaxed">
+                        I agree to the <span className="text-purple-400 font-medium">Non-Disclosure Agreement (NDA)</span> and understand that I will handle all company information, trade secrets, and confidential data with utmost care and discretion.
+                      </label>
+                    </div>
+                    {errors.ndaAccepted && (
+                      <p className="text-red-400 text-sm ml-6">{errors.ndaAccepted}</p>
+                    )}
+                    
+                    <div className="flex items-start space-x-3">
+                      <Checkbox
+                        id="privacy-consent"
+                        checked={formData.dataPrivacyAccepted}
+                        onCheckedChange={(checked) => 
+                          setFormData(prev => ({ ...prev, dataPrivacyAccepted: checked === true }))
+                        }
+                        className="mt-1"
+                      />
+                      <label htmlFor="privacy-consent" className="text-sm text-gray-300 leading-relaxed">
+                        I consent to the collection, processing, and storage of my personal data in accordance with the <span className="text-purple-400 font-medium">Data Privacy Policy</span> and applicable data protection laws.
+                      </label>
+                    </div>
+                    {errors.dataPrivacyAccepted && (
+                      <p className="text-red-400 text-sm ml-6">{errors.dataPrivacyAccepted}</p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </StepLayout>
         )
@@ -1585,18 +1700,8 @@ export default function EmployeeOnboardingWizard() {
               </div>
               <h1 className="text-3xl font-bold text-white mb-4">Application Submitted Successfully!</h1>
               <p className="text-gray-300 text-lg mb-8">
-                Thank you for applying to join Eraya Style
+                Thank you for applying to join Eraya Style. Your application has been received and is being reviewed by our HR team.
               </p>
-              
-              <div className="bg-purple-500/10 p-6 rounded-lg border border-purple-500/20 mb-8">
-                <h3 className="font-semibold text-white mb-2">Application Details</h3>
-                <p className="text-gray-300">
-                  <span className="font-medium">Application ID:</span> {applicationId}
-                </p>
-                <p className="text-gray-300 mt-1">
-                  <span className="font-medium">Status:</span> Submitted for Review
-                </p>
-              </div>
 
               <div className="text-left space-y-4 mb-8">
                 <h3 className="font-semibold text-white">What happens next?</h3>

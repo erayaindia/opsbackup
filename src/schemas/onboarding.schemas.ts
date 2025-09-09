@@ -135,7 +135,13 @@ export const documentsSchema = z.object({
     .string()
     .max(2000, 'Notes must be less than 2000 characters')
     .optional()
-    .or(z.literal(''))
+    .or(z.literal('')),
+  ndaAccepted: z
+    .boolean()
+    .refine(val => val === true, 'You must accept the NDA agreement to proceed'),
+  dataPrivacyAccepted: z
+    .boolean()
+    .refine(val => val === true, 'You must accept the Data Privacy agreement to proceed')
 })
 
 // Complete Form Schema

@@ -25,13 +25,156 @@ import {
   Image as ImageIcon
 } from 'lucide-react'
 import { formatDistanceToNow, format } from 'date-fns'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 interface ApplicationDetailModalProps {
   application: OnboardingApplicant
   open: boolean
   onOpenChange: (open: boolean) => void
   onApprove: () => void
+}
+
+// Enhanced Document Preview Card Component
+function DocumentPreviewCard({ 
+  doc, 
+  loadingDocument, 
+  onPreview, 
+  onDownload, 
+  formatRelativeDate, 
+  getDocumentIcon 
+}: {
+  doc: any
+  loadingDocument: string | null
+  onPreview: (path: string, filename: string, signedUrl?: string) => void
+  onDownload: (path: string, filename: string) => void
+  formatRelativeDate: (date: string) => string
+  getDocumentIcon: (mimeType: string) => JSX.Element
+}) {
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [showInlinePreview, setShowInlinePreview] = useState(false)
+
+  const isImage = doc.mime_type?.startsWith('image/')
+
+  useEffect(() => {
+    if (isImage && doc.signed_url && showInlinePreview) {
+      setPreviewUrl(doc.signed_url)
+    }
+  }, [isImage, doc.signed_url, showInlinePreview])
+
+  const handleTogglePreview = async () => {
+    if (!isImage) {
+      onPreview(doc.path, doc.filename, doc.signed_url)
+      return
+    }
+
+    if (!showInlinePreview) {
+      setShowInlinePreview(true)
+      if (!previewUrl && doc.signed_url) {
+        setPreviewUrl(doc.signed_url)
+      } else if (!previewUrl) {
+        // Generate signed URL for preview
+        try {
+          const { getDocumentSignedUrl } = await import('@/services/onboardingService')
+          const signedUrl = await getDocumentSignedUrl(doc.path)
+          if (signedUrl) {
+            setPreviewUrl(signedUrl)
+          }
+        } catch (error) {
+          console.error('Error loading image preview:', error)
+          onPreview(doc.path, doc.filename, doc.signed_url)
+        }
+      }
+    } else {
+      setShowInlinePreview(false)
+    }
+  }
+
+  return (
+    <div className="p-4 bg-gray-50 rounded-lg border">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3 flex-1">
+          <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+            {getDocumentIcon(doc.mime_type)}
+          </div>
+          <div className="flex-1">
+            <div className="font-semibold text-gray-900">{doc.type}</div>
+            <div className="text-sm text-gray-600 mt-1">
+              <span className="font-medium">{doc.filename}</span>
+              <span className="mx-2">•</span>
+              <span>{(doc.size / 1024 / 1024).toFixed(2)} MB</span>
+              <span className="mx-2">•</span>
+              <span>{doc.mime_type}</span>
+            </div>
+            {doc.uploaded_at && (
+              <div className="text-xs text-gray-500 mt-1">
+                Uploaded {formatRelativeDate(doc.uploaded_at)}
+              </div>
+            )}
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-2">
+          {/* Preview Button */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleTogglePreview}
+            disabled={loadingDocument === doc.path}
+            className="flex items-center gap-1"
+          >
+            {loadingDocument === doc.path ? (
+              <div className="w-3 h-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <Eye className="w-3 h-3" />
+            )}
+            {isImage && showInlinePreview ? 'Hide' : 'Preview'}
+          </Button>
+          
+          {/* Download Button */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onDownload(doc.path, doc.filename)}
+            disabled={loadingDocument === doc.path}
+            className="flex items-center gap-1"
+          >
+            {loadingDocument === doc.path ? (
+              <div className="w-3 h-3 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <Download className="w-3 h-3" />
+            )}
+            Download
+          </Button>
+        </div>
+      </div>
+
+      {/* Inline Image Preview */}
+      {isImage && showInlinePreview && (
+        <div className="mt-4 border-t pt-4">
+          {previewUrl ? (
+            <div className="flex justify-center">
+              <img
+                src={previewUrl}
+                alt={doc.filename}
+                className="max-w-full max-h-96 rounded-lg shadow-md object-contain bg-white"
+                onError={() => {
+                  console.error('Failed to load image preview')
+                  setPreviewUrl(null)
+                }}
+              />
+            </div>
+          ) : (
+            <div className="flex items-center justify-center py-8 text-gray-500">
+              <div className="text-center">
+                <ImageIcon className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+                <div className="text-sm">Loading preview...</div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
 }
 
 export function ApplicationDetailModal({
@@ -524,64 +667,15 @@ export function ApplicationDetailModal({
                   return documentEntries.length > 0 ? (
                     <div className="space-y-4">
                       {documentEntries.map((doc, index) => (
-                      <div key={index} className="p-4 bg-gray-50 rounded-lg border">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3 flex-1">
-                            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                              {getDocumentIcon(doc.mime_type)}
-                            </div>
-                            <div className="flex-1">
-                              <div className="font-semibold text-gray-900">{doc.type}</div>
-                              <div className="text-sm text-gray-600 mt-1">
-                                <span className="font-medium">{doc.filename}</span>
-                                <span className="mx-2">•</span>
-                                <span>{(doc.size / 1024 / 1024).toFixed(2)} MB</span>
-                                <span className="mx-2">•</span>
-                                <span>{doc.mime_type}</span>
-                              </div>
-                              {doc.uploaded_at && (
-                                <div className="text-xs text-gray-500 mt-1">
-                                  Uploaded {formatRelativeDate(doc.uploaded_at)}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                          
-                          <div className="flex items-center gap-2">
-                            {/* Preview Button */}
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handlePreviewDocument(doc.path, doc.filename, doc.signed_url)}
-                              disabled={loadingDocument === doc.path}
-                              className="flex items-center gap-1"
-                            >
-                              {loadingDocument === doc.path ? (
-                                <div className="w-3 h-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                              ) : (
-                                <Eye className="w-3 h-3" />
-                              )}
-                              Preview
-                            </Button>
-                            
-                            {/* Download Button */}
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleDownloadDocument(doc.path, doc.filename)}
-                              disabled={loadingDocument === doc.path}
-                              className="flex items-center gap-1"
-                            >
-                              {loadingDocument === doc.path ? (
-                                <div className="w-3 h-3 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
-                              ) : (
-                                <Download className="w-3 h-3" />
-                              )}
-                              Download
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
+                      <DocumentPreviewCard 
+                        key={index} 
+                        doc={doc} 
+                        loadingDocument={loadingDocument}
+                        onPreview={handlePreviewDocument}
+                        onDownload={handleDownloadDocument}
+                        formatRelativeDate={formatRelativeDate}
+                        getDocumentIcon={getDocumentIcon}
+                      />
                       ))}
                     </div>
                   ) : (

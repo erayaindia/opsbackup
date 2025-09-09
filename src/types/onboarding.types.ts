@@ -50,6 +50,10 @@ export interface OnboardingFormData {
   // Step 5: Documents
   documents: DocumentUpload[]
   notes?: string
+
+  // Legal Consents
+  ndaAccepted: boolean
+  dataPrivacyAccepted: boolean
 }
 
 export interface DocumentUpload {
