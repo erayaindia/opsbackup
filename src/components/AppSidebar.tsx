@@ -66,7 +66,8 @@ import {
   Plus,
   Menu,
   Repeat,
-  Activity
+  Activity,
+  ShoppingCart
 } from "lucide-react";
 import {
   Sidebar,
@@ -94,7 +95,12 @@ import { SkeletonMenu, SkeletonCollapsible } from "@/components/ui/skeleton-menu
 // Operations Section
 const operationsItems = [
   { title: "Dashboard", url: "/", icon: Home },
-  { title: "Orders", url: "/orders", icon: Package },
+];
+
+// Orders Sub-items
+const ordersItems = [
+  { title: "All Orders", url: "/orders", icon: Package },
+  { title: "Abandoned Cart", url: "/orders/abandoned-cart", icon: ShoppingCart },
 ];
 
 // Fulfillment Sub-items (Processing)
@@ -215,6 +221,7 @@ export function AppSidebar() {
   const permissionsContext = usePermissionsContext();
   
   // Collapsible group states
+  const [ordersOpen, setOrdersOpen] = useState(currentPath.startsWith('/orders'));
   const [fulfillmentOpen, setFulfillmentOpen] = useState(currentPath.startsWith('/fulfillment'));
   const [customerSupportOpen, setCustomerSupportOpen] = useState(currentPath.startsWith('/support') && currentPath !== '/support' ? true : currentPath === '/support');
   const [teamHubOpen, setTeamHubOpen] = useState(currentPath.startsWith('/team-hub'));
@@ -241,6 +248,7 @@ export function AppSidebar() {
   }, [permissionsContext?.refreshTrigger])
 
   const isActive = (path: string) => currentPath === path;
+  const isOrdersActive = currentPath.startsWith('/orders');
   const isFulfillmentActive = currentPath.startsWith('/fulfillment');
   const isCustomerSupportActive = currentPath.startsWith('/support');
   const isTeamHubActive = currentPath.startsWith('/team-hub');
@@ -514,10 +522,23 @@ export function AppSidebar() {
           </div>
 
           <div className="flex-1 overflow-y-auto overflow-x-hidden">
-            {/* 1. Dashboard & Orders (Operations) */}
+            {/* 1. Dashboard */}
             {renderMenuSection(operationsItems, "")}
             
-            {/* 2. Fulfillment - Collapsible with sub-sections */}
+            {/* 2. Orders - Collapsible */}
+            {renderCollapsibleSection(
+              "Orders",
+              ordersOpen,
+              setOrdersOpen,
+              isOrdersActive,
+              Package,
+              "orders",
+              [
+                { title: "", items: ordersItems }
+              ]
+            )}
+            
+            {/* 3. Fulfillment - Collapsible with sub-sections */}
             {renderCollapsibleSection(
               "Fulfillment",
               fulfillmentOpen,

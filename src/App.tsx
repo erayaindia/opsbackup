@@ -9,6 +9,8 @@ import { PermissionGuard } from "./components/PermissionGuard";
 import { PermissionsProvider } from "./contexts/PermissionsContext";
 import Dashboard from "./pages/Dashboard";
 import Orders from "./pages/Orders";
+import AbandonedCart from "./pages/orders/AbandonedCart";
+import Inventory from "./pages/Inventory";
 import Tasks from "./pages/Tasks";
 import TeamManagement from "./pages/TeamManagement";
 import Packing from "./pages/Packing";
@@ -100,9 +102,19 @@ const App = () => (
               <Route path="/" element={<Layout />}>
                 <Route index element={<Dashboard />} />
                 <Route path="dashboard" element={<Dashboard />} />
+                <Route path="product/inventory" element={
+                  <PermissionGuard requiredModule="products">
+                    <Inventory />
+                  </PermissionGuard>
+                } />
                 <Route path="orders" element={
                   <PermissionGuard requiredModule="orders">
                     <Orders />
+                  </PermissionGuard>
+                } />
+                <Route path="orders/abandoned-cart" element={
+                  <PermissionGuard requiredModule="orders">
+                    <AbandonedCart />
                   </PermissionGuard>
                 } />
                 <Route path="packing" element={<Packing />} />

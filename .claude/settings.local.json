@@ -26,7 +26,11 @@
       "Bash(git commit:*)",
       "Bash(git push:*)",
       "Bash(rm:*)",
-      "Bash(VITE_PORT=8090 npm run dev)"
+      "Bash(VITE_PORT=8090 npm run dev)",
+      "Bash(node:*)",
+      "Bash(timeout 10s npm run dev)",
+      "Bash(cat:*)",
+      "Bash(timeout 5s npm run dev)"
     ],
     "deny": [],
     "ask": []
