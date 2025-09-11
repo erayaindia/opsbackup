@@ -67,7 +67,8 @@ import {
   Menu,
   Repeat,
   Activity,
-  ShoppingCart
+  ShoppingCart,
+  Building
 } from "lucide-react";
 import {
   Sidebar,
@@ -152,18 +153,21 @@ const productManagementItems = [
   { title: "Lifecycle", url: "/products/lifecycle", icon: Repeat },
   { title: "Performance Insight", url: "/products/performance-insight", icon: Activity },
   { title: "Suppliers", url: "/products/suppliers", icon: Truck },
-  { title: "Inventory Management", url: "/product/inventory", icon: ClipboardList },
+  { title: "Inventory", url: "/product/inventory", icon: ClipboardList },
+  { title: "Warehouse", url: "/products/warehouse", icon: Building },
   { title: "Sample Testing / QC", url: "/products/sample-testing", icon: FlaskConical },
 ];
 
-// Accounts & Finance Section
-const accountsFinanceItems = [
-  { title: "Bank Accounts Overview", url: "/finance/bank-accounts", icon: CreditCard },
-  { title: "Sales & Revenue Tracking", url: "/finance/sales-revenue", icon: TrendingUpIcon },
-  { title: "Expenses & Payouts", url: "/finance/expenses-payouts", icon: Banknote },
-  { title: "Profit & Loss", url: "/finance/profit-loss", icon: PieChartIcon },
-  { title: "GST / Tax Reports", url: "/finance/gst-tax", icon: Receipt },
-  { title: "Pending Remittances", url: "/finance/pending-remittances", icon: Clock },
+// Accounts Section
+const accountsItems = [
+  { title: "Bank Accounts Overview", url: "/account/bank-accounts", icon: CreditCard },
+  { title: "Sales & Revenue Tracking", url: "/account/sales-revenue", icon: TrendingUpIcon },
+  { title: "Expenses & Payouts", url: "/account/expenses-payouts", icon: Banknote },
+  { title: "Profit & Loss", url: "/account/profit-loss", icon: PieChartIcon },
+  { title: "GST / Tax Reports", url: "/account/gst-tax", icon: Receipt },
+  { title: "Pending Remittances", url: "/account/pending-remittances", icon: Clock },
+  { title: "Purchase", url: "/account/purchase", icon: ShoppingCart },
+  { title: "Bills", url: "/account/bills", icon: FileText },
 ];
 
 // Management & Admin Section
@@ -228,7 +232,7 @@ export function AppSidebar() {
 
   const [marketingGrowthOpen, setMarketingGrowthOpen] = useState(currentPath.startsWith('/marketing'));
   const [productManagementOpen, setProductManagementOpen] = useState(currentPath.startsWith('/products'));
-  const [accountsFinanceOpen, setAccountsFinanceOpen] = useState(currentPath.startsWith('/finance'));
+  const [accountsOpen, setAccountsOpen] = useState(currentPath.startsWith('/account'));
   const [managementAdminOpen, setManagementAdminOpen] = useState(currentPath.startsWith('/management') || currentPath === '/users' || currentPath.startsWith('/admin'));
   const [contentOpen, setContentOpen] = useState(currentPath.startsWith('/content'));
   const [trainingOpen, setTrainingOpen] = useState(currentPath.startsWith('/training'));
@@ -254,7 +258,7 @@ export function AppSidebar() {
   const isTeamHubActive = currentPath.startsWith('/team-hub');
   const isMarketingGrowthActive = currentPath.startsWith('/marketing');
   const isProductManagementActive = currentPath.startsWith('/products');
-  const isAccountsFinanceActive = currentPath.startsWith('/finance');
+  const isAccountsActive = currentPath.startsWith('/account');
   const isManagementAdminActive = currentPath.startsWith('/management') || currentPath === '/users' || currentPath.startsWith('/admin');
   const isContentActive = currentPath.startsWith('/content');
   const isTrainingActive = currentPath.startsWith('/training');
@@ -768,20 +772,20 @@ export function AppSidebar() {
               </SidebarGroup>
             )}
             
-            {/* 9. Accounts & Finance - Collapsible */}
+            {/* 9. Accounts - Collapsible */}
             {renderCollapsibleSection(
-              "Accounts & Finance",
-              accountsFinanceOpen,
-              setAccountsFinanceOpen,
-              isAccountsFinanceActive,
+              "Accounts",
+              accountsOpen,
+              setAccountsOpen,
+              isAccountsActive,
               Wallet,
               "finance"
             )}
-            {shouldShowLabels && accountsFinanceOpen && (
+            {shouldShowLabels && accountsOpen && (
               <SidebarGroup className="px-3 py-0 -mt-1">
                 <SidebarGroupContent>
                   <SidebarMenu className="space-y-0.5 animate-fade-in">
-                    {accountsFinanceItems.map((item, index) => {
+                    {accountsItems.map((item, index) => {
                       const active = isActive(item.url);
                       return (
                         <SidebarMenuItem key={item.title} className="animate-stagger-in" style={{ animationDelay: `${index * 50}ms` }}>

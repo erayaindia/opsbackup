@@ -184,12 +184,6 @@ export default function Orders() {
 
       {/* Orders Table */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5" />
-            Orders ({orders.length})
-          </CardTitle>
-        </CardHeader>
         <CardContent className="p-0">
           <OrdersTable
             orders={orders}

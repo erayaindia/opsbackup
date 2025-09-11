@@ -223,12 +223,12 @@ export function OrdersTable({
       </div>
 
       {/* Table */}
-      <div className="rounded-md border bg-background">
+      <div className="rounded-xl border border-border/50 bg-gradient-to-br from-card to-card/80 shadow-lg overflow-hidden">
         <div className="max-h-[70vh] overflow-auto">
           <Table>
-            <TableHeader className="sticky top-0 bg-background z-10 border-b shadow-sm">
-              <TableRow className="hover:bg-transparent">
-                <TableHead className="w-12">
+            <TableHeader className="sticky top-0 bg-background/95 backdrop-blur-sm z-10 border-b border-border/50">
+              <TableRow className="hover:bg-transparent border-none">
+                <TableHead className="w-12 border-r border-border/50 bg-muted/30 whitespace-nowrap">
                   <Checkbox
                     checked={isAllSelected || isIndeterminate}
                     onCheckedChange={handleSelectAll}
@@ -236,7 +236,7 @@ export function OrdersTable({
                   />
                 </TableHead>
                 <TableHead 
-                  className="cursor-pointer hover:bg-muted/50 transition-colors min-w-32"
+                  className="cursor-pointer hover:bg-muted/50 transition-colors min-w-32 border-r border-border/50 bg-muted/30 whitespace-nowrap"
                   onClick={() => onSort('order_id')}
                 >
                   <div className="flex items-center gap-2">
@@ -244,11 +244,11 @@ export function OrdersTable({
                     {getSortIcon('order_id')}
                   </div>
                 </TableHead>
-                <TableHead className="min-w-32">Name</TableHead>
-                <TableHead className="min-w-32">Financial Status</TableHead>
-                <TableHead className="min-w-36">Order Status</TableHead>
+                <TableHead className="min-w-32 border-r border-border/50 bg-muted/30 whitespace-nowrap">Name</TableHead>
+                <TableHead className="min-w-32 border-r border-border/50 bg-muted/30 whitespace-nowrap">Financial Status</TableHead>
+                <TableHead className="min-w-36 border-r border-border/50 bg-muted/30 whitespace-nowrap">Order Status</TableHead>
                 <TableHead 
-                  className="cursor-pointer hover:bg-muted/50 transition-colors min-w-28"
+                  className="cursor-pointer hover:bg-muted/50 transition-colors min-w-28 border-r border-border/50 bg-muted/30 whitespace-nowrap"
                   onClick={() => onSort('total_price')}
                 >
                   <div className="flex items-center gap-2">
@@ -257,10 +257,10 @@ export function OrdersTable({
                     {getSortIcon('total_price')}
                   </div>
                 </TableHead>
-                <TableHead className="min-w-48">Email</TableHead>
-                <TableHead className="min-w-32">Phone</TableHead>
+                <TableHead className="min-w-48 border-r border-border/50 bg-muted/30 whitespace-nowrap">Email</TableHead>
+                <TableHead className="min-w-32 border-r border-border/50 bg-muted/30 whitespace-nowrap">Phone</TableHead>
                 <TableHead 
-                  className="cursor-pointer hover:bg-muted/50 transition-colors min-w-40"
+                  className="cursor-pointer hover:bg-muted/50 transition-colors min-w-40 border-r border-border/50 bg-muted/30 whitespace-nowrap"
                   onClick={() => onSort('Order Time')}
                 >
                   <div className="flex items-center gap-2">
@@ -269,7 +269,7 @@ export function OrdersTable({
                     {getSortIcon('Order Time')}
                   </div>
                 </TableHead>
-                <TableHead className="min-w-24">Actions</TableHead>
+                <TableHead className="min-w-24 bg-muted/30 whitespace-nowrap">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -286,26 +286,26 @@ export function OrdersTable({
                 orders.map((order) => (
                   <TableRow 
                     key={order.order_id} 
-                    className="hover:bg-muted/30 transition-colors cursor-pointer h-16"
+                    className="hover:bg-muted/20 transition-all duration-200 cursor-pointer h-12 border-b border-border/30"
                     onClick={(e) => handleRowClick(order, e)}
                   >
-                    <TableCell onClick={(e) => e.stopPropagation()}>
+                    <TableCell onClick={(e) => e.stopPropagation()} className="border-r border-border/50">
                       <Checkbox
                         checked={selectedOrders.has(order.order_id)}
                         onCheckedChange={(checked) => handleSelectOrder(order.order_id, checked as boolean)}
                         className="mx-auto"
                       />
                     </TableCell>
-                    <TableCell className="font-mono text-sm font-medium">
+                    <TableCell className="font-mono text-sm font-medium border-r border-border/50">
                       {order.order_id}
                     </TableCell>
-                    <TableCell className="font-medium">
+                    <TableCell className="font-medium border-r border-border/50">
                       {order.name || '-'}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="border-r border-border/50">
                       {getFinancialStatusBadge(order.financial_status)}
                     </TableCell>
-                    <TableCell onClick={(e) => e.stopPropagation()}>
+                    <TableCell onClick={(e) => e.stopPropagation()} className="border-r border-border/50">
                       <Select
                         value={order['Order Status'] || 'Unfulfilled'}
                         onValueChange={(value) => handleStatusUpdate(order.order_id, value as OrderStatus)}
@@ -342,16 +342,16 @@ export function OrdersTable({
                         </SelectContent>
                       </Select>
                     </TableCell>
-                    <TableCell className="font-medium">
+                    <TableCell className="font-medium border-r border-border/50">
                       {formatPrice(order.total_price)}
                     </TableCell>
-                    <TableCell className="max-w-48 truncate">
+                    <TableCell className="max-w-48 truncate border-r border-border/50">
                       {order.email || '-'}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="border-r border-border/50">
                       {order.phone || '-'}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="border-r border-border/50">
                       {formatDateTime(order['Order Time'])}
                     </TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>

@@ -11,6 +11,7 @@ import Dashboard from "./pages/Dashboard";
 import Orders from "./pages/Orders";
 import AbandonedCart from "./pages/orders/AbandonedCart";
 import Inventory from "./pages/Inventory";
+import NewInventory from "./pages/NewInventory";
 import Tasks from "./pages/Tasks";
 import TeamManagement from "./pages/TeamManagement";
 import Packing from "./pages/Packing";
@@ -64,6 +65,8 @@ import PerformanceInsight from "./pages/products/PerformanceInsight";
 import Suppliers from "./pages/products/Suppliers";
 import InventoryManagement from "./pages/products/InventoryManagement";
 import SampleTesting from "./pages/products/SampleTesting";
+import Warehouse from "./pages/Warehouse";
+import SuppliersPage from "./pages/Suppliers";
 
 // Finance pages
 import BankAccounts from "./pages/finance/BankAccounts";
@@ -72,6 +75,8 @@ import ExpensesPayouts from "./pages/finance/ExpensesPayouts";
 import ProfitLoss from "./pages/finance/ProfitLoss";
 import GSTTax from "./pages/finance/GSTTax";
 import PendingRemittances from "./pages/finance/PendingRemittances";
+import Purchase from "./pages/finance/Purchase";
+import Bills from "./pages/finance/Bills";
 
 // Management pages
 import PeopleRoles from "./pages/management/PeopleRoles";
@@ -104,7 +109,12 @@ const App = () => (
                 <Route path="dashboard" element={<Dashboard />} />
                 <Route path="product/inventory" element={
                   <PermissionGuard requiredModule="products">
-                    <Inventory />
+                    <NewInventory />
+                  </PermissionGuard>
+                } />
+                <Route path="products/suppliers" element={
+                  <PermissionGuard requiredModule="products">
+                    <SuppliersPage />
                   </PermissionGuard>
                 } />
                 <Route path="orders" element={
@@ -284,7 +294,7 @@ const App = () => (
                 } />
                 <Route path="product/inventory" element={
                   <PermissionGuard requiredModule="products">
-                    <InventoryManagement />
+                    <NewInventory />
                   </PermissionGuard>
                 } />
                 <Route path="products/sample-testing" element={
@@ -292,36 +302,51 @@ const App = () => (
                     <SampleTesting />
                   </PermissionGuard>
                 } />
+                <Route path="products/warehouse" element={
+                  <PermissionGuard requiredModule="products">
+                    <Warehouse />
+                  </PermissionGuard>
+                } />
                 
-                {/* Accounts & Finance routes */}
-                <Route path="finance/bank-accounts" element={
+                {/* Accounts routes */}
+                <Route path="account/bank-accounts" element={
                   <PermissionGuard requiredModule="finance">
                     <BankAccounts />
                   </PermissionGuard>
                 } />
-                <Route path="finance/sales-revenue" element={
+                <Route path="account/sales-revenue" element={
                   <PermissionGuard requiredModule="finance">
                     <SalesRevenue />
                   </PermissionGuard>
                 } />
-                <Route path="finance/expenses-payouts" element={
+                <Route path="account/expenses-payouts" element={
                   <PermissionGuard requiredModule="finance">
                     <ExpensesPayouts />
                   </PermissionGuard>
                 } />
-                <Route path="finance/profit-loss" element={
+                <Route path="account/profit-loss" element={
                   <PermissionGuard requiredModule="finance">
                     <ProfitLoss />
                   </PermissionGuard>
                 } />
-                <Route path="finance/gst-tax" element={
+                <Route path="account/gst-tax" element={
                   <PermissionGuard requiredModule="finance">
                     <GSTTax />
                   </PermissionGuard>
                 } />
-                <Route path="finance/pending-remittances" element={
+                <Route path="account/pending-remittances" element={
                   <PermissionGuard requiredModule="finance">
                     <PendingRemittances />
+                  </PermissionGuard>
+                } />
+                <Route path="account/purchase" element={
+                  <PermissionGuard requiredModule="finance">
+                    <Purchase />
+                  </PermissionGuard>
+                } />
+                <Route path="account/bills" element={
+                  <PermissionGuard requiredModule="finance">
+                    <Bills />
                   </PermissionGuard>
                 } />
                 
