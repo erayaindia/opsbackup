@@ -1,5 +1,5 @@
 import { OnboardingApplicant } from '@/types/onboarding.types'
-import { getDocumentSignedUrl } from '@/services/onboardingService'
+import { getDocumentSignedUrl, diagnoseStorageSetup } from '@/services/onboardingService'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -43,7 +43,15 @@ function DocumentPreviewCard({
   formatRelativeDate, 
   getDocumentIcon 
 }: {
-  doc: any
+  doc: {
+    type: string
+    filename: string
+    path: string
+    size: number
+    mime_type: string
+    uploaded_at?: string
+    signed_url?: string
+  }
   loadingDocument: string | null
   onPreview: (path: string, filename: string, signedUrl?: string) => void
   onDownload: (path: string, filename: string) => void
@@ -68,24 +76,43 @@ function DocumentPreviewCard({
     }
 
     if (!showInlinePreview) {
+      console.log('🖼️ Toggling inline preview ON for:', doc.filename, 'Path:', doc.path)
       setShowInlinePreview(true)
-      if (!previewUrl && doc.signed_url) {
-        setPreviewUrl(doc.signed_url)
-      } else if (!previewUrl) {
-        // Generate signed URL for preview
-        try {
-          const { getDocumentSignedUrl } = await import('@/services/onboardingService')
-          const signedUrl = await getDocumentSignedUrl(doc.path)
-          if (signedUrl) {
-            setPreviewUrl(signedUrl)
+      
+      // Always try to generate a fresh signed URL for inline preview
+      try {
+        console.log('🔄 Generating fresh signed URL for inline preview...')
+        const { getDocumentSignedUrl } = await import('@/services/onboardingService')
+        const signedUrl = await getDocumentSignedUrl(doc.path)
+        
+        if (signedUrl) {
+          console.log('✅ Got fresh signed URL for inline preview:', signedUrl)
+          setPreviewUrl(signedUrl)
+        } else {
+          console.log('⚠️ No signed URL returned for inline preview - might be mock data')
+          
+          // Check if this appears to be mock data
+          if (doc.path.startsWith('applications/')) {
+            console.log('💡 Detected mock data - showing placeholder message')
+            // For mock data, show a placeholder instead of trying to load
+            setPreviewUrl('mock-placeholder')
+          } else {
+            console.error('❌ Real document but no signed URL - falling back to new tab')
+            // Fall back to opening in new tab instead
+            onPreview(doc.path, doc.filename, doc.signed_url)
+            setShowInlinePreview(false)
           }
-        } catch (error) {
-          console.error('Error loading image preview:', error)
-          onPreview(doc.path, doc.filename, doc.signed_url)
         }
+      } catch (error) {
+        console.error('💥 Error generating signed URL for inline preview:', error)
+        // Fall back to opening in new tab instead
+        onPreview(doc.path, doc.filename, doc.signed_url)
+        setShowInlinePreview(false)
       }
     } else {
+      console.log('🖼️ Toggling inline preview OFF')
       setShowInlinePreview(false)
+      setPreviewUrl(null)
     }
   }
 
@@ -151,15 +178,36 @@ function DocumentPreviewCard({
       {/* Inline Image Preview */}
       {isImage && showInlinePreview && (
         <div className="mt-4 border-t pt-4">
-          {previewUrl ? (
+          {previewUrl === 'mock-placeholder' ? (
+            <div className="flex items-center justify-center py-8 text-gray-500">
+              <div className="text-center">
+                <ImageIcon className="w-12 h-12 mx-auto mb-3 text-blue-400" />
+                <div className="text-sm font-medium text-gray-700">Demo Document Preview</div>
+                <div className="text-xs text-gray-500 mt-1 max-w-sm">
+                  This is demonstration data. In production, uploaded images would be displayed here.
+                </div>
+                <div className="text-xs text-gray-400 mt-2 font-mono">
+                  {doc.filename} ({doc.mime_type})
+                </div>
+              </div>
+            </div>
+          ) : previewUrl ? (
             <div className="flex justify-center">
               <img
                 src={previewUrl}
                 alt={doc.filename}
                 className="max-w-full max-h-96 rounded-lg shadow-md object-contain bg-white"
-                onError={() => {
-                  console.error('Failed to load image preview')
+                onError={(e) => {
+                  console.error('❌ Failed to load image preview:', {
+                    src: previewUrl,
+                    filename: doc.filename,
+                    path: doc.path,
+                    error: e
+                  })
                   setPreviewUrl(null)
+                  // Try fallback to preview in new tab
+                  console.log('🔄 Attempting fallback to new tab preview...')
+                  onPreview(doc.path, doc.filename, doc.signed_url)
                 }}
               />
             </div>
@@ -190,6 +238,37 @@ export function ApplicationDetailModal({
     if (open) {
       console.log('🏢 Application loaded:', application)
       console.log('📄 Documents:', application.documents)
+      
+      // Log each document structure for debugging
+      if (application.documents && typeof application.documents === 'object') {
+        Object.entries(application.documents).forEach(([key, value]) => {
+          if (value && typeof value === 'object') {
+            if (Array.isArray(value)) {
+              value.forEach((doc, idx) => {
+                if (doc && doc.path) {
+                  console.log(`📑 Document ${key}[${idx}]:`, {
+                    type: key,
+                    filename: doc.filename,
+                    path: doc.path,
+                    mime_type: doc.mime_type,
+                    signed_url: doc.signed_url ? 'Present' : 'Missing',
+                    size: doc.size
+                  })
+                }
+              })
+            } else if (value.path) {
+              console.log(`📑 Document ${key}:`, {
+                type: key,
+                filename: value.filename,
+                path: value.path,
+                mime_type: value.mime_type,
+                signed_url: value.signed_url ? 'Present' : 'Missing',
+                size: value.size
+              })
+            }
+          }
+        })
+      }
     }
   })
 
@@ -229,6 +308,18 @@ export function ApplicationDetailModal({
   const handleDownloadDocument = async (docPath: string, filename: string) => {
     try {
       setLoadingDocument(docPath)
+      
+      // Check if this is mock data
+      if (docPath.startsWith('applications/')) {
+        console.log('⚠️ Attempted download of mock data:', filename)
+        alert(`This is demonstration data: ${filename}
+
+The download feature will work with real uploaded files. This sample data is for testing the interface only.
+
+In production, users will be able to download actual uploaded documents.`)
+        return
+      }
+      
       const signedUrl = await getDocumentSignedUrl(docPath)
       
       if (signedUrl) {
@@ -245,6 +336,7 @@ export function ApplicationDetailModal({
       }
     } catch (error) {
       console.error('Error downloading document:', error)
+      alert(`Failed to download document: ${filename}\n\nError: ${error instanceof Error ? error.message : 'Unknown error'}`)
     } finally {
       setLoadingDocument(null)
     }
@@ -272,11 +364,62 @@ export function ApplicationDetailModal({
         window.open(signedUrl, '_blank')
       } else {
         console.error('❌ No signed URL returned for document:', docPath)
-        alert(`Failed to get document URL for: ${filename}\nPath: ${docPath}\n\nThe document might not be available in storage.`)
+        
+        // Provide more detailed error message
+        // Check if this is mock data
+        if (docPath.startsWith('applications/')) {
+          const mockMessage = `This is demonstration data: ${filename}
+
+The document preview feature will work with real uploaded files. This sample data is for testing the interface.
+
+Document Details:
+• Path: ${docPath}
+• Type: Demo/Sample Data
+• Status: Not available for preview
+
+In production, users will be able to preview and download actual uploaded documents.`
+          
+          alert(mockMessage)
+          return
+        }
+        
+        // Run diagnostics when preview fails for real documents
+        console.log('🔧 Running storage diagnostics after preview failure...')
+        await diagnoseStorageSetup()
+        
+        const errorMessage = `Unable to preview document: ${filename}
+        
+Document Path: ${docPath}
+
+Possible causes:
+• Document may not exist in storage
+• Storage bucket configuration issue
+• Permission/access issue
+• Network connectivity problem
+
+🔧 Storage diagnostics have been run - check the browser console for detailed information about available storage buckets and configuration.
+
+Please check:
+• Browser console for diagnostic details
+• Network connectivity
+• Contact administrator if the problem persists`
+        
+        alert(errorMessage)
       }
     } catch (error) {
       console.error('💥 Error previewing document:', error)
-      alert(`Error previewing document: ${filename}\n\n${error.message || error}`)
+      
+      const errorMessage = `Error previewing document: ${filename}
+
+Technical Details: ${error instanceof Error ? error.message : String(error)}
+Document Path: ${docPath}
+
+Please check:
+• Network connection
+• Browser console for more details
+• Contact administrator if the problem persists`
+
+      alert(errorMessage)
     } finally {
       setLoadingDocument(null)
     }

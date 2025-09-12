@@ -10,7 +10,7 @@ import {
 } from '@/types/onboarding.types'
 
 // Helper function to transform form data to database format
-function transformFormDataToDatabase(data: any) {
+function transformFormDataToDatabase(data: OnboardingFormData) {
   return {
     full_name: data.fullName,
     personal_email: data.personalEmail,
@@ -871,22 +871,151 @@ export async function rejectOnboardingApplication(
   }
 }
 
+// Detect if we're working with mock data vs real uploaded files
+function isMockDocumentPath(path: string): boolean {
+  // Mock data typically uses paths like 'applications/user-name/document.pdf'
+  // Real uploaded files use paths like 'onboarding/temp/uuid/type/document.pdf'
+  return path.startsWith('applications/') && !path.includes('onboarding/')
+}
+
 // Get signed URL for document viewing
 export async function getDocumentSignedUrl(path: string): Promise<string | null> {
   try {
-    const { data, error } = await supabase.storage
-      .from('employee-documents')
-      .createSignedUrl(path, 3600) // 1 hour expiry
-
-    if (error) {
-      console.error('Error creating signed URL:', error)
+    console.log('🔗 Getting signed URL for path:', path)
+    
+    // Check if this is mock data
+    if (isMockDocumentPath(path)) {
+      console.log('⚠️ Detected mock document path:', path)
+      console.log('💡 This appears to be test/demo data that doesn\'t exist in storage')
+      
+      // For mock data, create a placeholder URL or return null
+      // In a real scenario, you might want to serve placeholder images
       return null
     }
+    
+    // Try different bucket configurations
+    const bucketNames = ['employee-documents', 'employee-docs', 'documents', 'uploads']
+    
+    for (const bucketName of bucketNames) {
+      try {
+        console.log(`🔄 Trying bucket: ${bucketName}`)
+        
+        // Try to create signed URL
+        const { data, error } = await supabase.storage
+          .from(bucketName)
+          .createSignedUrl(path, 3600) // 1 hour expiry
 
-    return data?.signedUrl || null
-  } catch (error) {
-    console.error('Error getting document signed URL:', error)
+        if (error) {
+          console.log(`❌ Bucket ${bucketName} failed:`, error.message)
+          continue
+        }
+
+        const signedUrl = data?.signedUrl
+        if (signedUrl) {
+          console.log(`✅ Successfully created signed URL with bucket: ${bucketName}`)
+          return signedUrl
+        }
+        
+        console.log(`⚠️ Bucket ${bucketName} returned no signed URL`)
+      } catch (bucketError) {
+        console.log(`💥 Exception with bucket ${bucketName}:`, bucketError)
+        continue
+      }
+    }
+    
+    // If all buckets fail, try to list buckets to see what's available
+    console.log('🔍 All buckets failed, attempting to list available buckets...')
+    try {
+      const { data: buckets, error: listError } = await supabase.storage.listBuckets()
+      if (listError) {
+        console.error('❌ Could not list buckets:', listError)
+      } else if (buckets) {
+        console.log('📂 Available buckets:', buckets.map(b => b.name))
+        
+        // Try the first available bucket
+        if (buckets.length > 0) {
+          const firstBucket = buckets[0].name
+          console.log(`🎲 Trying first available bucket: ${firstBucket}`)
+          
+          const { data, error } = await supabase.storage
+            .from(firstBucket)
+            .createSignedUrl(path, 3600)
+            
+          if (!error && data?.signedUrl) {
+            console.log(`✅ Success with first available bucket: ${firstBucket}`)
+            return data.signedUrl
+          }
+        }
+      }
+    } catch (listError) {
+      console.error('💥 Exception listing buckets:', listError)
+    }
+    
+    console.error('❌ All attempts failed to get signed URL for path:', path)
     return null
+    
+  } catch (error) {
+    console.error('💥 Exception getting document signed URL:', {
+      path,
+      error: error instanceof Error ? error.message : error
+    })
+    return null
+  }
+}
+
+// Diagnostic function to help debug storage issues
+export async function diagnoseStorageSetup(): Promise<void> {
+  try {
+    console.log('🔧 Running storage diagnostics...')
+    
+    // List all available buckets
+    const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets()
+    
+    if (bucketsError) {
+      console.error('❌ Cannot list buckets:', bucketsError)
+      return
+    }
+    
+    if (!buckets || buckets.length === 0) {
+      console.warn('⚠️ No storage buckets found')
+      return
+    }
+    
+    console.log('📂 Available storage buckets:')
+    for (const bucket of buckets) {
+      console.log(`  - ${bucket.name} (${bucket.public ? 'public' : 'private'})`)
+      
+      // Try to list files in each bucket
+      try {
+        const { data: files, error: filesError } = await supabase.storage
+          .from(bucket.name)
+          .list('', { limit: 5 })
+          
+        if (filesError) {
+          console.log(`    ❌ Cannot list files: ${filesError.message}`)
+        } else if (files && files.length > 0) {
+          console.log(`    📄 Sample files: ${files.slice(0, 3).map(f => f.name).join(', ')}${files.length > 3 ? '...' : ''}`)
+        } else {
+          console.log(`    📭 Empty bucket`)
+        }
+      } catch (err) {
+        console.log(`    💥 Exception listing files: ${err}`)
+      }
+    }
+    
+    // Check authentication status
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+    
+    if (sessionError) {
+      console.error('❌ Auth session error:', sessionError)
+    } else if (session) {
+      console.log('✅ User authenticated:', session.user.email)
+    } else {
+      console.log('⚠️ No authenticated session')
+    }
+    
+  } catch (error) {
+    console.error('💥 Exception in storage diagnostics:', error)
   }
 }
 
@@ -894,7 +1023,7 @@ export async function getDocumentSignedUrl(path: string): Promise<string | null>
 export async function deleteDocument(path: string): Promise<void> {
   try {
     const { error } = await supabase.storage
-      .from('employee-docs')
+      .from('employee-documents')
       .remove([path])
 
     if (error) {

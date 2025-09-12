@@ -160,12 +160,6 @@ const productManagementItems = [
 
 // Accounts Section
 const accountsItems = [
-  { title: "Bank Accounts Overview", url: "/account/bank-accounts", icon: CreditCard },
-  { title: "Sales & Revenue Tracking", url: "/account/sales-revenue", icon: TrendingUpIcon },
-  { title: "Expenses & Payouts", url: "/account/expenses-payouts", icon: Banknote },
-  { title: "Profit & Loss", url: "/account/profit-loss", icon: PieChartIcon },
-  { title: "GST / Tax Reports", url: "/account/gst-tax", icon: Receipt },
-  { title: "Pending Remittances", url: "/account/pending-remittances", icon: Clock },
   { title: "Purchase", url: "/account/purchase", icon: ShoppingCart },
   { title: "Bills", url: "/account/bills", icon: FileText },
 ];
