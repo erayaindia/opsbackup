@@ -9,10 +9,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { useState, useEffect } from "react";
 import { User } from "@supabase/supabase-js";
 import { useNavigate } from "react-router-dom";
+import { useUserProfile } from "@/hooks/useUserProfile";
 
 export function AppHeader() {
   const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
+  const { profile } = useUserProfile();
   const [isCompact, setIsCompact] = useState(() => {
     try {
       return localStorage.getItem('app-compact-mode') === 'true' || document.documentElement.classList.contains('compact');
@@ -56,8 +58,16 @@ export function AppHeader() {
     setIsCompact(!isCompact);
   };
 
-  const getUserInitials = (email: string) => {
-    return email.split('@')[0].slice(0, 2).toUpperCase();
+  const getUserInitials = (name?: string, email?: string) => {
+    if (name) {
+      return name
+        .split(' ')
+        .map(n => n[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 2);
+    }
+    return email ? email.split('@')[0].slice(0, 2).toUpperCase() : 'U';
   };
 
   return (
@@ -103,9 +113,12 @@ export function AppHeader() {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                 <Avatar className="h-8 w-8">
-                  <AvatarImage src={user.user_metadata?.avatar_url} />
+                  <AvatarImage src={profile?.profilePicture?.signedUrl || ""} />
                   <AvatarFallback>
-                    {getUserInitials(user.email || '')}
+                    {getUserInitials(
+                      profile?.appUser?.full_name || profile?.employeeDetails?.full_name, 
+                      user.email || ''
+                    )}
                   </AvatarFallback>
                 </Avatar>
               </Button>
