@@ -9,8 +9,9 @@ import { Badge } from '@/components/ui/badge'
 import { ApplicationsTable } from '@/components/admin/onboarding/ApplicationsTable'
 import { ApplicationDetailModal } from '@/components/admin/onboarding/ApplicationDetailModal'
 import { ApplicationApprovalModal } from '@/components/admin/onboarding/ApplicationApprovalModal'
-import { Users, Search, Filter, UserPlus, Clock, CheckCircle, XCircle } from 'lucide-react'
+import { Users, Search, Filter, UserPlus, Clock, CheckCircle, XCircle, Bug } from 'lucide-react'
 import { toast } from 'sonner'
+import { debugOnboardingIssues } from '@/utils/debugOnboarding'
 
 export default function OnboardingApplications() {
   const [applications, setApplications] = useState<OnboardingApplicant[]>([])
@@ -144,13 +145,23 @@ export default function OnboardingApplications() {
           <Users className="w-6 h-6" />
           <h1 className="text-2xl font-bold">Onboarding Applications</h1>
         </div>
-        <Button 
-          onClick={() => window.open('/onboard', '_blank')}
-          className="flex items-center gap-2"
-        >
-          <UserPlus className="w-4 h-4" />
-          View Public Form
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            onClick={debugOnboardingIssues}
+            variant="outline"
+            className="flex items-center gap-2"
+          >
+            <Bug className="w-4 h-4" />
+            Debug Database
+          </Button>
+          <Button 
+            onClick={() => window.open('/onboard', '_blank')}
+            className="flex items-center gap-2"
+          >
+            <UserPlus className="w-4 h-4" />
+            View Public Form
+          </Button>
+        </div>
       </div>
 
       {/* Stats Cards */}
