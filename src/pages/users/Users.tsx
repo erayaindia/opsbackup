@@ -9,7 +9,6 @@ import { UsersTable } from '@/components/users/UsersTable'
 import { AddUserModal } from '@/components/users/AddUserModal'
 import { getUsers, User } from '@/services/usersService'
 import { toast } from 'sonner'
-import { useReadOnly } from '@/components/ReadOnlyGuard'
 
 export const Users: React.FC = () => {
   const [users, setUsers] = useState<User[]>([])
@@ -17,7 +16,6 @@ export const Users: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [showAddUserModal, setShowAddUserModal] = useState(false)
-  const isReadOnly = useReadOnly()
 
   const fetchUsers = async () => {
     try {
@@ -75,7 +73,6 @@ export const Users: React.FC = () => {
         <Button 
           className="gap-2" 
           onClick={() => setShowAddUserModal(true)}
-          disabled={isReadOnly}
         >
           <Plus className="w-4 h-4" />
           Add User
@@ -169,7 +166,6 @@ export const Users: React.FC = () => {
             users={filteredUsers} 
             loading={loading}
             onUserUpdate={handleUserUpdate}
-            readOnly={isReadOnly}
           />
         </CardContent>
       </Card>

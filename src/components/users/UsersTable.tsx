@@ -57,20 +57,17 @@ interface UsersTableProps {
   users: User[]
   loading: boolean
   onUserUpdate: () => void
-  readOnly?: boolean
 }
 
 const columnHelper = createColumnHelper<User>()
 
-export const UsersTable: React.FC<UsersTableProps> = ({ users, loading, onUserUpdate, readOnly = false }) => {
+export const UsersTable: React.FC<UsersTableProps> = ({ users, loading, onUserUpdate }) => {
   const [sorting, setSorting] = useState<SortingState>([])
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; user: User | null }>({
     open: false,
     user: null,
   })
   
-  // Debug readOnly value
-  console.log('🔍 UsersTable: readOnly prop value:', readOnly)
   const [editDialog, setEditDialog] = useState<{ open: boolean; user: User | null }>({
     open: false,
     user: null,
@@ -219,7 +216,7 @@ export const UsersTable: React.FC<UsersTableProps> = ({ users, loading, onUserUp
         return (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-8 w-8 p-0" disabled={isLoading || readOnly}>
+              <Button variant="ghost" className="h-8 w-8 p-0" disabled={isLoading}>
                 <span className="sr-only">Open menu</span>
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
@@ -232,19 +229,17 @@ export const UsersTable: React.FC<UsersTableProps> = ({ users, loading, onUserUp
                 View Profile
               </DropdownMenuItem>
               
-              {!readOnly && (
-                <DropdownMenuItem 
-                  onClick={() => setEditDialog({ open: true, user })}
-                  disabled={isLoading}
-                >
-                  <Edit className="mr-2 h-4 w-4" />
-                  Edit User
-                </DropdownMenuItem>
-              )}
+              <DropdownMenuItem 
+                onClick={() => setEditDialog({ open: true, user })}
+                disabled={isLoading}
+              >
+                <Edit className="mr-2 h-4 w-4" />
+                Edit User
+              </DropdownMenuItem>
 
               {/* Status change menu items removed */}
 
-              {!readOnly && user.role !== 'super_admin' && (
+              {user.role !== 'super_admin' && (
                 <>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem 
@@ -258,15 +253,6 @@ export const UsersTable: React.FC<UsersTableProps> = ({ users, loading, onUserUp
                 </>
               )}
               
-              {readOnly && (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem disabled className="text-amber-600">
-                    <Shield className="mr-2 h-4 w-4" />
-                    Read-Only Access
-                  </DropdownMenuItem>
-                </>
-              )}
               
               {user.role === 'super_admin' && (
                 <>

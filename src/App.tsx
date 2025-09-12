@@ -4,7 +4,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthWrapper } from "./components/AuthWrapper";
 import { Layout } from "./components/Layout";
-import { ReadOnlyGuard } from "./components/ReadOnlyGuard";
 import { PermissionGuard } from "./components/PermissionGuard";
 import { PermissionsProvider } from "./contexts/PermissionsContext";
 import Dashboard from "./pages/Dashboard";
@@ -141,9 +140,7 @@ const App = () => (
                 <Route path="team" element={<TeamManagement />} />
                 <Route path="users" element={
                   <PermissionGuard requiredModule="management">
-                    <ReadOnlyGuard>
-                      <Users />
-                    </ReadOnlyGuard>
+                    <Users />
                   </PermissionGuard>
                 } />
                 <Route path="settings" element={<Settings />} />
