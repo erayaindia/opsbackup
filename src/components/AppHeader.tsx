@@ -10,6 +10,7 @@ import { useState, useEffect } from "react";
 import { User } from "@supabase/supabase-js";
 import { useNavigate } from "react-router-dom";
 import { useUserProfile } from "@/hooks/useUserProfile";
+import { WeatherWidget } from "@/components/WeatherWidget";
 
 export function AppHeader() {
   const navigate = useNavigate();
@@ -76,6 +77,7 @@ export function AppHeader() {
       </div>
       
       <div className="flex items-center gap-2">
+        <WeatherWidget />
         <ThemeToggle />
         
         <Tooltip>

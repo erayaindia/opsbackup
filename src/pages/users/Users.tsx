@@ -32,9 +32,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Checkbox
-} from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { 
@@ -118,7 +115,6 @@ export const Users: React.FC = () => {
   const [departmentFilter, setDepartmentFilter] = useState('all');
   const [sortField, setSortField] = useState<SortField>('full_name');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
-  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
   const [showAddUserModal, setShowAddUserModal] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showEditRoleDialog, setShowEditRoleDialog] = useState(false);
@@ -246,23 +242,6 @@ export const Users: React.FC = () => {
     }
   };
 
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      setSelectedRows(new Set(sortedUsers.map(user => user.id)));
-    } else {
-      setSelectedRows(new Set());
-    }
-  };
-
-  const handleSelectRow = (userId: string, checked: boolean) => {
-    const newSelection = new Set(selectedRows);
-    if (checked) {
-      newSelection.add(userId);
-    } else {
-      newSelection.delete(userId);
-    }
-    setSelectedRows(newSelection);
-  };
 
   const handleAddUser = async () => {
     try {
@@ -520,16 +499,6 @@ export const Users: React.FC = () => {
                     </Select>
                   </div>
                   
-                  {selectedRows.size > 0 && (
-                    <div className="flex items-center gap-2">
-                      <Badge variant="secondary" className="px-3 py-1">
-                        {selectedRows.size} selected
-                      </Badge>
-                      <Button variant="outline" size="sm">
-                        Bulk Actions
-                      </Button>
-                    </div>
-                  )}
                 </div>
               </CardContent>
             </Card>
@@ -616,7 +585,7 @@ export const Users: React.FC = () => {
             <CardHeader className="bg-gradient-to-r from-primary/5 to-primary/10 border-b">
               <div className="flex items-center justify-end">
                 <div className="text-sm text-muted-foreground">
-                  {selectedRows.size > 0 && `${selectedRows.size} selected`}
+                  {sortedUsers.length} users
                 </div>
               </div>
             </CardHeader>
@@ -631,16 +600,6 @@ export const Users: React.FC = () => {
                   <Table>
                     <TableHeader className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b-2 border-border/50">
                       <TableRow className="hover:bg-transparent">
-                        <TableHead className="py-4 px-6 w-16 border-r border-border/30">
-                          <div className="flex items-center justify-center">
-                            <input
-                              type="checkbox"
-                              className="rounded border-border/50 text-primary focus:ring-primary/20 focus:ring-2"
-                              checked={selectedRows.size === sortedUsers.length && sortedUsers.length > 0}
-                              onChange={(e) => handleSelectAll(e.target.checked)}
-                            />
-                          </div>
-                        </TableHead>
                         <TableHead className="font-semibold text-foreground py-4 px-6 w-80 border-r border-border/30">
                           <button
                             className="flex items-center gap-2 hover:text-primary transition-colors"
@@ -704,16 +663,6 @@ export const Users: React.FC = () => {
                           key={user.id} 
                           className="hover:bg-muted/50 transition-colors border-b border-border/30"
                         >
-                          <TableCell className="py-4 px-6 border-r border-border/30">
-                            <div className="flex items-center justify-center">
-                              <input
-                                type="checkbox"
-                                className="rounded border-border/50 text-primary focus:ring-primary/20 focus:ring-2"
-                                checked={selectedRows.has(user.id)}
-                                onChange={(e) => handleSelectRow(user.id, e.target.checked)}
-                              />
-                            </div>
-                          </TableCell>
                           <TableCell className="py-4 px-6 border-r border-border/30">
                             <div className="flex items-center space-x-4">
                               <Avatar className="h-10 w-10">
