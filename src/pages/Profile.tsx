@@ -26,7 +26,9 @@ import {
   CheckCircle,
   RefreshCw,
   Key,
-  Lock
+  Lock,
+  EyeIcon,
+  EyeOffIcon
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -43,6 +45,11 @@ export default function Profile() {
     confirmPassword: ''
   })
   const [isChangingPassword, setIsChangingPassword] = useState(false)
+  const [showPasswords, setShowPasswords] = useState({
+    current: false,
+    new: false,
+    confirm: false
+  })
 
   // Helper function to safely display address
   const formatAddress = (address: any) => {
@@ -68,36 +75,81 @@ export default function Profile() {
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault()
     
+    // Validation checks
+    if (!passwordData.currentPassword) {
+      toast.error('Please enter your current password')
+      return
+    }
+
     if (passwordData.newPassword !== passwordData.confirmPassword) {
       toast.error('New passwords do not match')
       return
     }
 
-    if (passwordData.newPassword.length < 6) {
-      toast.error('Password must be at least 6 characters long')
+    if (passwordData.newPassword.length < 8) {
+      toast.error('New password must be at least 8 characters long')
+      return
+    }
+
+    if (passwordData.newPassword === passwordData.currentPassword) {
+      toast.error('New password must be different from current password')
+      return
+    }
+
+    // Password strength validation
+    const hasUpperCase = /[A-Z]/.test(passwordData.newPassword)
+    const hasLowerCase = /[a-z]/.test(passwordData.newPassword)
+    const hasNumbers = /\d/.test(passwordData.newPassword)
+    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(passwordData.newPassword)
+
+    if (!hasUpperCase || !hasLowerCase || !hasNumbers) {
+      toast.error('Password must contain at least one uppercase letter, one lowercase letter, and one number')
       return
     }
 
     setIsChangingPassword(true)
     
     try {
-      const { error } = await supabase.auth.updateUser({
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user?.email) {
+        toast.error('Unable to verify current user')
+        return
+      }
+
+      // For Supabase, we'll use the built-in password update which requires current session
+      // The user is already authenticated, so we can update directly
+      // Note: In a more secure implementation, you might want to re-verify the current password
+      // by calling a custom RPC function that verifies the password server-side
+      
+      const { error: updateError } = await supabase.auth.updateUser({
         password: passwordData.newPassword
       })
 
-      if (error) {
-        toast.error(error.message)
+      if (updateError) {
+        if (updateError.message.includes('Password should be at least')) {
+          toast.error('Password does not meet minimum requirements')
+        } else if (updateError.message.includes('Unable to validate current password')) {
+          toast.error('Current password verification failed')
+        } else {
+          toast.error(updateError.message)
+        }
       } else {
-        toast.success('Password updated successfully!')
+        toast.success('Password updated successfully! You may need to log in again.')
         setPasswordData({
           currentPassword: '',
           newPassword: '',
           confirmPassword: ''
         })
+        
+        // Optional: Force re-authentication after password change
+        // setTimeout(() => {
+        //   supabase.auth.signOut()
+        // }, 2000)
       }
     } catch (error) {
-      toast.error('Failed to update password')
       console.error('Password update error:', error)
+      toast.error('Failed to update password. Please try again.')
     } finally {
       setIsChangingPassword(false)
     }
@@ -442,6 +494,38 @@ export default function Profile() {
                 <CardContent>
                   <form onSubmit={handlePasswordChange} className="space-y-4">
                     <div className="space-y-2">
+                      <Label htmlFor="currentPassword" className="text-sm font-medium">
+                        Current Password
+                      </Label>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="currentPassword"
+                          type={showPasswords.current ? "text" : "password"}
+                          value={passwordData.currentPassword}
+                          onChange={(e) => setPasswordData(prev => ({
+                            ...prev,
+                            currentPassword: e.target.value
+                          }))}
+                          className="pl-10 pr-10"
+                          placeholder="Enter current password"
+                          required
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPasswords(prev => ({ ...prev, current: !prev.current }))}
+                          className="absolute right-3 top-3 h-4 w-4 text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          {showPasswords.current ? (
+                            <EyeOffIcon className="h-4 w-4" />
+                          ) : (
+                            <EyeIcon className="h-4 w-4" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
                       <Label htmlFor="newPassword" className="text-sm font-medium">
                         New Password
                       </Label>
@@ -449,17 +533,31 @@ export default function Profile() {
                         <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                         <Input
                           id="newPassword"
-                          type="password"
+                          type={showPasswords.new ? "text" : "password"}
                           value={passwordData.newPassword}
                           onChange={(e) => setPasswordData(prev => ({
                             ...prev,
                             newPassword: e.target.value
                           }))}
-                          className="pl-10"
-                          placeholder="Enter new password"
+                          className="pl-10 pr-10"
+                          placeholder="Min 8 chars, upper, lower, number"
                           required
                         />
+                        <button
+                          type="button"
+                          onClick={() => setShowPasswords(prev => ({ ...prev, new: !prev.new }))}
+                          className="absolute right-3 top-3 h-4 w-4 text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          {showPasswords.new ? (
+                            <EyeOffIcon className="h-4 w-4" />
+                          ) : (
+                            <EyeIcon className="h-4 w-4" />
+                          )}
+                        </button>
                       </div>
+                      <p className="text-xs text-muted-foreground">
+                        Must contain uppercase, lowercase, and number (8+ characters)
+                      </p>
                     </div>
                     
                     <div className="space-y-2">
@@ -470,16 +568,27 @@ export default function Profile() {
                         <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                         <Input
                           id="confirmPassword"
-                          type="password"
+                          type={showPasswords.confirm ? "text" : "password"}
                           value={passwordData.confirmPassword}
                           onChange={(e) => setPasswordData(prev => ({
                             ...prev,
                             confirmPassword: e.target.value
                           }))}
-                          className="pl-10"
+                          className="pl-10 pr-10"
                           placeholder="Confirm new password"
                           required
                         />
+                        <button
+                          type="button"
+                          onClick={() => setShowPasswords(prev => ({ ...prev, confirm: !prev.confirm }))}
+                          className="absolute right-3 top-3 h-4 w-4 text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          {showPasswords.confirm ? (
+                            <EyeOffIcon className="h-4 w-4" />
+                          ) : (
+                            <EyeIcon className="h-4 w-4" />
+                          )}
+                        </button>
                       </div>
                     </div>
 
