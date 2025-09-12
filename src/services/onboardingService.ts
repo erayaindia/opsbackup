@@ -236,61 +236,129 @@ export async function getOnboardingApplications(): Promise<OnboardingApplicant[]
   try {
     console.log('🔍 Fetching onboarding applications from database...')
     
-    // First, check if we can access the table at all
+    // First, check if we can access the table at all with minimal query
     const { data: tableTest, error: tableTestError } = await supabase
       .from('employees_details')
-      .select('count(*)')
+      .select('id')
       .limit(1)
       
     if (tableTestError) {
       console.error('❌ Cannot access employees_details table:', tableTestError)
+      console.error('Full error details:', JSON.stringify(tableTestError, null, 2))
       
       // Check specific error types
       if (tableTestError.message?.includes('relation "employees_details" does not exist')) {
         console.log('💡 Table does not exist in database - using mock data')
       } else if (tableTestError.message?.includes('permission denied') || tableTestError.message?.includes('RLS')) {
         console.log('💡 Permission denied - RLS policy issue - using mock data')
+      } else if (tableTestError.message?.includes('column') && tableTestError.message?.includes('does not exist')) {
+        console.log('💡 Column does not exist - schema mismatch - using mock data')
       } else {
         console.log('💡 Other database error - using mock data')
+        console.log('💡 Error code:', tableTestError.code)
+        console.log('💡 Error message:', tableTestError.message)
       }
       
       return getMockOnboardingApplications()
     }
     
-    // Get all applications from employees_details table only
-    const { data: employeesData, error: employeesError } = await supabase
-      .from('employees_details')
-      .select(`
-        id,
-        application_id,
-        status,
-        full_name,
-        personal_email,
-        phone_number,
-        date_of_birth,
-        gender,
-        designation,
-        work_location,
-        employment_type,
-        joining_date,
-        current_address,
-        permanent_address,
-        same_as_current,
-        emergency_contact,
-        bank_details,
-        documents,
-        notes,
-        app_user_id,
-        created_at,
-        updated_at,
-        submission_date,
-        approval_date,
-        nda_accepted,
-        data_privacy_accepted,
-        nda_accepted_at,
-        data_privacy_accepted_at
-      `)
-      .order('created_at', { ascending: false })
+    console.log('✅ Basic table access works, checking schema...')
+    
+    // Try to get the actual columns available
+    try {
+      const { data: schemaTest, error: schemaError } = await supabase
+        .from('employees_details')
+        .select('*')
+        .limit(1)
+        
+      if (schemaError) {
+        console.error('❌ Schema check failed:', schemaError)
+        return getMockOnboardingApplications()
+      }
+      
+      if (schemaTest && schemaTest.length > 0) {
+        console.log('📊 Available columns in employees_details:', Object.keys(schemaTest[0]))
+      } else {
+        console.log('📊 Table exists but is empty')
+      }
+    } catch (schemaErr) {
+      console.error('❌ Schema check error:', schemaErr)
+    }
+    
+    // Get all applications from employees_details table - start with minimal columns
+    let employeesData = null
+    let employeesError = null
+    
+    // Try with all expected columns first
+    try {
+      const result = await supabase
+        .from('employees_details')
+        .select(`
+          id,
+          application_id,
+          status,
+          full_name,
+          personal_email,
+          phone_number,
+          date_of_birth,
+          gender,
+          designation,
+          work_location,
+          employment_type,
+          joining_date,
+          current_address,
+          permanent_address,
+          same_as_current,
+          emergency_contact,
+          bank_details,
+          documents,
+          notes,
+          app_user_id,
+          created_at,
+          updated_at,
+          submission_date,
+          approval_date,
+          nda_accepted,
+          data_privacy_accepted,
+          nda_accepted_at,
+          data_privacy_accepted_at
+        `)
+        .order('created_at', { ascending: false })
+        
+      employeesData = result.data
+      employeesError = result.error
+      
+    } catch (fullQueryError) {
+      console.log('❌ Full query failed, trying basic columns:', fullQueryError)
+      
+      // Fallback to basic columns only
+      try {
+        const basicResult = await supabase
+          .from('employees_details')
+          .select(`
+            id,
+            full_name,
+            personal_email,
+            phone_number,
+            designation,
+            work_location,
+            employment_type,
+            joining_date,
+            status,
+            created_at,
+            updated_at
+          `)
+          .order('created_at', { ascending: false })
+          
+        employeesData = basicResult.data
+        employeesError = basicResult.error
+        console.log('✅ Basic query worked with', employeesData?.length || 0, 'records')
+        
+      } catch (basicQueryError) {
+        console.log('❌ Even basic query failed:', basicQueryError)
+        employeesError = basicQueryError
+      }
+    }
 
     console.log('📊 Database response:', { 
       dataCount: employeesData?.length, 
@@ -345,33 +413,33 @@ export async function getOnboardingApplications(): Promise<OnboardingApplicant[]
       }
 
       return {
-        id: item.application_id, // Use application_id as the public ID
+        id: item.application_id || item.id || crypto.randomUUID(), // Fallback ID generation
         status: actualStatus,
         full_name: item.full_name,
         personal_email: item.personal_email,
         phone: item.phone_number,
-        date_of_birth: item.date_of_birth,
-        gender: item.gender,
+        date_of_birth: item.date_of_birth || null,
+        gender: item.gender || null,
         designation: item.designation,
         work_location: item.work_location,
         employment_type: item.employment_type,
         joined_at: item.joining_date,
         addresses: {
-          current: item.current_address,
-          permanent: item.permanent_address,
-          same_as_current: item.same_as_current || item.permanent_address === item.current_address
+          current: item.current_address || null,
+          permanent: item.permanent_address || null,
+          same_as_current: item.same_as_current || false
         },
-        emergency: item.emergency_contact,
-        bank_details: item.bank_details,
+        emergency: item.emergency_contact || null,
+        bank_details: item.bank_details || null,
         documents: item.documents || [],
-        notes: item.notes,
-        mapped_app_user_id: item.app_user_id,
+        notes: item.notes || null,
+        mapped_app_user_id: item.app_user_id || null,
         created_at: item.created_at,
         updated_at: item.updated_at,
-        nda_accepted: item.nda_accepted,
-        data_privacy_accepted: item.data_privacy_accepted,
-        nda_accepted_at: item.nda_accepted_at,
-        data_privacy_accepted_at: item.data_privacy_accepted_at
+        nda_accepted: item.nda_accepted || false,
+        data_privacy_accepted: item.data_privacy_accepted || false,
+        nda_accepted_at: item.nda_accepted_at || null,
+        data_privacy_accepted_at: item.data_privacy_accepted_at || null
       }
     })
 
