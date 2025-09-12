@@ -50,6 +50,7 @@ import Attendance from "./pages/team-hub/Attendance";
 import TasksTodos from "./pages/team-hub/TasksTodos";
 import Announcements from "./pages/team-hub/Announcements";
 import TrainingKnowledge from "./pages/team-hub/TrainingKnowledge";
+import Holidays from "./pages/team-hub/Holidays";
 
 // Marketing pages
 import Campaigns from "./pages/marketing/Campaigns";
@@ -93,6 +94,9 @@ import Profile from "./pages/Profile";
 import InventoryAlerts from "./pages/alerts/InventoryAlerts";
 import DisputeAlerts from "./pages/alerts/DisputeAlerts";
 import SystemNotifications from "./pages/alerts/SystemNotifications";
+
+// Logs page
+import Logs from "./pages/Logs";
 
 const App = () => (
   <TooltipProvider>
@@ -139,7 +143,7 @@ const App = () => (
                 <Route path="tasks" element={<Tasks />} />
                 <Route path="team" element={<TeamManagement />} />
                 <Route path="users" element={
-                  <PermissionGuard requiredModule="management">
+                  <PermissionGuard requiredModule="management" requiredRole={["admin", "super_admin"]}>
                     <Users />
                   </PermissionGuard>
                 } />
@@ -249,6 +253,11 @@ const App = () => (
                     <Announcements />
                   </PermissionGuard>
                 } />
+                <Route path="team-hub/holidays" element={
+                  <PermissionGuard requiredModule="team-hub">
+                    <Holidays />
+                  </PermissionGuard>
+                } />
                 
                 {/* Marketing & Growth routes */}
                 <Route path="marketing/campaigns" element={
@@ -353,29 +362,29 @@ const App = () => (
                 
                 {/* Management & Admin routes */}
                 <Route path="management/people-roles" element={
-                  <PermissionGuard requiredModule="management">
+                  <PermissionGuard requiredModule="management" requiredRole={["admin", "super_admin"]}>
                     <PeopleRoles />
                   </PermissionGuard>
                 } />
                 <Route path="management/system-settings" element={
-                  <PermissionGuard requiredModule="management">
+                  <PermissionGuard requiredModule="management" requiredRole={["admin", "super_admin"]}>
                     <SystemSettings />
                   </PermissionGuard>
                 } />
                 <Route path="management/integrations" element={
-                  <PermissionGuard requiredModule="management">
+                  <PermissionGuard requiredModule="management" requiredRole={["admin", "super_admin"]}>
                     <Integrations />
                   </PermissionGuard>
                 } />
                 <Route path="management/analytics-insights" element={
-                  <PermissionGuard requiredModule="management">
+                  <PermissionGuard requiredModule="management" requiredRole={["admin", "super_admin"]}>
                     <AnalyticsInsights />
                   </PermissionGuard>
                 } />
                 
                 {/* Admin routes */}
                 <Route path="admin/onboarding" element={
-                  <PermissionGuard requiredModule="management">
+                  <PermissionGuard requiredModule="management" requiredRole={["admin", "super_admin"]}>
                     <OnboardingApplications />
                   </PermissionGuard>
                 } />
@@ -411,6 +420,13 @@ const App = () => (
                 <Route path="training/onboarding" element={
                   <PermissionGuard requiredModule="training">
                     <TrainingKnowledge />
+                  </PermissionGuard>
+                } />
+                
+                {/* Logs route */}
+                <Route path="logs" element={
+                  <PermissionGuard requiredModule="management" requiredRole={["admin", "super_admin"]}>
+                    <Logs />
                   </PermissionGuard>
                 } />
               </Route>

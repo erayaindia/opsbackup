@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { KPICard } from "@/components/dashboard/KPICard";
 import { useDashboardKPIs } from "@/hooks/useDashboardKPIs";
 import { useInventory } from "@/hooks/useInventory";
+import { useUserProfile } from "@/hooks/useUserProfile";
 import {
   Package,
   Clock,
@@ -31,20 +32,25 @@ import {
 export default function Dashboard() {
   const { kpis, recentOrders, recentOrdersLoading } = useDashboardKPIs();
   const { products, alerts, loading: inventoryLoading } = useInventory();
+  const { profile } = useUserProfile();
 
   const getGreeting = () => {
     const now = new Date();
     const istTime = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
     const hour = istTime.getHours();
 
+    // Get user's first name for personalization
+    const firstName = profile?.employeeDetails?.first_name || profile?.appUser?.full_name?.split(' ')[0] || '';
+    const nameText = firstName ? ` ${firstName}` : '';
+
     if (hour >= 5 && hour < 12) {
-      return { text: "Good Morning!", icon: <Sunrise className="h-8 w-8 text-orange-500" /> };
+      return { text: `Good Morning${nameText}!`, icon: <Sunrise className="h-8 w-8 text-orange-500" /> };
     } else if (hour >= 12 && hour < 17) {
-      return { text: "Good Afternoon!", icon: <Sun className="h-8 w-8 text-yellow-500" /> };
+      return { text: `Good Afternoon${nameText}!`, icon: <Sun className="h-8 w-8 text-yellow-500" /> };
     } else if (hour >= 17 && hour < 21) {
-      return { text: "Good Evening!", icon: <Sunset className="h-8 w-8 text-orange-600" /> };
+      return { text: `Good Evening${nameText}!`, icon: <Sunset className="h-8 w-8 text-orange-600" /> };
     } else {
-      return { text: "Good Night!", icon: <Moon className="h-8 w-8 text-blue-400" /> };
+      return { text: `Good Night${nameText}!`, icon: <Moon className="h-8 w-8 text-blue-400" /> };
     }
   };
 

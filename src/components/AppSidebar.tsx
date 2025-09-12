@@ -68,7 +68,9 @@ import {
   Repeat,
   Activity,
   ShoppingCart,
-  Building
+  Building,
+  Lock,
+  ScrollText
 } from "lucide-react";
 import {
   Sidebar,
@@ -137,6 +139,7 @@ const teamHubItems = [
   { title: "Tasks & To-Dos", url: "/team-hub/tasks", icon: CheckSquareIcon },
   { title: "Team Chat", url: "/team-hub/chat", icon: MessageSquareIcon },
   { title: "Announcements", url: "/team-hub/announcements", icon: BellIcon },
+  { title: "Holidays", url: "/team-hub/holidays", icon: Calendar },
 ];
 
 // Marketing & Growth Section
@@ -164,7 +167,7 @@ const accountsItems = [
   { title: "Bills", url: "/account/bills", icon: FileText },
 ];
 
-// Management & Admin Section
+// Admin Section
 const managementAdminItems = [
   { title: "Users", url: "/users", icon: UserCog },
   { title: "Employee Onboarding Form", url: "/onboard", icon: UserPlus },
@@ -186,7 +189,7 @@ const contentItems = [
 
 
 
-// Training & Knowledge Section
+// Training Section
 const trainingItems = [
   { title: "Training Hub", url: "/training/hub", icon: GraduationCap },
   { title: "SOPs / Playbooks", url: "/training/sops", icon: BookOpen },
@@ -194,7 +197,7 @@ const trainingItems = [
 ];
 
 
-// Analytics & Insights Section
+// Analytics Section
 const analyticsItems = [
   { title: "Analytics", url: "/analytics", icon: TrendingUp },
   { title: "Customer Insights", url: "/analytics/customers", icon: Brain },
@@ -266,7 +269,7 @@ export function AppSidebar() {
       return <SkeletonMenu count={items.length} showLabels={shouldShowLabels} />;
     }
 
-    // SIMPLIFIED: Show all items to everyone
+    // Show all items but mark inaccessible ones with lock icons
     const accessibleItems = items;
 
     return (
@@ -280,6 +283,7 @@ export function AppSidebar() {
           <SidebarMenu className={`${isCollapsed && !hoverExpanded ? 'space-y-2' : 'space-y-0.5'}`}>
             {accessibleItems.map((item, index) => {
               const active = isActive(item.url);
+              const hasAccess = requiredModule ? canAccessModule(requiredModule) : true;
               
               const menuButton = (
                 <SidebarMenuItem key={item.title} style={{ animationDelay: `${index * 50}ms` }}>
@@ -291,19 +295,29 @@ export function AppSidebar() {
                         hover:scale-105 active:scale-95 animate-spring-in
                         ${active 
                           ? 'bg-sidebar-primary text-sidebar-primary-foreground shadow-sm shadow-sidebar-primary/20' 
-                          : 'hover:bg-sidebar-accent/50 text-sidebar-foreground/80 hover:text-sidebar-foreground hover:shadow-sm'
+                          : hasAccess 
+                            ? 'hover:bg-sidebar-accent/50 text-sidebar-foreground/80 hover:text-sidebar-foreground hover:shadow-sm'
+                            : 'hover:bg-sidebar-accent/30 text-sidebar-foreground/50 cursor-not-allowed'
                         }
                         ${isCollapsed && !hoverExpanded ? 'justify-center w-full' : ''}
                       `}
                     >
-                      <NavLink to={item.url} end className={`${isCollapsed && !hoverExpanded ? 'flex items-center justify-center w-full h-full' : 'flex items-center'}`}>
-                        <item.icon className={`h-4 w-4 transition-all duration-300 ease-in-out group-hover:scale-110 ${active ? 'text-sidebar-primary-foreground' : ''} ${isCollapsed && !hoverExpanded ? '' : 'mr-2'}`} />
+                      <NavLink 
+                        to={hasAccess ? item.url : '#'} 
+                        end 
+                        className={`${isCollapsed && !hoverExpanded ? 'flex items-center justify-center w-full h-full' : 'flex items-center'}`}
+                        onClick={hasAccess ? undefined : (e) => e.preventDefault()}
+                      >
+                        <item.icon className={`h-4 w-4 transition-all duration-300 ease-in-out group-hover:scale-110 ${active ? 'text-sidebar-primary-foreground' : hasAccess ? '' : 'text-sidebar-foreground/40'} ${isCollapsed && !hoverExpanded ? '' : 'mr-2'}`} />
                         {shouldShowLabels && (
-                          <span className={`${active ? 'font-medium' : ''} transition-all duration-500 ease-in-out whitespace-nowrap text-sm`}>
+                          <span className={`${active ? 'font-medium' : ''} ${hasAccess ? '' : 'text-sidebar-foreground/50'} transition-all duration-500 ease-in-out whitespace-nowrap text-sm flex-1`}>
                             {item.title}
                           </span>
                         )}
-                        {active && shouldShowLabels && (
+                        {!hasAccess && shouldShowLabels && (
+                          <Lock className="h-3 w-3 text-sidebar-foreground/40 ml-auto" />
+                        )}
+                        {active && shouldShowLabels && hasAccess && (
                           <div className="absolute right-2 w-1 h-1 bg-sidebar-primary-foreground rounded-full animate-bounce-in" />
                         )}
                       </NavLink>
@@ -320,7 +334,10 @@ export function AppSidebar() {
                       {menuButton}
                     </TooltipTrigger>
                     <TooltipContent side="right" className="ml-2">
-                      {item.title}
+                      <div className="flex items-center gap-2">
+                        {item.title}
+                        {!hasAccess && <Lock className="h-3 w-3" />}
+                      </div>
                     </TooltipContent>
                   </Tooltip>
                 );
@@ -348,8 +365,9 @@ export function AppSidebar() {
       return <SkeletonCollapsible showLabels={shouldShowLabels} />;
     }
 
-    // SIMPLIFIED: Show all sections to everyone
-    console.log(`🔍 [AppSidebar] renderCollapsibleSection('${title}', requiredModule: '${requiredModule}'): VISIBLE (universal access)`);
+    // Check access for this section
+    const hasAccess = canAccessModule(requiredModule);
+    console.log(`🔍 [AppSidebar] renderCollapsibleSection('${title}', requiredModule: '${requiredModule}'): ${hasAccess ? 'ACCESSIBLE' : 'LOCKED'}`);
 
     const sectionButton = (
       <SidebarGroup className="px-3 py-1">
@@ -358,27 +376,31 @@ export function AppSidebar() {
             <SidebarMenuItem>
               <RippleEffect className="rounded-lg">
                 <SidebarMenuButton
-                  onClick={() => setIsOpen(!isOpen)}
+                  onClick={hasAccess ? () => setIsOpen(!isOpen) : undefined}
                   className={`
                     h-9 rounded-lg transition-all duration-400 ease-in-out group relative
                     hover:scale-105 active:scale-95 animate-spring-in
                     ${isActive 
                       ? 'bg-sidebar-primary text-sidebar-primary-foreground shadow-sm shadow-sidebar-primary/20' 
-                      : 'hover:bg-sidebar-accent/50 text-sidebar-foreground/80 hover:text-sidebar-foreground hover:shadow-sm'
+                      : hasAccess
+                        ? 'hover:bg-sidebar-accent/50 text-sidebar-foreground/80 hover:text-sidebar-foreground hover:shadow-sm'
+                        : 'hover:bg-sidebar-accent/30 text-sidebar-foreground/50 cursor-not-allowed'
                     }
                     ${isCollapsed && !hoverExpanded ? 'justify-center w-full' : ''}
                   `}
                 >
                   <div className={`${isCollapsed && !hoverExpanded ? 'flex items-center justify-center w-full h-full' : 'flex items-center w-full'}`}>
                     {React.createElement(icon, { 
-                      className: `h-4 w-4 transition-all duration-300 ease-in-out group-hover:scale-110 ${isActive ? 'text-sidebar-primary-foreground' : ''} ${isCollapsed && !hoverExpanded ? '' : 'mr-2'}` 
+                      className: `h-4 w-4 transition-all duration-300 ease-in-out group-hover:scale-110 ${isActive ? 'text-sidebar-primary-foreground' : hasAccess ? '' : 'text-sidebar-foreground/40'} ${isCollapsed && !hoverExpanded ? '' : 'mr-2'}` 
                     })}
                     {shouldShowLabels && (
                       <>
-                        <span className={`${isActive ? 'font-medium' : ''} transition-all duration-500 ease-in-out whitespace-nowrap text-sm flex-1`}>
+                        <span className={`${isActive ? 'font-medium' : ''} ${hasAccess ? '' : 'text-sidebar-foreground/50'} transition-all duration-500 ease-in-out whitespace-nowrap text-sm flex-1`}>
                           {title}
                         </span>
-                        {isOpen ? (
+                        {!hasAccess ? (
+                          <Lock className="ml-auto h-4 w-4 text-sidebar-foreground/40 transition-all duration-400 ease-in-out" />
+                        ) : isOpen ? (
                           <ChevronDown className="ml-auto h-4 w-4 transition-all duration-400 ease-in-out" />
                         ) : (
                           <ChevronRight className="ml-auto h-4 w-4 transition-all duration-400 ease-in-out" />
@@ -391,7 +413,7 @@ export function AppSidebar() {
                   )}
                 </SidebarMenuButton>
               </RippleEffect>
-              {shouldShowLabels && isOpen && subSections && (
+              {shouldShowLabels && isOpen && hasAccess && subSections && (
                 <SidebarMenuSub className="mt-1 space-y-0.5 animate-fade-in">
                   {subSections.map((section, sectionIndex) => (
                     <div key={section.title} className="mb-2 last:mb-0">
@@ -441,7 +463,10 @@ export function AppSidebar() {
             {sectionButton}
           </TooltipTrigger>
           <TooltipContent side="right" className="ml-2">
-            {title}
+            <div className="flex items-center gap-2">
+              {title}
+              {!hasAccess && <Lock className="h-3 w-3" />}
+            </div>
           </TooltipContent>
         </Tooltip>
       );
@@ -566,6 +591,7 @@ export function AppSidebar() {
                   <SidebarMenu className="space-y-0.5 animate-fade-in">
                     {customerSupportItems.map((item, index) => {
                       const active = isActive(item.url);
+                      const hasItemAccess = canAccessModule("support");
                       return (
                         <SidebarMenuItem key={item.title} className="animate-stagger-in" style={{ animationDelay: `${index * 50}ms` }}>
                           <RippleEffect className="rounded-md">
@@ -576,13 +602,20 @@ export function AppSidebar() {
                                 hover:scale-105 active:scale-95
                                 ${active 
                                   ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium shadow-sm' 
-                                  : 'hover:bg-sidebar-accent/50 text-sidebar-foreground/70 hover:text-sidebar-foreground hover:shadow-sm'
+                                  : hasItemAccess
+                                    ? 'hover:bg-sidebar-accent/50 text-sidebar-foreground/70 hover:text-sidebar-foreground hover:shadow-sm'
+                                    : 'hover:bg-sidebar-accent/30 text-sidebar-foreground/50 cursor-not-allowed'
                                 }
                               `}
                             >
-                              <NavLink to={item.url} className="flex items-center">
-                                <item.icon className="h-4 w-4 mr-2 transition-transform duration-300 ease-in-out group-hover:scale-110 flex-shrink-0" />
-                                <span className="whitespace-nowrap text-sm">{item.title}</span>
+                              <NavLink 
+                                to={hasItemAccess ? item.url : '#'} 
+                                className="flex items-center"
+                                onClick={hasItemAccess ? undefined : (e) => e.preventDefault()}
+                              >
+                                <item.icon className={`h-4 w-4 mr-2 transition-transform duration-300 ease-in-out group-hover:scale-110 flex-shrink-0 ${hasItemAccess ? '' : 'text-sidebar-foreground/40'}`} />
+                                <span className={`whitespace-nowrap text-sm flex-1 ${hasItemAccess ? '' : 'text-sidebar-foreground/50'}`}>{item.title}</span>
+                                {!hasItemAccess && <Lock className="h-3 w-3 text-sidebar-foreground/40 ml-auto" />}
                               </NavLink>
                             </SidebarMenuButton>
                           </RippleEffect>
@@ -809,9 +842,9 @@ export function AppSidebar() {
               </SidebarGroup>
             )}
             
-            {/* 10. Training & Knowledge - Collapsible */}
+            {/* 10. Training - Collapsible */}
             {renderCollapsibleSection(
-              "Training & Knowledge",
+              "Training",
               trainingOpen,
               setTrainingOpen,
               isTrainingActive,
@@ -852,9 +885,9 @@ export function AppSidebar() {
               </SidebarGroup>
             )}
             
-            {/* 11. Analytics & Insights - Collapsible */}
+            {/* 11. Analytics - Collapsible */}
             {renderCollapsibleSection(
-              "Analytics & Insights",
+              "Analytics",
               analyticsOpen,
               setAnalyticsOpen,
               isAnalyticsActive,
@@ -895,9 +928,9 @@ export function AppSidebar() {
               </SidebarGroup>
             )}
             
-            {/* 12. Management & Admin - Collapsible */}
+            {/* 12. Admin - Collapsible */}
             {renderCollapsibleSection(
-              "Management & Admin",
+              "Admin",
               managementAdminOpen,
               setManagementAdminOpen,
               isManagementAdminActive,
@@ -980,6 +1013,16 @@ export function AppSidebar() {
                 </SidebarGroupContent>
               </SidebarGroup>
             )}
+            
+            {/* Separator */}
+            {shouldShowLabels && (
+              <div className="px-6 py-2">
+                <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
+              </div>
+            )}
+            
+            {/* 14. Logs - Standalone */}
+            {renderMenuSection([{ title: "Logs", url: "/logs", icon: ScrollText }], "", "management")}
           </div>
         </SidebarContent>
       </Sidebar>

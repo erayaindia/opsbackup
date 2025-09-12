@@ -1,9 +1,9 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Bell, Search, LogOut, LayoutGrid, List, User as UserIcon } from "lucide-react";
+import { Bell, Search, LogOut, LayoutGrid, List, User as UserIcon, Mail, MapPin, Building2, Calendar, Briefcase } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
 import { useState, useEffect } from "react";
@@ -123,15 +123,97 @@ export function AppHeader() {
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-56" align="end" forceMount>
+            <DropdownMenuContent className="w-80" align="end" forceMount>
+              {/* Profile Header */}
+              <div className="flex items-center gap-3 p-4 border-b">
+                <Avatar className="h-12 w-12">
+                  <AvatarImage src={profile?.profilePicture?.signedUrl || ""} />
+                  <AvatarFallback className="text-sm">
+                    {getUserInitials(
+                      profile?.appUser?.full_name || profile?.employeeDetails?.full_name, 
+                      user.email || ''
+                    )}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-sm truncate">
+                    {profile?.appUser?.full_name || profile?.employeeDetails?.full_name || 'User'}
+                  </div>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Badge 
+                      variant="outline" 
+                      className={`text-xs px-2 py-0.5 ${
+                        profile?.appUser?.role === 'super_admin' 
+                          ? 'text-purple-700 bg-purple-100 border-purple-200' 
+                          : profile?.appUser?.role === 'admin'
+                            ? 'text-blue-700 bg-blue-100 border-blue-200'
+                            : profile?.appUser?.role === 'manager'
+                              ? 'text-indigo-700 bg-indigo-100 border-indigo-200'
+                              : 'text-gray-700 bg-gray-100 border-gray-200'
+                      }`}
+                    >
+                      {profile?.appUser?.role?.replace('_', ' ') || 'Employee'}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+
+              {/* Profile Details */}
+              <div className="p-2">
+                {profile?.appUser?.company_email && (
+                  <div className="flex items-center gap-2 px-2 py-1.5 text-xs text-muted-foreground">
+                    <Mail className="h-3 w-3 flex-shrink-0" />
+                    <span className="truncate">{profile.appUser.company_email}</span>
+                  </div>
+                )}
+                
+                {profile?.appUser?.department && (
+                  <div className="flex items-center gap-2 px-2 py-1.5 text-xs text-muted-foreground">
+                    <Building2 className="h-3 w-3 flex-shrink-0" />
+                    <span className="truncate">{profile.appUser.department}</span>
+                  </div>
+                )}
+                
+                {profile?.appUser?.designation && (
+                  <div className="flex items-center gap-2 px-2 py-1.5 text-xs text-muted-foreground">
+                    <Briefcase className="h-3 w-3 flex-shrink-0" />
+                    <span className="truncate">{profile.appUser.designation}</span>
+                  </div>
+                )}
+                
+                {profile?.appUser?.work_location && (
+                  <div className="flex items-center gap-2 px-2 py-1.5 text-xs text-muted-foreground">
+                    <MapPin className="h-3 w-3 flex-shrink-0" />
+                    <span className="truncate">{profile.appUser.work_location}</span>
+                  </div>
+                )}
+                
+                {profile?.appUser?.joined_at && (
+                  <div className="flex items-center gap-2 px-2 py-1.5 text-xs text-muted-foreground">
+                    <Calendar className="h-3 w-3 flex-shrink-0" />
+                    <span className="truncate">
+                      Joined {new Date(profile.appUser.joined_at).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric', 
+                        year: 'numeric'
+                      })}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <DropdownMenuSeparator />
+              
               <DropdownMenuItem 
                 onClick={() => navigate('/profile')}
                 className="cursor-pointer"
               >
                 <UserIcon className="mr-2 h-4 w-4" />
-                <span>Profile</span>
+                <span>View Full Profile</span>
               </DropdownMenuItem>
+              
               <DropdownMenuSeparator />
+              
               <DropdownMenuItem 
                 onClick={handleSignOut}
                 className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950 cursor-pointer"

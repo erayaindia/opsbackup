@@ -23,13 +23,34 @@ export function PermissionGuard({
   const navigate = useNavigate()
   
   // Use the unified permissions system that automatically refreshes
-  const { currentUser, loading, hasRole } = useUserPermissions()
+  const { currentUser, loading, hasRole, hasModuleAccess } = useUserPermissions()
   
-  // SIMPLIFIED: Give everyone access to everything
+  // Role-based access control
   const hasPermission = useCallback(() => {
-    // If we have ANY user (even without proper linking), grant access
+    if (!currentUser) {
+      console.log('❌ [PermissionGuard] No current user found')
+      return false
+    }
+
+    // Check role-based access if required roles are specified
+    if (requiredRole && requiredRole.length > 0) {
+      const hasRequiredRole = hasRole(requiredRole)
+      console.log(`🔍 [PermissionGuard] Role check - Required: ${requiredRole.join(', ')}, User role: ${currentUser.role}, Has access: ${hasRequiredRole}`)
+      if (!hasRequiredRole) {
+        return false
+      }
+    }
+
+    // Check module access if required module is specified
+    if (requiredModule) {
+      const hasModulePermission = hasModuleAccess(requiredModule)
+      console.log(`🔍 [PermissionGuard] Module check - Required: ${requiredModule}, Has access: ${hasModulePermission}`)
+      return hasModulePermission
+    }
+
+    // If no specific requirements, allow access for authenticated users
     return true
-  }, [currentUser, requiredModule, requiredRole, hasRole])
+  }, [currentUser, requiredModule, requiredRole, hasRole, hasModuleAccess])
   
   const userHasPermission = hasPermission()
 
