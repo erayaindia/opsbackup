@@ -18,11 +18,17 @@ export function useUserProfile() {
       setLoading(true)
       setError(null)
 
-      // Get current user
-      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      // Get current user - try both session and getUser
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+      let user = session?.user
       
-      if (userError || !user) {
-        throw new Error('Not authenticated')
+      if (!user) {
+        const { data: userData, error: userError } = await supabase.auth.getUser()
+        user = userData.user
+        
+        if (userError || !user) {
+          throw new Error('Not authenticated')
+        }
       }
 
       // Get app user data
