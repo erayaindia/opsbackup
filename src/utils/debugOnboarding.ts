@@ -60,6 +60,11 @@ export async function debugOnboardingIssues() {
       return
     }
     
+    console.log('🔑 Service Role Key Info:')
+    console.log('  - Length:', serviceRoleKey.length)
+    console.log('  - Starts with:', serviceRoleKey.substring(0, 20) + '...')
+    console.log('  - Ends with:', '...' + serviceRoleKey.substring(serviceRoleKey.length - 10))
+    
     const adminClient = createClient(supabaseUrl, serviceRoleKey, {
       auth: { autoRefreshToken: false, persistSession: false }
     })
@@ -72,6 +77,10 @@ export async function debugOnboardingIssues() {
       
     if (adminError) {
       console.log('❌ Admin client failed:', adminError.message)
+      console.log('💡 This usually means:')
+      console.log('  1. Service Role Key is wrong/expired')
+      console.log('  2. RLS policies are blocking service role')
+      console.log('  3. Project URL is incorrect')
     } else {
       console.log('✅ Admin client works')
     }

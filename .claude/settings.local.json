@@ -30,7 +30,8 @@
       "Bash(node:*)",
       "Bash(timeout 10s npm run dev)",
       "Bash(cat:*)",
-      "Bash(timeout 5s npm run dev)"
+      "Bash(timeout 5s npm run dev)",
+      "Bash(npx supabase link:*)"
     ],
     "deny": [],
     "ask": []

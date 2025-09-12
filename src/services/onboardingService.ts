@@ -10,8 +10,14 @@ import {
   ApprovalFormData
 } from '@/types/onboarding.types'
 
-// Create admin client for user creation
+// Create admin client for user creation (singleton to avoid multiple instances)
+let adminClientInstance: any = null
+
 const getAdminClient = () => {
+  if (adminClientInstance) {
+    return adminClientInstance
+  }
+  
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
   const serviceRoleKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY
   
@@ -19,12 +25,21 @@ const getAdminClient = () => {
     throw new Error('Service Role Key required for admin operations. Please add VITE_SUPABASE_SERVICE_ROLE_KEY to your environment.')
   }
   
-  return createClient(supabaseUrl, serviceRoleKey, {
+  console.log('🔑 Creating admin client with URL:', supabaseUrl)
+  console.log('🔑 Service role key length:', serviceRoleKey.length)
+  console.log('🔑 Service role key starts with:', serviceRoleKey.substring(0, 20) + '...')
+  
+  adminClientInstance = createClient(supabaseUrl, serviceRoleKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false
+    },
+    db: {
+      schema: 'public'
     }
   })
+  
+  return adminClientInstance
 }
 
 // Helper function to transform form data to database format
