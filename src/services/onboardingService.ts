@@ -221,6 +221,27 @@ export async function getOnboardingApplications(): Promise<OnboardingApplicant[]
   try {
     console.log('🔍 Fetching onboarding applications from database...')
     
+    // First, check if we can access the table at all
+    const { data: tableTest, error: tableTestError } = await supabase
+      .from('employees_details')
+      .select('count(*)')
+      .limit(1)
+      
+    if (tableTestError) {
+      console.error('❌ Cannot access employees_details table:', tableTestError)
+      
+      // Check specific error types
+      if (tableTestError.message?.includes('relation "employees_details" does not exist')) {
+        console.log('💡 Table does not exist in database - using mock data')
+      } else if (tableTestError.message?.includes('permission denied') || tableTestError.message?.includes('RLS')) {
+        console.log('💡 Permission denied - RLS policy issue - using mock data')
+      } else {
+        console.log('💡 Other database error - using mock data')
+      }
+      
+      return getMockOnboardingApplications()
+    }
+    
     // Get all applications from employees_details table only
     const { data: employeesData, error: employeesError } = await supabase
       .from('employees_details')
@@ -271,7 +292,12 @@ export async function getOnboardingApplications(): Promise<OnboardingApplicant[]
     const combinedData = employeesData || []
 
     // Check authentication status for each application
-    const adminClient = getAdminClient()
+    let adminClient = null
+    try {
+      adminClient = getAdminClient()
+    } catch (adminError) {
+      console.log('⚠️ Cannot create admin client (missing service role key):', adminError)
+    }
     
     // Transform database results and check auth status
     const transformedDataPromises = (combinedData || []).map(async (item) => {
@@ -279,17 +305,23 @@ export async function getOnboardingApplications(): Promise<OnboardingApplicant[]
       let actualStatus: 'submitted' | 'approved' | 'rejected' | 'withdrawn' = 'submitted'
       
       try {
-        // Try to find user in auth by their personal email (login email)
-        const { data: authUsers, error: authError } = await adminClient.auth.admin.listUsers()
-        
-        if (!authError && authUsers?.users) {
-          const userExists = authUsers.users.some(user => 
-            user.email === item.personal_email || 
-            user.email === (item.app_user_id ? `${item.full_name.toLowerCase().replace(/\s+/g, '.')}@erayastyle.com` : '')
-          )
+        if (adminClient) {
+          // Try to find user in auth by their personal email (login email)
+          const { data: authUsers, error: authError } = await adminClient.auth.admin.listUsers()
           
-          actualStatus = userExists ? 'approved' : 'submitted'
-          console.log(`📧 ${item.full_name}: Auth status = ${actualStatus}`)
+          if (!authError && authUsers?.users) {
+            const userExists = authUsers.users.some(user => 
+              user.email === item.personal_email || 
+              user.email === (item.app_user_id ? `${item.full_name.toLowerCase().replace(/\s+/g, '.')}@erayastyle.com` : '')
+            )
+            
+            actualStatus = userExists ? 'approved' : 'submitted'
+            console.log(`📧 ${item.full_name}: Auth status = ${actualStatus}`)
+          }
+        } else {
+          // If no admin client, use database status
+          actualStatus = item.status as 'submitted' | 'approved' | 'rejected' | 'withdrawn'
+          console.log(`📧 ${item.full_name}: Using DB status (no admin client) = ${actualStatus}`)
         }
       } catch (error) {
         console.log(`⚠️ Could not check auth status for ${item.full_name}:`, error)
