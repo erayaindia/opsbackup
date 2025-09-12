@@ -573,7 +573,15 @@ export default function Profile() {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {documentsWithUrls.map((doc, index) => (
+                  {documentsWithUrls.map((doc, index) => {
+                    console.log(`🔍 Rendering document ${index + 1}:`, {
+                      type: doc.type,
+                      filename: doc.filename,
+                      hasSignedUrl: !!doc.signedUrl,
+                      signedUrl: doc.signedUrl,
+                      path: doc.path
+                    })
+                    return (
                     <Card key={index} className="hover:shadow-md transition-shadow">
                       <CardContent className="p-4">
                         <div className="flex items-start justify-between mb-3">
@@ -619,7 +627,8 @@ export default function Profile() {
                         </p>
                       </CardContent>
                     </Card>
-                  ))}
+                  )
+                  })}
                 </div>
               )}
             </CardContent>
