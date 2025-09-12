@@ -573,15 +573,7 @@ export default function Profile() {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {documentsWithUrls.map((doc, index) => {
-                    console.log(`🔍 Rendering document ${index + 1}:`, {
-                      type: doc.type,
-                      filename: doc.filename,
-                      hasSignedUrl: !!doc.signedUrl,
-                      signedUrl: doc.signedUrl,
-                      path: doc.path
-                    })
-                    return (
+                  {documentsWithUrls.map((doc, index) => (
                     <Card key={index} className="hover:shadow-md transition-shadow">
                       <CardContent className="p-4">
                         <div className="flex items-start justify-between mb-3">
@@ -615,9 +607,14 @@ export default function Profile() {
                               </Button>
                             </>
                           ) : (
-                            <p className="text-xs text-muted-foreground text-center w-full py-2">
-                              Preview not available
-                            </p>
+                            <div className="text-center w-full py-2">
+                              <p className="text-xs text-muted-foreground mb-2">
+                                Document not accessible
+                              </p>
+                              <p className="text-xs text-orange-600">
+                                Contact admin to re-upload
+                              </p>
+                            </div>
                           )}
                         </div>
                         
@@ -627,8 +624,7 @@ export default function Profile() {
                         </p>
                       </CardContent>
                     </Card>
-                  )
-                  })}
+                  ))}
                 </div>
               )}
             </CardContent>

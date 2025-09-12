@@ -57,27 +57,23 @@ export function useUserProfile() {
       // Generate signed URLs for documents
       let documentsWithUrls = []
       if (employeeDetails?.documents && Array.isArray(employeeDetails.documents)) {
-        console.log('📄 Processing documents:', employeeDetails.documents)
         documentsWithUrls = await Promise.all(
-          employeeDetails.documents.map(async (doc: any, index: number) => {
-            console.log(`📋 Processing document ${index + 1}:`, doc)
+          employeeDetails.documents.map(async (doc: any) => {
             if (doc.path) {
               try {
                 const signedUrl = await getDocumentSignedUrl(doc.path)
-                console.log(`✅ Generated signed URL for ${doc.type || 'Unknown'}:`, signedUrl ? 'Success' : 'Failed')
                 return {
                   ...doc,
                   signedUrl
                 }
               } catch (error) {
-                console.error(`❌ Failed to get signed URL for ${doc.path}:`, error)
+                console.error(`Failed to get signed URL for ${doc.type || 'document'}:`, error)
                 return {
                   ...doc,
                   signedUrl: null
                 }
               }
             }
-            console.log(`⚠️ Document missing path:`, doc)
             return {
               ...doc,
               signedUrl: null
@@ -85,7 +81,6 @@ export function useUserProfile() {
           })
         )
       }
-      console.log('📑 Final documents with URLs:', documentsWithUrls)
 
       // Set profile data
       setProfile({
