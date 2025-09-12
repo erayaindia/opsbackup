@@ -1,5 +1,4 @@
 import { supabase } from '@/integrations/supabase/client'
-import { DocumentStorageService } from './storageService'
 import { createClient } from '@supabase/supabase-js'
 import {
   OnboardingFormData,
@@ -154,25 +153,37 @@ export async function uploadDocument(
     const sessionId = applicationId || crypto.randomUUID()
     
     try {
-      // Use the new storage service for better reliability
-      const { path, signedUrl } = await DocumentStorageService.uploadTempDocument(
-        file,
-        type,
-        sessionId
-      )
+      // Simple direct upload to storage
+      const filePath = `onboarding/temp/${sessionId}/${fileName}`
+      
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('employee-documents')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: true
+        })
 
-      console.log(`✅ Document uploaded successfully: ${path}`)
+      if (uploadError) {
+        throw new Error(`Upload failed: ${uploadError.message}`)
+      }
+
+      // Get signed URL for immediate access
+      const { data: signedUrlData } = await supabase.storage
+        .from('employee-documents')
+        .createSignedUrl(filePath, 3600)
+
+      console.log(`✅ Document uploaded successfully: ${filePath}`)
       
       // Return success response
       return {
         ok: true,
         data: {
-          path: path,
+          path: filePath,
           type: type,
           filename: file.name,
           size: file.size,
           mime_type: file.type,
-          signed_url: signedUrl,
+          signed_url: signedUrlData?.signedUrl || null,
           uploaded_at: new Date().toISOString()
         },
         timestamp: new Date().toISOString()
@@ -825,21 +836,8 @@ export async function approveOnboardingApplication(
       throw new Error(`Failed to create auth user: ${authError?.message}`)
     }
 
-    // Migrate documents from temp to permanent storage
-    let migratedDocuments = []
-    if (application.documents && Array.isArray(application.documents)) {
-      try {
-        console.log(`🔄 Migrating ${application.documents.length} documents to permanent storage...`)
-        migratedDocuments = await DocumentStorageService.migrateTempDocuments(
-          application.employee_id || `emp_${Date.now()}`,
-          application.documents
-        )
-        console.log(`✅ Successfully migrated ${migratedDocuments.length} documents`)
-      } catch (migrationError) {
-        console.warn('⚠️ Document migration failed, continuing with original paths:', migrationError)
-        migratedDocuments = application.documents
-      }
-    }
+    // Keep documents as they are - no migration during approval
+    const migratedDocuments = application.documents || []
 
     // Create app user record
     const { data: appUser, error: appUserError } = await supabase
@@ -868,19 +866,7 @@ export async function approveOnboardingApplication(
       throw new Error(`Failed to create app user: ${appUserError?.message}`)
     }
 
-    // Update employee details with migrated document paths
-    if (migratedDocuments.length > 0) {
-      const { error: updateError } = await supabase
-        .from('employees_details')
-        .update({ documents: migratedDocuments })
-        .eq('application_id', data.applicant_id)
-
-      if (updateError) {
-        console.warn('⚠️ Failed to update document paths:', updateError)
-      } else {
-        console.log('✅ Updated employee details with new document paths')
-      }
-    }
+    // No document path updates needed
 
     // No need to update database status - we check auth status dynamically!
     console.log('✅ Approval complete! Status determined by auth existence.')
@@ -985,8 +971,56 @@ export async function getDocumentSignedUrl(path: string): Promise<string | null>
       return null
     }
     
-    // Use the new storage service for better reliability
-    return await DocumentStorageService.getSignedUrl(path)
+    // First, try to check if file exists by attempting to get info about it
+    try {
+      const { data: fileData, error: downloadError } = await supabase.storage
+        .from('employee-documents')
+        .download(path)
+        
+      if (downloadError) {
+        console.log('📂 File check result:', downloadError.message)
+        
+        if (downloadError.message.includes('Object not found')) {
+          console.log('❌ File does not exist in storage:', path)
+          console.log('💡 This could mean:')
+          console.log('   - File upload failed but database record was created')
+          console.log('   - File was deleted from storage')
+          console.log('   - File path is incorrect in database')
+          return null
+        }
+      } else {
+        console.log('✅ File exists in storage, size:', fileData?.size || 'unknown')
+      }
+    } catch (downloadErr) {
+      console.log('⚠️ Could not verify file existence:', downloadErr)
+    }
+    
+    // Proceed with signed URL generation
+    const { data, error } = await supabase.storage
+      .from('employee-documents')
+      .createSignedUrl(path, 3600)
+
+    if (error) {
+      console.error('❌ Signed URL error:', error.message)
+      
+      // Provide more specific error messaging
+      if (error.message.includes('Object not found')) {
+        console.log('💡 The file referenced in the database does not exist in storage.')
+        console.log('🔧 You may need to:')
+        console.log('   1. Re-upload the document')
+        console.log('   2. Check if the file was moved or deleted')
+        console.log('   3. Verify the file path in the database')
+      }
+      
+      return null
+    }
+
+    if (data?.signedUrl) {
+      console.log('✅ Signed URL created successfully')
+      return data.signedUrl
+    }
+    
+    return null
     
   } catch (error) {
     console.error('💥 Exception getting document signed URL:', {

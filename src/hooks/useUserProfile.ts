@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/integrations/supabase/client'
-import { getDocumentSignedUrl } from '@/services/onboardingService'
 
 interface UserProfile {
   appUser: any
@@ -61,7 +60,13 @@ export function useUserProfile() {
           employeeDetails.documents.map(async (doc: any) => {
             if (doc.path) {
               try {
-                const signedUrl = await getDocumentSignedUrl(doc.path)
+                // Simple signed URL generation
+                const { data, error } = await supabase.storage
+                  .from('employee-documents')
+                  .createSignedUrl(doc.path, 3600)
+
+                const signedUrl = error ? null : data?.signedUrl || null
+                
                 return {
                   ...doc,
                   signedUrl

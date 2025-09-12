@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { KPICard } from "@/components/dashboard/KPICard";
 import { useDashboardKPIs } from "@/hooks/useDashboardKPIs";
+import { useInventory } from "@/hooks/useInventory";
 import {
   Package,
   Clock,
@@ -29,6 +30,7 @@ import {
 
 export default function Dashboard() {
   const { kpis, recentOrders, recentOrdersLoading } = useDashboardKPIs();
+  const { products, alerts, loading: inventoryLoading } = useInventory();
 
   const getGreeting = () => {
     const now = new Date();
@@ -57,6 +59,53 @@ export default function Dashboard() {
       default:
         return 'outline';
     }
+  };
+
+  // Helper functions for inventory data
+  const getInventoryAlerts = () => {
+    if (!products.length) return [];
+    
+    // Get products that are below their minimum stock level
+    const lowStockProducts = products
+      .filter(product => {
+        const stock = product.current_stock || 0;
+        const minLevel = product.min_stock_level || 0;
+        return stock <= minLevel && minLevel > 0;
+      })
+      .map(product => ({
+        product: product.product?.name || 'Unknown Product',
+        stock: product.current_stock || 0,
+        threshold: product.min_stock_level || 0,
+        status: (product.current_stock || 0) <= (product.min_stock_level || 0) * 0.5 ? 'critical' : 'warning'
+      }))
+      .sort((a, b) => {
+        // Sort critical items first, then by lowest stock
+        if (a.status === 'critical' && b.status !== 'critical') return -1;
+        if (b.status === 'critical' && a.status !== 'critical') return 1;
+        return a.stock - b.stock;
+      });
+
+    // Also include active alerts from the alerts array
+    const activeAlerts = alerts
+      .filter(alert => alert.status === 'active' || alert.status === 'new')
+      .map(alert => ({
+        product: alert.product_variant?.product?.name || 'Unknown Product',
+        stock: alert.current_stock || 0,
+        threshold: alert.threshold || 0,
+        status: alert.priority === 'high' || alert.priority === 'critical' ? 'critical' : 'warning'
+      }));
+
+    // Combine and deduplicate
+    const allAlerts = [...lowStockProducts, ...activeAlerts];
+    const uniqueAlerts = allAlerts.filter((alert, index, self) => 
+      index === self.findIndex(a => a.product === alert.product)
+    );
+
+    return uniqueAlerts;
+  };
+
+  const getLowStockCount = () => {
+    return getInventoryAlerts().length;
   };
 
   return (
@@ -295,36 +344,68 @@ export default function Dashboard() {
             <CardTitle className="flex items-center gap-2">
               <PackageSearch className="h-5 w-5" />
               Inventory Alerts
-              <Badge variant="destructive" className="ml-auto">3 low</Badge>
+              <Badge 
+                variant={getLowStockCount() > 0 ? "destructive" : "secondary"} 
+                className="ml-auto"
+              >
+                {inventoryLoading ? '...' : `${getLowStockCount()} ${getLowStockCount() === 1 ? 'alert' : 'alerts'}`}
+              </Badge>
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {[
-                { product: "iPhone 15 Case", stock: 5, threshold: 10, status: "critical" },
-                { product: "Wireless Headphones", stock: 8, threshold: 15, status: "warning" },
-                { product: "Phone Charger", stock: 3, threshold: 20, status: "critical" },
-                { product: "Screen Protector", stock: 12, threshold: 25, status: "warning" },
-                { product: "Bluetooth Speaker", stock: 7, threshold: 10, status: "warning" }
-              ].map((item, index) => (
-                <div key={index} className="flex items-center justify-between hover:bg-muted/20 rounded-lg p-2 transition-colors">
-                  <div>
-                    <div className="font-medium text-sm">{item.product}</div>
-                    <div className="text-xs text-muted-foreground">
-                      Stock: {item.stock} | Threshold: {item.threshold}
+            {inventoryLoading ? (
+              <div className="space-y-3">
+                {Array.from({ length: 3 }).map((_, index) => (
+                  <div key={index} className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <Skeleton className="h-4 w-32" />
+                      <Skeleton className="h-3 w-24" />
                     </div>
+                    <Skeleton className="h-5 w-12" />
                   </div>
-                  <div className="text-right">
-                    <Badge 
-                      variant={item.status === 'critical' ? 'destructive' : 'outline'}
-                      className="text-xs"
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {getInventoryAlerts().length > 0 ? (
+                  getInventoryAlerts().slice(0, 5).map((item, index) => (
+                    <div key={index} className="flex items-center justify-between hover:bg-muted/20 rounded-lg p-2 transition-colors">
+                      <div>
+                        <div className="font-medium text-sm">{item.product}</div>
+                        <div className="text-xs text-muted-foreground">
+                          Stock: {item.stock} | Min Level: {item.threshold}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <Badge 
+                          variant={item.status === 'critical' ? 'destructive' : 'outline'}
+                          className="text-xs"
+                        >
+                          {item.status === 'critical' ? 'Critical' : 'Low'}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-4">
+                    <CheckCircle className="h-8 w-8 text-green-500 mx-auto mb-2" />
+                    <div className="text-sm text-muted-foreground">All inventory levels are healthy</div>
+                  </div>
+                )}
+                {getInventoryAlerts().length > 5 && (
+                  <div className="pt-2 border-t">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="w-full"
+                      onClick={() => window.location.href = '/inventory'}
                     >
-                      {item.status === 'critical' ? 'Critical' : 'Low'}
-                    </Badge>
+                      View All Alerts ({getInventoryAlerts().length})
+                    </Button>
                   </div>
-                </div>
-              ))}
-            </div>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

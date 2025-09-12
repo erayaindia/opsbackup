@@ -110,10 +110,22 @@ export function DocumentPreview({ document, open, onOpenChange }: DocumentPrevie
         <div className="flex-1 overflow-auto">
           {!document.signedUrl ? (
             <div className="flex items-center justify-center h-64">
-              <div className="text-center">
-                <FileText className="h-12 w-12 mx-auto text-gray-400 mb-2" />
-                <p className="text-gray-600">Preview not available</p>
-                <p className="text-sm text-gray-500">Document URL could not be generated</p>
+              <div className="text-center max-w-md mx-auto p-6">
+                <FileText className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+                <p className="text-gray-600 font-medium mb-2">Document Not Available</p>
+                <p className="text-sm text-gray-500 mb-4">
+                  This document file could not be found in storage. This may happen if:
+                </p>
+                <ul className="text-xs text-gray-500 text-left space-y-1 mb-4">
+                  <li>• The file upload process was incomplete</li>
+                  <li>• The file was moved or deleted from storage</li>
+                  <li>• There are temporary access issues</li>
+                </ul>
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+                  <p className="text-xs text-orange-700">
+                    <strong>Solution:</strong> Please contact your administrator to re-upload this document or verify its location.
+                  </p>
+                </div>
               </div>
             </div>
           ) : isImage ? (
