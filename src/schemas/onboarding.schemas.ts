@@ -173,10 +173,16 @@ export const approvalFormSchema = z.object({
     .string()
     .email('Please enter a valid email address')
     .refine(email => email.endsWith('@erayastyle.com'), 'Email must end with @erayastyle.com')
-    .transform(val => val.toLowerCase()),
+    .transform(val => val.toLowerCase())
+    .optional()
+    .or(z.literal('')), // Make company email optional
   role: z.enum(USER_ROLES),
   department: z.enum(DEPARTMENTS),
-  set_active: z.boolean().default(false)
+  set_active: z.boolean().default(false),
+  temp_password: z
+    .string()
+    .min(6, 'Password must be at least 6 characters')
+    .max(50, 'Password must be less than 50 characters')
 })
 
 // Validation helper functions

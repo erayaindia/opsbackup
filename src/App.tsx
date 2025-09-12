@@ -87,6 +87,9 @@ import AnalyticsInsights from "./pages/management/AnalyticsInsights";
 // Admin pages
 import OnboardingApplications from "./pages/admin/OnboardingApplications";
 
+// Profile page
+import Profile from "./pages/Profile";
+
 // Alerts pages
 import InventoryAlerts from "./pages/alerts/InventoryAlerts";
 import DisputeAlerts from "./pages/alerts/DisputeAlerts";
@@ -144,6 +147,7 @@ const App = () => (
                   </PermissionGuard>
                 } />
                 <Route path="settings" element={<Settings />} />
+                <Route path="profile" element={<Profile />} />
                 <Route path="analytics" element={
                   <PermissionGuard requiredModule="analytics">
                     <Analytics />

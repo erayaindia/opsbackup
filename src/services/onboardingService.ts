@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client'
+import { createClient } from '@supabase/supabase-js'
 import {
   OnboardingFormData,
   OnboardingSubmissionResponse,
@@ -8,6 +9,23 @@ import {
   OnboardingApplicant,
   ApprovalFormData
 } from '@/types/onboarding.types'
+
+// Create admin client for user creation
+const getAdminClient = () => {
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+  const serviceRoleKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY
+  
+  if (!serviceRoleKey) {
+    throw new Error('Service Role Key required for admin operations. Please add VITE_SUPABASE_SERVICE_ROLE_KEY to your environment.')
+  }
+  
+  return createClient(supabaseUrl, serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  })
+}
 
 // Helper function to transform form data to database format
 function transformFormDataToDatabase(data: OnboardingFormData) {
@@ -198,6 +216,8 @@ export async function uploadDocument(
 // Admin: Get all onboarding applications (from both tables)
 export async function getOnboardingApplications(): Promise<OnboardingApplicant[]> {
   try {
+    console.log('🔍 Fetching onboarding applications from database...')
+    
     // Get all applications from employees_details table only
     const { data: employeesData, error: employeesError } = await supabase
       .from('employees_details')
@@ -233,45 +253,86 @@ export async function getOnboardingApplications(): Promise<OnboardingApplicant[]
       `)
       .order('created_at', { ascending: false })
 
+    console.log('📊 Database response:', { 
+      dataCount: employeesData?.length, 
+      error: employeesError,
+      firstRecord: employeesData?.[0]
+    })
+
     if (employeesError) {
-      console.error('Database error:', employeesError)
-      // Return mock data for testing when database is not available
-      console.log('Database not available, returning mock data for testing')
+      console.error('❌ Database error:', employeesError)
+      console.log('⚠️ Falling back to mock data')
       return getMockOnboardingApplications()
     }
 
     const combinedData = employeesData || []
 
-    // Transform database results to match OnboardingApplicant interface
-    const transformedData = (combinedData || []).map(item => ({
-      id: item.application_id, // Use application_id as the public ID
-      status: item.status as 'submitted' | 'approved' | 'rejected' | 'withdrawn',
-      full_name: item.full_name,
-      personal_email: item.personal_email,
-      phone: item.phone_number,
-      date_of_birth: item.date_of_birth,
-      gender: item.gender,
-      designation: item.designation,
-      work_location: item.work_location,
-      employment_type: item.employment_type,
-      joined_at: item.joining_date,
-      addresses: {
-        current: item.current_address,
-        permanent: item.permanent_address,
-        same_as_current: item.same_as_current || item.permanent_address === item.current_address
-      },
-      emergency: item.emergency_contact,
-      bank_details: item.bank_details,
-      documents: item.documents || [],
-      notes: item.notes,
-      mapped_app_user_id: item.app_user_id,
-      created_at: item.created_at,
-      updated_at: item.updated_at,
-      nda_accepted: item.nda_accepted,
-      data_privacy_accepted: item.data_privacy_accepted,
-      nda_accepted_at: item.nda_accepted_at,
-      data_privacy_accepted_at: item.data_privacy_accepted_at
-    }))
+    // Check authentication status for each application
+    const adminClient = getAdminClient()
+    
+    // Transform database results and check auth status
+    const transformedDataPromises = (combinedData || []).map(async (item) => {
+      // Check if user exists in authentication
+      let actualStatus: 'submitted' | 'approved' | 'rejected' | 'withdrawn' = 'submitted'
+      
+      try {
+        // Try to find user in auth by their personal email (login email)
+        const { data: authUsers, error: authError } = await adminClient.auth.admin.listUsers()
+        
+        if (!authError && authUsers?.users) {
+          const userExists = authUsers.users.some(user => 
+            user.email === item.personal_email || 
+            user.email === (item.app_user_id ? `${item.full_name.toLowerCase().replace(/\s+/g, '.')}@erayastyle.com` : '')
+          )
+          
+          actualStatus = userExists ? 'approved' : 'submitted'
+          console.log(`📧 ${item.full_name}: Auth status = ${actualStatus}`)
+        }
+      } catch (error) {
+        console.log(`⚠️ Could not check auth status for ${item.full_name}:`, error)
+        // Fallback to database status if auth check fails
+        actualStatus = item.status as 'submitted' | 'approved' | 'rejected' | 'withdrawn'
+      }
+
+      return {
+        id: item.application_id, // Use application_id as the public ID
+        status: actualStatus,
+        full_name: item.full_name,
+        personal_email: item.personal_email,
+        phone: item.phone_number,
+        date_of_birth: item.date_of_birth,
+        gender: item.gender,
+        designation: item.designation,
+        work_location: item.work_location,
+        employment_type: item.employment_type,
+        joined_at: item.joining_date,
+        addresses: {
+          current: item.current_address,
+          permanent: item.permanent_address,
+          same_as_current: item.same_as_current || item.permanent_address === item.current_address
+        },
+        emergency: item.emergency_contact,
+        bank_details: item.bank_details,
+        documents: item.documents || [],
+        notes: item.notes,
+        mapped_app_user_id: item.app_user_id,
+        created_at: item.created_at,
+        updated_at: item.updated_at,
+        nda_accepted: item.nda_accepted,
+        data_privacy_accepted: item.data_privacy_accepted,
+        nda_accepted_at: item.nda_accepted_at,
+        data_privacy_accepted_at: item.data_privacy_accepted_at
+      }
+    })
+
+    // Resolve all promises to get final data with auth status
+    const transformedData = await Promise.all(transformedDataPromises)
+
+    console.log('🔄 Transformed data with auth status:', transformedData.map(item => ({
+      id: item.id,
+      status: item.status,
+      full_name: item.full_name
+    })))
 
     return transformedData
   } catch (error) {
@@ -685,10 +746,36 @@ export async function approveOnboardingApplication(
   data: ApprovalFormData
 ): Promise<ApprovalResponse> {
   try {
-    // Get current user's session
-    const { data: { session, user }, error: sessionError } = await supabase.auth.getSession()
+    // Get current user - try both session and getUser methods
+    let user = null
+    let session = null
     
-    if (sessionError || !session || !user) {
+    try {
+      // First try getSession
+      const sessionResult = await supabase.auth.getSession()
+      session = sessionResult.data.session
+      user = sessionResult.data.session?.user || null
+      
+      // If user is null but session exists, try getUser
+      if (!user && session) {
+        console.log('🔄 Session exists but no user, trying getUser...')
+        const userResult = await supabase.auth.getUser()
+        user = userResult.data.user
+      }
+      
+      console.log('🔐 Auth check:', { 
+        hasSession: !!session, 
+        hasUser: !!user, 
+        userId: user?.id 
+      })
+      
+    } catch (authError) {
+      console.error('❌ Auth error:', authError)
+      throw new Error('Authentication required')
+    }
+    
+    if (!session || !user) {
+      console.error('❌ Authentication failed:', { hasSession: !!session, hasUser: !!user })
       throw new Error('Authentication required')
     }
 
@@ -699,7 +786,15 @@ export async function approveOnboardingApplication(
       .eq('auth_user_id', user.id)
       .single()
 
+    console.log('👤 Admin check:', { adminUser, adminError, userId: user.id })
+
     if (adminError || !adminUser || !['super_admin', 'admin'].includes(adminUser.role) || adminUser.status !== 'active') {
+      console.error('❌ Admin privileges check failed:', { 
+        adminError, 
+        adminUser, 
+        hasValidRole: adminUser ? ['super_admin', 'admin'].includes(adminUser.role) : false,
+        isActive: adminUser?.status === 'active'
+      })
       throw new Error('Admin privileges required')
     }
 
@@ -718,11 +813,15 @@ export async function approveOnboardingApplication(
       throw new Error('Application is not in a state that can be approved')
     }
 
-    // Create auth user account
-    const tempPassword = generateTempPassword()
-    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-      email: data.company_email,
-      password: tempPassword,
+    // Create auth user account - use personal email if company email not provided
+    const loginEmail = (data.company_email && data.company_email.trim()) || application.personal_email
+    const userPassword = data.temp_password // Use provided password
+    
+    // Use admin client for user creation
+    const adminClient = getAdminClient()
+    const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
+      email: loginEmail,
+      password: userPassword,
       email_confirm: true,
       user_metadata: {
         full_name: application.full_name,
@@ -740,7 +839,7 @@ export async function approveOnboardingApplication(
       .insert({
         auth_user_id: authData.user.id,
         full_name: application.full_name,
-        company_email: data.company_email,
+        company_email: data.company_email || null, // Make company email optional
         personal_email: application.personal_email,
         phone: application.phone_number,
         role: data.role,
@@ -757,51 +856,25 @@ export async function approveOnboardingApplication(
 
     if (appUserError || !appUser) {
       // Rollback auth user if app user creation fails
-      await supabase.auth.admin.deleteUser(authData.user.id)
+      await adminClient.auth.admin.deleteUser(authData.user.id)
       throw new Error(`Failed to create app user: ${appUserError?.message}`)
     }
 
-    // Update onboarding application status (trigger will auto-assign employee_id)
-    const { data: updatedApplication, error: updateError } = await supabase
-      .from('employees_details')
-      .update({
-        status: 'approved',
-        approval_date: new Date().toISOString(),
-        approved_by: adminUser.id,
-        app_user_id: appUser.id
-      })
-      .eq('application_id', data.applicant_id)
-      .select('employee_id')
-      .single()
-
-    if (updateError) {
-      throw new Error(`Failed to update application status: ${updateError.message}`)
-    }
-
-    // Sync the auto-generated employee_id to app_users table
-    if (updatedApplication?.employee_id) {
-      const { error: syncError } = await supabase
-        .from('app_users')
-        .update({ employee_id: updatedApplication.employee_id })
-        .eq('id', appUser.id)
-
-      if (syncError) {
-        console.error('Warning: Failed to sync employee_id to app_users:', syncError)
-        // Don't throw error here as the main approval was successful
-      }
-    }
+    // No need to update database status - we check auth status dynamically!
+    console.log('✅ Approval complete! Status determined by auth existence.')
+    console.log('💡 User account created - they can login immediately')
 
     return {
       ok: true,
       data: {
         app_user_id: appUser.id,
         auth_user_id: authData.user.id,
-        employee_id: updatedApplication?.employee_id,
-        company_email: data.company_email,
-        temp_password: tempPassword,
+        login_email: loginEmail,
+        company_email: data.company_email || null,
+        temp_password: userPassword,
         tempPasswordSet: true,
         status: 'approved',
-        message: `Application approved and user account created successfully${updatedApplication?.employee_id ? ` (Employee ID: ${updatedApplication.employee_id})` : ''}`
+        message: `Application approved and user account created successfully! Login email: ${loginEmail}`
       },
       timestamp: new Date().toISOString()
     }

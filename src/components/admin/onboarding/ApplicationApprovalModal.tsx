@@ -35,10 +35,11 @@ export function ApplicationApprovalModal({
     resolver: zodResolver(approvalFormSchema),
     defaultValues: {
       applicant_id: application.id,
-      company_email: `${application.full_name.toLowerCase().replace(/\s+/g, '.')}@erayastyle.com`,
+      company_email: '', // Make company email optional
       role: 'employee',
       department: 'Content',
-      set_active: false
+      set_active: false,
+      temp_password: '' // Add password field
     }
   })
 
@@ -53,10 +54,10 @@ export function ApplicationApprovalModal({
       if (response.ok && response.data) {
         toast.success('Application approved successfully!')
         
-        // Show success details
+        // Show success details with login email
         toast.success(
-          `User account created for ${application.full_name}. Temporary password: ${response.data.temp_password}`,
-          { duration: 10000 }
+          `User account created for ${application.full_name}. Login: ${response.data.login_email} | Password: ${response.data.temp_password}`,
+          { duration: 15000 }
         )
 
         onApproved()
@@ -137,35 +138,53 @@ export function ApplicationApprovalModal({
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Company Email */}
-              <div className="space-y-2">
-                <Label htmlFor="company_email" className="flex items-center gap-2">
-                  <Mail className="w-4 h-4" />
-                  Company Email *
-                </Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="company_email"
-                    type="email"
-                    {...register('company_email')}
-                    className={errors.company_email ? 'border-red-300' : ''}
-                    placeholder="user.name@erayastyle.com"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={updateEmailSuggestion}
-                    size="sm"
-                  >
-                    Auto-fill
-                  </Button>
+              {/* Login Email Info */}
+              <div className="space-y-3">
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <Mail className="w-4 h-4 mt-0.5 text-blue-600" />
+                    <div>
+                      <h4 className="font-medium text-blue-800">Login Email</h4>
+                      <p className="text-sm text-blue-700 mt-1">
+                        User will login with: <strong>{application.personal_email}</strong>
+                      </p>
+                      <p className="text-xs text-blue-600 mt-1">
+                        Using the personal email provided during onboarding
+                      </p>
+                    </div>
+                  </div>
                 </div>
-                {errors.company_email && (
-                  <p className="text-sm text-red-600">{errors.company_email.message}</p>
-                )}
-                <p className="text-xs text-gray-500">
-                  This will be the user's login email address
-                </p>
+
+                {/* Company Email - Optional */}
+                <div className="space-y-2">
+                  <Label htmlFor="company_email" className="flex items-center gap-2">
+                    <Mail className="w-4 h-4" />
+                    Company Email (Optional)
+                  </Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="company_email"
+                      type="email"
+                      {...register('company_email')}
+                      className={errors.company_email ? 'border-red-300' : ''}
+                      placeholder="user.name@erayastyle.com (optional)"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={updateEmailSuggestion}
+                      size="sm"
+                    >
+                      Auto-fill
+                    </Button>
+                  </div>
+                  {errors.company_email && (
+                    <p className="text-sm text-red-600">{errors.company_email.message}</p>
+                  )}
+                  <p className="text-xs text-gray-500">
+                    Optional company email for internal use. Login will use personal email above.
+                  </p>
+                </div>
               </div>
 
               {/* Role */}
@@ -212,6 +231,27 @@ export function ApplicationApprovalModal({
                 {errors.department && (
                   <p className="text-sm text-red-600">{errors.department.message}</p>
                 )}
+              </div>
+
+              {/* Password */}
+              <div className="space-y-2">
+                <Label htmlFor="temp_password" className="flex items-center gap-2">
+                  <Key className="w-4 h-4" />
+                  Password *
+                </Label>
+                <Input
+                  id="temp_password"
+                  type="password"
+                  {...register('temp_password')}
+                  className={errors.temp_password ? 'border-red-300' : ''}
+                  placeholder="Enter password for user"
+                />
+                {errors.temp_password && (
+                  <p className="text-sm text-red-600">{errors.temp_password.message}</p>
+                )}
+                <p className="text-xs text-gray-500">
+                  This password will be used for the user's initial login
+                </p>
               </div>
 
               {/* Set Active */}

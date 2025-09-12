@@ -104,10 +104,11 @@ export interface OnboardingApplicant {
 
 export interface ApprovalFormData {
   applicant_id: string
-  company_email: string
+  company_email?: string // Make company email optional
   role: string
   department: string
   set_active: boolean
+  temp_password: string // Add password field
 }
 
 // API Response Types

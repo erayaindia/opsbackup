@@ -77,7 +77,14 @@ export default function OnboardingApplications() {
   }
 
   const handleApplicationApproved = () => {
-    loadApplications() // Refresh the list
+    // Manually update the applications list to reflect approved status
+    setApplications(prevApps => 
+      prevApps.map(app => 
+        app.id === approvalApplication?.id 
+          ? { ...app, status: 'approved' as const }
+          : app
+      )
+    )
     toast.success('Application approved successfully!')
   }
 
