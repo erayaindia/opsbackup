@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client'
+import { DocumentStorageService } from './storageService'
 import { createClient } from '@supabase/supabase-js'
 import {
   OnboardingFormData,
@@ -151,54 +152,45 @@ export async function uploadDocument(
     // For onboarding uploads, we don't require authentication
     // Generate a unique session ID for anonymous users
     const sessionId = applicationId || crypto.randomUUID()
-    const filePath = `onboarding/temp/${sessionId}/${type}/${fileName}`
+    
+    try {
+      // Use the new storage service for better reliability
+      const { path, signedUrl } = await DocumentStorageService.uploadTempDocument(
+        file,
+        type,
+        sessionId
+      )
 
-    // Upload to storage
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from('employee-documents')
-      .upload(filePath, file, {
-        cacheControl: '3600',
-        upsert: true
-      })
+      console.log(`✅ Document uploaded successfully: ${path}`)
+      
+      // Return success response
+      return {
+        ok: true,
+        data: {
+          path: path,
+          type: type,
+          filename: file.name,
+          size: file.size,
+          mime_type: file.type,
+          signed_url: signedUrl,
+          uploaded_at: new Date().toISOString()
+        },
+        timestamp: new Date().toISOString()
+      }
 
-    if (uploadError) {
+    } catch (uploadError: any) {
       console.error('Storage upload error:', uploadError)
       
       // Provide more specific error messages
-      if (uploadError.message.includes('new row violates row-level security')) {
-        throw new Error('Storage permission error. Please check if anonymous uploads are allowed.')
-      } else if (uploadError.message.includes('JWT expired')) {
-        throw new Error('Session expired. Please refresh the page and try again.')
-      } else if (uploadError.message.includes('Invalid JWT')) {
-        throw new Error('Authentication error. Please refresh the page and try again.')
-      } else {
-        throw new Error(uploadError.message || 'Failed to upload file')
-      }
-    }
-
-    // Get signed URL for the uploaded file
-    const { data: signedUrlData, error: signedUrlError } = await supabase.storage
-      .from('employee-documents')
-      .createSignedUrl(filePath, 3600) // 1 hour expiry
-
-    if (signedUrlError) {
-      console.error('Signed URL error:', signedUrlError)
-      // Continue without signed URL - not critical
-    }
-
-    // Return success response
-    return {
-      ok: true,
-      data: {
-        path: filePath,
-        type: type,
-        filename: file.name,
-        size: file.size,
-        mime_type: file.type,
-        signed_url: signedUrlData?.signedUrl,
-        uploaded_at: new Date().toISOString()
-      },
-      timestamp: new Date().toISOString()
+      const errorMessage = uploadError.message?.includes('new row violates row-level security')
+        ? 'Storage permission error. Please check if anonymous uploads are allowed.'
+        : uploadError.message?.includes('JWT expired')
+        ? 'Session expired. Please refresh the page and try again.'
+        : uploadError.message?.includes('Invalid JWT')
+        ? 'Authentication error. Please refresh the page and try again.'
+        : uploadError.message || 'Failed to upload file'
+        
+      throw new Error(errorMessage)
     }
 
   } catch (error) {
@@ -833,6 +825,22 @@ export async function approveOnboardingApplication(
       throw new Error(`Failed to create auth user: ${authError?.message}`)
     }
 
+    // Migrate documents from temp to permanent storage
+    let migratedDocuments = []
+    if (application.documents && Array.isArray(application.documents)) {
+      try {
+        console.log(`🔄 Migrating ${application.documents.length} documents to permanent storage...`)
+        migratedDocuments = await DocumentStorageService.migrateTempDocuments(
+          application.employee_id || `emp_${Date.now()}`,
+          application.documents
+        )
+        console.log(`✅ Successfully migrated ${migratedDocuments.length} documents`)
+      } catch (migrationError) {
+        console.warn('⚠️ Document migration failed, continuing with original paths:', migrationError)
+        migratedDocuments = application.documents
+      }
+    }
+
     // Create app user record
     const { data: appUser, error: appUserError } = await supabase
       .from('app_users')
@@ -858,6 +866,20 @@ export async function approveOnboardingApplication(
       // Rollback auth user if app user creation fails
       await adminClient.auth.admin.deleteUser(authData.user.id)
       throw new Error(`Failed to create app user: ${appUserError?.message}`)
+    }
+
+    // Update employee details with migrated document paths
+    if (migratedDocuments.length > 0) {
+      const { error: updateError } = await supabase
+        .from('employees_details')
+        .update({ documents: migratedDocuments })
+        .eq('application_id', data.applicant_id)
+
+      if (updateError) {
+        console.warn('⚠️ Failed to update document paths:', updateError)
+      } else {
+        console.log('✅ Updated employee details with new document paths')
+      }
     }
 
     // No need to update database status - we check auth status dynamically!
@@ -960,72 +982,11 @@ export async function getDocumentSignedUrl(path: string): Promise<string | null>
     if (isMockDocumentPath(path)) {
       console.log('⚠️ Detected mock document path:', path)
       console.log('💡 This appears to be test/demo data that doesn\'t exist in storage')
-      
-      // For mock data, create a placeholder URL or return null
-      // In a real scenario, you might want to serve placeholder images
       return null
     }
     
-    // Try different bucket configurations
-    const bucketNames = ['employee-documents', 'employee-docs', 'documents', 'uploads']
-    
-    for (const bucketName of bucketNames) {
-      try {
-        console.log(`🔄 Trying bucket: ${bucketName}`)
-        
-        // Try to create signed URL
-        const { data, error } = await supabase.storage
-          .from(bucketName)
-          .createSignedUrl(path, 3600) // 1 hour expiry
-
-        if (error) {
-          console.log(`❌ Bucket ${bucketName} failed:`, error.message)
-          continue
-        }
-
-        const signedUrl = data?.signedUrl
-        if (signedUrl) {
-          console.log(`✅ Successfully created signed URL with bucket: ${bucketName}`)
-          return signedUrl
-        }
-        
-        console.log(`⚠️ Bucket ${bucketName} returned no signed URL`)
-      } catch (bucketError) {
-        console.log(`💥 Exception with bucket ${bucketName}:`, bucketError)
-        continue
-      }
-    }
-    
-    // If all buckets fail, try to list buckets to see what's available
-    console.log('🔍 All buckets failed, attempting to list available buckets...')
-    try {
-      const { data: buckets, error: listError } = await supabase.storage.listBuckets()
-      if (listError) {
-        console.error('❌ Could not list buckets:', listError)
-      } else if (buckets) {
-        console.log('📂 Available buckets:', buckets.map(b => b.name))
-        
-        // Try the first available bucket
-        if (buckets.length > 0) {
-          const firstBucket = buckets[0].name
-          console.log(`🎲 Trying first available bucket: ${firstBucket}`)
-          
-          const { data, error } = await supabase.storage
-            .from(firstBucket)
-            .createSignedUrl(path, 3600)
-            
-          if (!error && data?.signedUrl) {
-            console.log(`✅ Success with first available bucket: ${firstBucket}`)
-            return data.signedUrl
-          }
-        }
-      }
-    } catch (listError) {
-      console.error('💥 Exception listing buckets:', listError)
-    }
-    
-    console.error('❌ All attempts failed to get signed URL for path:', path)
-    return null
+    // Use the new storage service for better reliability
+    return await DocumentStorageService.getSignedUrl(path)
     
   } catch (error) {
     console.error('💥 Exception getting document signed URL:', {
