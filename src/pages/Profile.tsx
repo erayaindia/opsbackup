@@ -35,6 +35,7 @@ import { Label } from '@/components/ui/label'
 import { supabase } from '@/integrations/supabase/client'
 import { toast } from 'sonner'
 import { DocumentPreview } from '@/components/profile/DocumentPreview'
+import { ProfilePictureUpload } from '@/components/profile/ProfilePictureUpload'
 
 export default function Profile() {
   const { profile, loading, error, refetch } = useUserProfile()
@@ -278,15 +279,14 @@ export default function Profile() {
             <CardContent className="p-6">
               <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
                 <div className="flex-shrink-0">
-                  <Avatar className="w-24 h-24">
-                    <AvatarImage 
-                      src={profilePicture?.signedUrl || ""} 
-                      alt={appUser?.full_name || employeeDetails?.full_name || "Profile"}
-                    />
-                    <AvatarFallback className="text-2xl font-bold">
-                      {getUserInitials(appUser?.full_name || employeeDetails?.full_name || 'U')}
-                    </AvatarFallback>
-                  </Avatar>
+                  <ProfilePictureUpload
+                    currentImage={profilePicture?.signedUrl}
+                    userName={appUser?.full_name || employeeDetails?.full_name || 'User'}
+                    onUploadSuccess={(newImageUrl) => {
+                      // Refresh the profile to show the new image
+                      refetch()
+                    }}
+                  />
                 </div>
                 <div className="flex-1 text-center sm:text-left">
                   <h2 className="text-2xl font-bold mb-2">

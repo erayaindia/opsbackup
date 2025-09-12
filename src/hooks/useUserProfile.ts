@@ -53,8 +53,10 @@ export function useUserProfile() {
         console.log('Employee details error:', employeeError)
       }
 
-      // Generate signed URLs for documents
+      // Generate signed URLs for documents and extract profile picture
       let documentsWithUrls = []
+      let profilePicture = null
+      
       if (employeeDetails?.documents && Array.isArray(employeeDetails.documents)) {
         documentsWithUrls = await Promise.all(
           employeeDetails.documents.map(async (doc: any) => {
@@ -67,10 +69,17 @@ export function useUserProfile() {
 
                 const signedUrl = error ? null : data?.signedUrl || null
                 
-                return {
+                const docWithUrl = {
                   ...doc,
                   signedUrl
                 }
+
+                // Check if this is the profile photo
+                if (doc.type === 'Photo' && signedUrl) {
+                  profilePicture = docWithUrl
+                }
+
+                return docWithUrl
               } catch (error) {
                 console.error(`Failed to get signed URL for ${doc.type || 'document'}:`, error)
                 return {
@@ -91,7 +100,7 @@ export function useUserProfile() {
       setProfile({
         appUser: appUser || null,
         employeeDetails: employeeDetails || null,
-        profilePicture: null,
+        profilePicture,
         documentsWithUrls
       })
 
