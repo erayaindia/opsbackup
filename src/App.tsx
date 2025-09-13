@@ -114,6 +114,11 @@ const App = () => (
               <Route path="/" element={<Layout />}>
                 <Route index element={<Dashboard />} />
                 <Route path="dashboard" element={<Dashboard />} />
+                <Route path="inventory" element={
+                  <PermissionGuard requiredModule="products">
+                    <Inventory />
+                  </PermissionGuard>
+                } />
                 <Route path="product/inventory" element={
                   <PermissionGuard requiredModule="products">
                     <NewInventory />
@@ -306,6 +311,11 @@ const App = () => (
                 <Route path="products/suppliers" element={
                   <PermissionGuard requiredModule="products">
                     <Suppliers />
+                  </PermissionGuard>
+                } />
+                <Route path="inventory" element={
+                  <PermissionGuard requiredModule="products">
+                    <Inventory />
                   </PermissionGuard>
                 } />
                 <Route path="product/inventory" element={
