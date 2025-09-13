@@ -153,7 +153,7 @@ export const FormContent: React.FC<FormContentProps> = ({
 
             {/* Priority */}
             <div>
-              <Label className="text-sm font-medium text-foreground">Priority</Label>
+              <Label className="text-sm font-medium text-foreground">Priority *</Label>
               <Select
                 value={newIdeaForm.priority || 'medium'}
                 onValueChange={(value) => setNewIdeaForm(prev => ({ ...prev, priority: value }))}
@@ -171,7 +171,7 @@ export const FormContent: React.FC<FormContentProps> = ({
 
             {/* Stage */}
             <div>
-              <Label className="text-sm font-medium text-foreground">Stage</Label>
+              <Label className="text-sm font-medium text-foreground">Stage *</Label>
               <Select
                 value={newIdeaForm.stage || 'idea'}
                 onValueChange={(value) => setNewIdeaForm(prev => ({ ...prev, stage: value }))}

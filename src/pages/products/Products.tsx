@@ -61,18 +61,30 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Separator } from '@/components/ui/separator'
 
 import {
-  mockLifecycleAdapter,
-  type LifecycleCard,
+  productLifecycleService,
+  type LifecycleProduct as LifecycleCard,
   type FilterOptions,
-  type ViewType,
-  type SavedView,
-  type User,
-  type Stage,
-  type Priority
-} from '@/services/mockLifecycleAdapter'
+  type CreateProductPayload
+} from '@/services/productLifecycleService'
+
+// Re-export types for compatibility
+export type ViewType = 'table' | 'gallery'
+export type Stage = 'idea' | 'production' | 'content' | 'scaling' | 'inventory'
+export type Priority = 'low' | 'medium' | 'high'
+export type User = { id: string; name: string; email: string }
+export interface SavedView {
+  id: string
+  name: string
+  filters: FilterOptions
+  search: string
+  view: ViewType
+  createdAt: Date
+}
 import { useSuppliers } from '@/hooks/useSuppliers'
+import { useUsers } from '@/hooks/useUsers'
 import { ActivityPanel, type StageKey, type TimelineEntry, type NowNextBlocked, saveTimelineEntry, updateStage, setNowNextBlocked } from '@/components/products/ActivityPanel'
 import { FormContent } from '@/components/products/FormContent'
+import { debugProductsRLS } from '@/utils/debugProductsRLS'
 
 const STORAGE_KEYS = {
   LAST_VIEW: 'lifecycle_last_view'
@@ -88,6 +100,7 @@ const STAGE_CONFIG = {
 export default function Lifecycle() {
   // Hooks
   const { suppliers, loading: suppliersLoading } = useSuppliers()
+  const { users: availableUsers, loading: usersLoading } = useUsers()
   
   // State management
   const [cards, setCards] = useState<LifecycleCard[]>([])
@@ -136,6 +149,7 @@ export default function Lifecycle() {
   })
   const [uploadedImages, setUploadedImages] = useState<File[]>([])
   const [uploadedVideos, setUploadedVideos] = useState<File[]>([])
+  const [uploadedProductImage, setUploadedProductImage] = useState<File | null>(null)
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [tagInput, setTagInput] = useState('')
   const [tags, setTags] = useState<string[]>([])
@@ -150,7 +164,6 @@ export default function Lifecycle() {
   
   // Saved views state
   const [savedViews, setSavedViews] = useState<SavedView[]>([])
-  const [availableOwners, setAvailableOwners] = useState<User[]>([])
   
   // Drawer state
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null)
@@ -188,28 +201,22 @@ export default function Lifecycle() {
   const availableTeamLeads = useMemo(() => {
     const leadSet = new Set<string>()
     cards.forEach(card => leadSet.add(card.teamLead.id))
-    return availableOwners.filter(user => leadSet.has(user.id))
-  }, [cards, availableOwners])
+    return availableUsers.filter(user => leadSet.has(user.id))
+  }, [cards, availableUsers])
   
   // Load initial data
   useEffect(() => {
     const loadData = async () => {
       try {
         setLoading(true)
-        const [cardsData, viewsData, ownersData] = await Promise.all([
-          mockLifecycleAdapter.listCards(),
-          mockLifecycleAdapter.listSavedViews(),
-          mockLifecycleAdapter.listOwners()
-        ])
-        
+        const cardsData = await productLifecycleService.listProducts()
+
         setCards(cardsData)
-        setSavedViews(viewsData)
-        setAvailableOwners(ownersData)
+        setSavedViews([]) // TODO: Implement saved views in database
 
         console.log('Loaded data:')
         console.log('Cards:', cardsData.length)
-        console.log('Available owners:', ownersData)
-        console.log('Saved views:', viewsData.length)
+        console.log('Available users:', availableUsers)
       } catch (error) {
         console.error('Failed to load lifecycle data:', error)
         toast({
@@ -221,9 +228,9 @@ export default function Lifecycle() {
         setLoading(false)
       }
     }
-    
+
     loadData()
-  }, [])
+  }, [availableUsers])
   
   // Filter and search cards
   useEffect(() => {
@@ -234,11 +241,11 @@ export default function Lifecycle() {
           ...filters,
           stages: [activeStageFilter]
         }
-        
-        const filtered = await mockLifecycleAdapter.listCards({
+
+        const filtered = await productLifecycleService.listProducts({
           filters: stageFilters,
           search: searchQuery,
-          sort: { field: 'updatedAt', direction: 'desc' }
+          sort: { field: 'updated_at', direction: 'desc' }
         })
         setFilteredCards(filtered)
       } catch (error) {
@@ -246,7 +253,7 @@ export default function Lifecycle() {
         setFilteredCards(cards)
       }
     }
-    
+
     applyFilters()
   }, [cards, filters, searchQuery, activeStageFilter])
   
@@ -309,6 +316,14 @@ export default function Lifecycle() {
     }
 
     setUploadedVideos(prev => [...prev, ...files])
+  }
+
+  const handleProductImageUpload = (file: File) => {
+    setUploadedProductImage(file)
+  }
+
+  const removeProductImage = () => {
+    setUploadedProductImage(null)
   }
 
   
@@ -511,7 +526,7 @@ export default function Lifecycle() {
           <SheetHeader>
             <SheetTitle className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-primary"></div>
-              {card.title || card.workingTitle || `Demo Product ${sequentialId}`}
+              {card.workingTitle || card.name || `Demo Product ${sequentialId}`}
             </SheetTitle>
             <div className="text-sm text-muted-foreground">
               Product ID: #{sequentialId}
@@ -520,13 +535,13 @@ export default function Lifecycle() {
 
           <div className="mt-6 space-y-6">
             {/* Product Image */}
-            {card.ideaData?.thumbnail && (
+            {(card.thumbnail || card.thumbnailUrl || card.ideaData?.thumbnail) && (
               <div>
                 <Label className="text-sm font-medium">Product Image</Label>
                 <div className="mt-2">
                   <img
-                    src={card.ideaData.thumbnail}
-                    alt={card.title}
+                    src={card.thumbnail || card.thumbnailUrl || card.ideaData?.thumbnail}
+                    alt={card.workingTitle || card.name}
                     className="w-full h-48 object-cover rounded-none border"
                   />
                 </div>
@@ -638,65 +653,90 @@ export default function Lifecycle() {
 
   const handleCreateIdea = async () => {
     try {
+      // Validate all mandatory fields
       if (!newIdeaForm.title.trim()) {
         toast({
-          title: 'Title required',
-          description: 'Please enter a title for your idea.',
+          title: 'Product Name required',
+          description: 'Please enter a product name.',
           variant: 'destructive'
         })
         return
       }
 
-      // Create new card with form data
-      const newCardData = {
+      if (!newIdeaForm.assignedTo) {
+        toast({
+          title: 'Assigned To required',
+          description: 'Please select a team member to assign this product to.',
+          variant: 'destructive'
+        })
+        return
+      }
+
+      if (!newIdeaForm.stage) {
+        toast({
+          title: 'Stage required',
+          description: 'Please select a stage for this product.',
+          variant: 'destructive'
+        })
+        return
+      }
+
+      if (!newIdeaForm.priority) {
+        toast({
+          title: 'Priority required',
+          description: 'Please select a priority level for this product.',
+          variant: 'destructive'
+        })
+        return
+      }
+
+      // Upload product image if provided
+      let thumbnailUrl: string | undefined
+      if (uploadedProductImage) {
+        try {
+          thumbnailUrl = await productLifecycleService.uploadProductImage(uploadedProductImage, 'temp')
+        } catch (uploadError) {
+          console.error('Error uploading image:', uploadError)
+          toast({
+            title: 'Image upload failed',
+            description: 'Product will be created without image.',
+            variant: 'destructive'
+          })
+        }
+      }
+
+      // Prepare payload
+      const payload: CreateProductPayload = {
         title: newIdeaForm.title,
-        workingTitle: newIdeaForm.title,
-        tags: tags.length > 0 ? tags : ['new-product'], // Use tags from state
-        category: selectedCategories.length > 0 ? selectedCategories : ['General'],
-        priority: newIdeaForm.priority as Priority,
-        stage: newIdeaForm.stage as Stage,
-        assignedTo: newIdeaForm.assignedTo,
+        tags: tags.length > 0 ? tags : undefined,
+        category: selectedCategories.length > 0 ? selectedCategories : undefined,
+        competitorLinks: referenceLinks.filter(link => link.type === 'competitor').map(link => link.url),
+        adLinks: referenceLinks.filter(link => link.type === 'ad').map(link => link.url),
         notes: newIdeaForm.notes,
+        thumbnail: thumbnailUrl,
         problemStatement: newIdeaForm.problemStatement,
         opportunityStatement: newIdeaForm.opportunityStatement,
         estimatedSourcePriceMin: newIdeaForm.estimatedSourcePriceMin,
         estimatedSourcePriceMax: newIdeaForm.estimatedSourcePriceMax,
-        selectedSupplierId: newIdeaForm.selectedSupplierId
+        selectedSupplierId: newIdeaForm.selectedSupplierId,
+        priority: newIdeaForm.priority as Priority,
+        stage: newIdeaForm.stage as Stage,
+        assignedTo: newIdeaForm.assignedTo
       }
 
-      console.log('Creating new card with data:', newCardData)
-      console.log('Tags being created:', newCardData.tags)
-      console.log('Selected categories:', selectedCategories)
-      console.log('Available owners:', availableOwners.map(o => ({ id: o.id, name: o.name })))
+      console.log('Creating new product with payload:', payload)
 
-      const newCard = await mockLifecycleAdapter.createIdea({
-        title: newCardData.title,
-        tags: newCardData.tags,
-        category: newCardData.category,
-        competitorLinks: referenceLinks.filter(link => link.type === 'competitor').map(link => link.url),
-        adLinks: referenceLinks.filter(link => link.type === 'ad').map(link => link.url),
-        notes: newCardData.notes,
-        thumbnail: undefined,
-        estimatedSourcePriceMin: newCardData.estimatedSourcePriceMin,
-        estimatedSourcePriceMax: newCardData.estimatedSourcePriceMax,
-        selectedSupplierId: newCardData.selectedSupplierId
-      })
+      const newProduct = await productLifecycleService.createProduct(payload)
 
-      // Update the new card with form data that mockLifecycleAdapter might not handle
-      const enhancedCard = {
-        ...newCard,
-        priority: newCardData.priority,
-        stage: newCardData.stage,
-        teamLead: availableOwners.find(owner => owner.id === newCardData.assignedTo) || availableOwners[0] || newCard.teamLead
-      }
+      console.log('Created product:', newProduct)
 
-      console.log('Enhanced card:', enhancedCard)
+      // Refresh the products list
+      const updatedProducts = await productLifecycleService.listProducts()
+      setCards(updatedProducts)
 
-      setCards(prev => [enhancedCard, ...prev])
-
-      // If we're not on 'all' or matching stage filter, switch to show the new card
-      if (activeStageFilter !== 'all' && activeStageFilter !== newCardData.stage) {
-        setActiveStageFilter(newCardData.stage)
+      // If we're not on 'all' or matching stage filter, switch to show the new product
+      if (activeStageFilter !== 'all' && activeStageFilter !== payload.stage) {
+        setActiveStageFilter(payload.stage)
       }
 
       // Reset form
@@ -718,6 +758,7 @@ export default function Lifecycle() {
       })
       setUploadedImages([])
       setUploadedVideos([])
+      setUploadedProductImage(null)
       setSelectedCategories([])
       setTagInput('')
       setTags([])
@@ -728,7 +769,7 @@ export default function Lifecycle() {
 
       toast({
         title: 'Product created successfully!',
-        description: `"${enhancedCard.title || enhancedCard.workingTitle}" has been added to the ${enhancedCard.stage} stage.`
+        description: `"${newProduct.workingTitle}" has been added to the ${newProduct.stage} stage.`
       })
 
     } catch (error) {
@@ -872,6 +913,19 @@ export default function Lifecycle() {
                 <Download className="h-4 w-4" />
                 Export
               </Button>
+              <Button
+                variant="outline"
+                className="gap-2 rounded-none"
+                onClick={() => {
+                  debugProductsRLS()
+                  toast({
+                    title: 'Debug running',
+                    description: 'Check browser console for RLS debug info.'
+                  })
+                }}
+              >
+                Debug RLS
+              </Button>
             </div>
           </div>
         </div>
@@ -939,7 +993,7 @@ export default function Lifecycle() {
                       >
                         <td className="p-4">
                           <div>
-                            <div className="font-medium">{card.title || card.workingTitle || `Demo Product ${sequentialId}`}</div>
+                            <div className="font-medium">{card.workingTitle || card.name || `Demo Product ${sequentialId}`}</div>
                             <div className="text-xs text-gray-500">ID: #{sequentialId}</div>
                           </div>
                         </td>
@@ -980,8 +1034,8 @@ export default function Lifecycle() {
                   {/* Product Image - 65% of card height */}
                   <div className="relative h-[200px] bg-muted">
                     <img
-                      src={card.ideaData?.thumbnail || `https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=400&h=300&fit=crop&crop=center`}
-                      alt={card.title}
+                      src={card.thumbnail || card.thumbnailUrl || card.ideaData?.thumbnail || `https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=400&h=300&fit=crop&crop=center`}
+                      alt={card.workingTitle || card.name}
                       className="w-full h-full object-cover"
                       onError={(e) => {
                         const target = e.target as HTMLImageElement;
@@ -1003,7 +1057,7 @@ export default function Lifecycle() {
 
                       {/* Product Name */}
                       <div className="text-sm font-bold text-foreground truncate">
-                        {card.title || card.workingTitle || `Demo Product ${sequentialId}`}
+                        {card.workingTitle || card.name || `Demo Product ${sequentialId}`}
                       </div>
 
                       {/* Priority and Stage */}
@@ -1067,10 +1121,60 @@ export default function Lifecycle() {
                   New Product Idea
                 </DialogTitle>
                 
-                {/* Assigned To - top right corner */}
+                {/* Top right controls */}
                 <div className="hidden lg:flex items-center gap-4 mr-8">
+                  {/* Product Photo Upload */}
                   <div className="flex items-center gap-2">
-                    <Label className="text-sm font-medium text-foreground">Assigned To:</Label>
+                    {uploadedProductImage ? (
+                      <div className="relative">
+                        <img
+                          src={URL.createObjectURL(uploadedProductImage)}
+                          alt="Product"
+                          className="w-8 h-8 object-cover rounded-none border"
+                        />
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="sm"
+                          className="absolute -top-1 -right-1 h-4 w-4 rounded-none p-0"
+                          onClick={removeProductImage}
+                        >
+                          <X className="h-2 w-2" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <label className="cursor-pointer">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0]
+                            if (file) {
+                              handleProductImageUpload(file)
+                            }
+                          }}
+                          className="hidden"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 gap-1 rounded-none"
+                          asChild
+                        >
+                          <span>
+                            <ImagePlus className="h-3 w-3" />
+                            Add Photo
+                          </span>
+                        </Button>
+                      </label>
+                    )}
+                  </div>
+
+                  {/* Assigned To */}
+                  <div className="flex items-center gap-2">
+                    <Label className="text-sm font-medium text-foreground">Assigned To: *</Label>
+                    {usersLoading && <span className="text-xs text-muted-foreground ml-1">(Loading...)</span>}
                     <Select
                       value={newIdeaForm.assignedTo || ''}
                       onValueChange={(value) => setNewIdeaForm(prev => ({ ...prev, assignedTo: value }))}
@@ -1079,10 +1183,10 @@ export default function Lifecycle() {
                         <SelectValue placeholder="Select..." />
                       </SelectTrigger>
                       <SelectContent>
-                        {availableOwners.length === 0 ? (
+                        {availableUsers.length === 0 ? (
                           <SelectItem value="no-users" disabled>No users available</SelectItem>
                         ) : (
-                          availableOwners.map((owner) => (
+                          availableUsers.map((owner) => (
                             <SelectItem key={owner.id} value={owner.id}>
                               <div className="flex items-center gap-2">
                                 <div className="w-4 h-4 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium">
@@ -1142,7 +1246,7 @@ export default function Lifecycle() {
                     autoResizeTextarea={autoResizeTextarea}
                     suppliers={suppliers}
                     suppliersLoading={suppliersLoading}
-                    availableOwners={availableOwners}
+                    availableOwners={availableUsers}
                   />
                 </TabsContent>
                 
@@ -1194,7 +1298,7 @@ export default function Lifecycle() {
                   autoResizeTextarea={autoResizeTextarea}
                   suppliers={suppliers}
                   suppliersLoading={suppliersLoading}
-                  availableOwners={availableOwners}
+                  availableOwners={availableUsers}
                 />
               </div>
               
