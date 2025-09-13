@@ -35,6 +35,12 @@ interface FormContentProps {
   suppliers: any[]
   suppliersLoading: boolean
   availableOwners: any[]
+  // Product image props
+  currentProductImage?: string | null
+  uploadedProductImage?: File | null
+  onChangeProductImage?: (e: React.ChangeEvent<HTMLInputElement>) => void
+  onRemoveCurrentImage?: () => void
+  onRemoveUploadedImage?: () => void
 }
 
 export const FormContent: React.FC<FormContentProps> = ({
@@ -64,7 +70,13 @@ export const FormContent: React.FC<FormContentProps> = ({
   autoResizeTextarea,
   suppliers,
   suppliersLoading,
-  availableOwners = []
+  availableOwners = [],
+  // Product image props
+  currentProductImage,
+  uploadedProductImage,
+  onChangeProductImage,
+  onRemoveCurrentImage,
+  onRemoveUploadedImage
 }) => {
   const addTag = (tag: string) => {
     if (tag.trim() && !tags.includes(tag.trim())) {
@@ -468,6 +480,107 @@ export const FormContent: React.FC<FormContentProps> = ({
                     </Button>
                   </div>
                 ))}
+              </div>
+            )}
+          </div>
+
+          {/* Product Photo */}
+          <div>
+            <Label className="text-sm font-medium text-foreground">Product Photo</Label>
+            <p className="text-xs text-muted-foreground mb-3">Main image shown on product card</p>
+
+            {/* Current Image Display */}
+            {currentProductImage && !uploadedProductImage && (
+              <div className="mb-4 p-3 bg-muted/30 rounded-none">
+                <p className="text-xs font-medium text-muted-foreground mb-2">Current Image</p>
+                <div className="relative group">
+                  <img
+                    src={currentProductImage}
+                    alt="Current product"
+                    className="w-32 h-32 object-cover rounded-none border border-border"
+                  />
+                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-none flex items-center justify-center gap-2">
+                    <label className="cursor-pointer">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={onChangeProductImage}
+                        className="hidden"
+                      />
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        className="h-8 text-xs"
+                        onClick={() => document.querySelector('input[type="file"]')?.click()}
+                      >
+                        Change
+                      </Button>
+                    </label>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="destructive"
+                      className="h-8 text-xs"
+                      onClick={onRemoveCurrentImage}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* New Image Upload Display */}
+            {uploadedProductImage && (
+              <div className="mb-4 p-3 bg-muted/30 rounded-none">
+                <p className="text-xs font-medium text-muted-foreground mb-2">New Image (will replace current)</p>
+                <div className="relative group">
+                  <img
+                    src={URL.createObjectURL(uploadedProductImage)}
+                    alt="New product"
+                    className="w-32 h-32 object-cover rounded-none border border-border"
+                  />
+                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-none flex items-center justify-center">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="destructive"
+                      className="h-8 text-xs"
+                      onClick={onRemoveUploadedImage}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Upload New Image (when no current image or after removal) */}
+            {(!currentProductImage || (currentProductImage && !uploadedProductImage)) && (
+              <div className="border-2 border-dashed border-border rounded-none p-6 text-center">
+                <div className="flex flex-col items-center gap-2">
+                  <ImagePlus className="h-8 w-8 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">
+                    {currentProductImage ? 'Change product photo' : 'Add product photo'}
+                  </p>
+                  <label className="cursor-pointer">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={onChangeProductImage}
+                      className="hidden"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="rounded-none"
+                    >
+                      Choose Image
+                    </Button>
+                  </label>
+                </div>
               </div>
             )}
           </div>

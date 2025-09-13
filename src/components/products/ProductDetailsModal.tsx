@@ -10,14 +10,11 @@ import {
   Save,
   Trash2,
   ImagePlus,
+  Package,
   Lightbulb,
   Factory,
   Camera,
-  TrendingUp,
-  Package,
-  Calendar,
-  User,
-  ExternalLink
+  TrendingUp
 } from 'lucide-react'
 import {
   Dialog,
@@ -37,7 +34,6 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Separator } from '@/components/ui/separator'
 
 import type { LifecycleProduct, CreateProductPayload } from '@/services/productLifecycleService'
@@ -102,21 +98,23 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
   const [uploadedImages, setUploadedImages] = useState<File[]>([])
   const [uploadedVideos, setUploadedVideos] = useState<File[]>([])
   const [uploadedProductImage, setUploadedProductImage] = useState<File | null>(null)
+  const [currentProductImage, setCurrentProductImage] = useState<string | null>(null)
+  const [removeCurrentImage, setRemoveCurrentImage] = useState(false)
   const [dragActive, setDragActive] = useState(false)
 
   // Hooks
   const { users: availableUsers, loading: usersLoading } = useUsers()
   const { suppliers, loading: suppliersLoading } = useSuppliers()
 
-  // Initialize form data when product changes
+  // Initialize form data when product changes and always start in edit mode
   useEffect(() => {
     if (product && open) {
       setEditForm({
         title: product.workingTitle || product.name || '',
         tags: product.tags.join(', '),
         category: product.category.join(', '),
-        competitorLinks: '',
-        adLinks: '',
+        competitorLinks: product.ideaData?.competitorLinks?.join('\n') || '',
+        adLinks: product.ideaData?.adLinks?.join('\n') || '',
         notes: product.ideaData?.notes || '',
         problemStatement: product.ideaData?.problemStatement || '',
         opportunityStatement: product.ideaData?.opportunityStatement || '',
@@ -131,11 +129,21 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
 
       setSelectedCategories(product.category)
       setTags(product.tags)
-      setReferenceLinks([])
+
+      // Load existing reference links from database
+      const existingReferenceLinks: Array<{url: string, type: 'competitor' | 'ad'}> = [
+        ...(product.ideaData?.competitorLinks || []).map(url => ({ url, type: 'competitor' as const })),
+        ...(product.ideaData?.adLinks || []).map(url => ({ url, type: 'ad' as const }))
+      ]
+      setReferenceLinks(existingReferenceLinks)
+
+      // Initialize current product image and reset upload states
+      setCurrentProductImage(product.thumbnail || product.thumbnailUrl || null)
+      setRemoveCurrentImage(false)
       setUploadedImages([])
       setUploadedVideos([])
       setUploadedProductImage(null)
-      setIsEditMode(false)
+      setIsEditMode(true) // Always start in edit mode
     }
   }, [product, open])
 
@@ -144,34 +152,9 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
   const stageConfig = STAGE_CONFIG[product.stage]
   const StageIcon = stageConfig?.icon || Package
 
-  const handleEdit = () => {
-    setIsEditMode(true)
-  }
-
   const handleCancelEdit = () => {
-    setIsEditMode(false)
-    // Reset form to original values
-    if (product) {
-      setEditForm({
-        title: product.workingTitle || product.name || '',
-        tags: product.tags.join(', '),
-        category: product.category.join(', '),
-        competitorLinks: '',
-        adLinks: '',
-        notes: product.ideaData?.notes || '',
-        problemStatement: product.ideaData?.problemStatement || '',
-        opportunityStatement: product.ideaData?.opportunityStatement || '',
-        estimatedSourcePriceMin: product.ideaData?.estimatedSourcePriceMin?.toString() || '',
-        estimatedSourcePriceMax: product.ideaData?.estimatedSourcePriceMax?.toString() || '',
-        estimatedSellingPrice: product.ideaData?.estimatedSellingPrice?.toString() || '',
-        selectedSupplierId: product.ideaData?.selectedSupplierId || '',
-        priority: product.priority,
-        stage: product.stage,
-        assignedTo: product.teamLead.id
-      })
-      setSelectedCategories(product.category)
-      setTags(product.tags)
-    }
+    // Close the modal instead of switching to view mode
+    onOpenChange(false)
   }
 
   const handleUpdateProduct = async () => {
@@ -197,23 +180,32 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
         return
       }
 
-      // Prepare update payload
+      // Prepare update payload with all fields
       const updatePayload: Partial<CreateProductPayload> = {
-        title: editForm.title,
-        tags: tags.length > 0 ? tags : undefined,
-        category: selectedCategories.length > 0 ? selectedCategories : undefined,
+        title: editForm.title.trim(),
+        tags: tags.length > 0 ? tags : [],
+        category: selectedCategories.length > 0 ? selectedCategories : [],
         competitorLinks: referenceLinks.filter(link => link.type === 'competitor').map(link => link.url),
         adLinks: referenceLinks.filter(link => link.type === 'ad').map(link => link.url),
-        notes: editForm.notes,
-        problemStatement: editForm.problemStatement,
-        opportunityStatement: editForm.opportunityStatement,
-        estimatedSourcePriceMin: editForm.estimatedSourcePriceMin,
-        estimatedSourcePriceMax: editForm.estimatedSourcePriceMax,
-        estimatedSellingPrice: editForm.estimatedSellingPrice,
-        selectedSupplierId: editForm.selectedSupplierId,
+        notes: editForm.notes.trim() || undefined,
+        problemStatement: editForm.problemStatement.trim() || undefined,
+        opportunityStatement: editForm.opportunityStatement.trim() || undefined,
+        estimatedSourcePriceMin: editForm.estimatedSourcePriceMin.trim() || undefined,
+        estimatedSourcePriceMax: editForm.estimatedSourcePriceMax.trim() || undefined,
+        estimatedSellingPrice: editForm.estimatedSellingPrice.trim() || undefined,
+        selectedSupplierId: editForm.selectedSupplierId.trim() || undefined,
         priority: editForm.priority as 'low' | 'medium' | 'high',
         stage: editForm.stage as 'idea' | 'production' | 'content' | 'scaling' | 'inventory',
-        assignedTo: editForm.assignedTo
+        assignedTo: editForm.assignedTo,
+        // Add uploaded files to the payload
+        uploadedImages: uploadedImages,
+        uploadedVideos: uploadedVideos,
+        // Handle product image: new upload, removal, or keep current
+        thumbnail: uploadedProductImage
+          ? uploadedProductImage // New image uploaded
+          : removeCurrentImage
+            ? null // Remove current image
+            : undefined // Keep current image unchanged
       }
 
       console.log('Updating product with payload:', updatePayload)
@@ -221,7 +213,7 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
       const updatedProduct = await onUpdateProduct(product.id, updatePayload)
 
       onUpdate(updatedProduct)
-      setIsEditMode(false)
+      onOpenChange(false) // Close the modal after successful update
 
       toast({
         title: 'Product updated successfully!',
@@ -303,10 +295,23 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
 
   const handleProductImageUpload = (file: File) => {
     setUploadedProductImage(file)
+    setRemoveCurrentImage(false) // If uploading new image, don't remove current
   }
 
   const removeProductImage = () => {
     setUploadedProductImage(null)
+  }
+
+  const handleRemoveCurrentImage = () => {
+    setRemoveCurrentImage(true)
+    setUploadedProductImage(null) // Also clear any new upload
+  }
+
+  const handleChangeCurrentImage = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      handleProductImageUpload(file)
+    }
   }
 
   const removeImage = (index: number) => {
@@ -386,319 +391,87 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[80vw] h-[calc(100vh-4rem)] max-w-none max-h-none flex flex-col">
+      <DialogContent className="w-[60vw] h-[80vh] max-w-4xl max-h-[800px] flex flex-col">
         <DialogHeader className="flex-shrink-0 pb-4 border-b border-border/20">
           <div className="flex items-center justify-between">
             <DialogTitle className="flex items-center gap-3 text-xl font-semibold">
               <div className={`p-2 rounded-none ${stageConfig?.bgColor}`}>
-                <StageIcon className={`h-5 w-5 ${stageConfig?.color}`} />
+                <Edit3 className="h-5 w-5 text-primary" />
               </div>
-              {product.workingTitle || product.name || 'Untitled Product'}
+              Edit Product: {product.workingTitle || product.name || 'Untitled Product'}
             </DialogTitle>
 
             {/* Action buttons */}
             <div className="flex items-center gap-2 mr-8">
-              {!isEditMode ? (
-                <>
-                  <Button
-                    onClick={() => setShowDeleteDialog(true)}
-                    variant="outline"
-                    size="sm"
-                    className="gap-2 rounded-none text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    Delete
-                  </Button>
-                  <Button
-                    onClick={handleEdit}
-                    variant="outline"
-                    size="sm"
-                    className="gap-2 rounded-none"
-                  >
-                    <Edit3 className="h-4 w-4" />
-                    Edit
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <Button
-                    onClick={handleCancelEdit}
-                    variant="outline"
-                    size="sm"
-                    className="rounded-none"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    onClick={handleUpdateProduct}
-                    disabled={isUpdating}
-                    size="sm"
-                    className="gap-2 rounded-none"
-                  >
-                    <Save className="h-4 w-4" />
-                    {isUpdating ? 'Updating...' : 'Update Product'}
-                  </Button>
-                </>
-              )}
+              <Button
+                onClick={() => setShowDeleteDialog(true)}
+                variant="outline"
+                size="sm"
+                className="gap-2 rounded-none text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground"
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete
+              </Button>
+              <Button
+                onClick={handleCancelEdit}
+                variant="outline"
+                size="sm"
+                className="rounded-none"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleUpdateProduct}
+                disabled={isUpdating}
+                size="sm"
+                className="gap-2 rounded-none"
+              >
+                <Save className="h-4 w-4" />
+                {isUpdating ? 'Updating...' : 'Save Changes'}
+              </Button>
             </div>
           </div>
         </DialogHeader>
 
-        {/* Content */}
+        {/* Content - Always show edit form */}
         <div className="flex-1 overflow-hidden">
-          {isEditMode ? (
-            // Edit Mode - Show FormContent
-            <div className="h-full overflow-y-auto space-y-6 p-6 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100">
-              <FormContent
-                newIdeaForm={editForm}
-                setNewIdeaForm={setEditForm}
-                selectedCategories={selectedCategories}
-                setSelectedCategories={setSelectedCategories}
-                availableCategories={[]}
-                tagInput={tagInput}
-                setTagInput={setTagInput}
-                tags={tags}
-                setTags={setTags}
-                referenceLinks={referenceLinks}
-                setReferenceLinks={setReferenceLinks}
-                uploadedImages={uploadedImages}
-                uploadedVideos={uploadedVideos}
-                handleImageUpload={handleImageUpload}
-                handleVideoUpload={handleVideoUpload}
-                removeImage={removeImage}
-                removeVideo={removeVideo}
-                handleDrop={handleDrop}
-                handleDragOver={handleDragOver}
-                handleDragEnter={handleDragEnter}
-                handleDragLeave={handleDragLeave}
-                dragActive={dragActive}
-                extractDomainFromUrl={extractDomainFromUrl}
-                autoResizeTextarea={autoResizeTextarea}
-                suppliers={suppliers}
-                suppliersLoading={suppliersLoading}
-                availableOwners={availableUsers}
-              />
-            </div>
-          ) : (
-            // View Mode - Show product details
-            <div className="h-full overflow-y-auto p-6 space-y-6">
-              <Tabs defaultValue="overview" className="w-full">
-                <TabsList className="grid w-full grid-cols-4">
-                  <TabsTrigger value="overview">Overview</TabsTrigger>
-                  <TabsTrigger value="details">Details</TabsTrigger>
-                  <TabsTrigger value="media">Media</TabsTrigger>
-                  <TabsTrigger value="activity">Activity</TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="overview" className="space-y-6">
-                  {/* Product Image */}
-                  {(product.thumbnail || product.thumbnailUrl) && (
-                    <div>
-                      <Label className="text-sm font-medium">Product Image</Label>
-                      <div className="mt-2">
-                        <img
-                          src={product.thumbnail || product.thumbnailUrl}
-                          alt={product.workingTitle || product.name}
-                          className="w-full max-w-md h-64 object-cover rounded-none border"
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Basic Info Grid */}
-                  <div className="grid grid-cols-2 gap-6">
-                    <div>
-                      <Label className="text-sm font-medium">Internal Code</Label>
-                      <div className="mt-1 text-sm text-muted-foreground">
-                        {product.internalCode}
-                      </div>
-                    </div>
-                    <div>
-                      <Label className="text-sm font-medium">Stage</Label>
-                      <div className="mt-1">
-                        <Badge variant="secondary" className="capitalize">
-                          <StageIcon className="h-3 w-3 mr-1" />
-                          {stageConfig?.name || product.stage}
-                        </Badge>
-                      </div>
-                    </div>
-                    <div>
-                      <Label className="text-sm font-medium">Priority</Label>
-                      <Badge
-                        variant={product.priority === 'high' ? 'destructive' :
-                                product.priority === 'medium' ? 'default' : 'secondary'}
-                        className="mt-1 capitalize"
-                      >
-                        {product.priority}
-                      </Badge>
-                    </div>
-                    <div>
-                      <Label className="text-sm font-medium">Potential Score</Label>
-                      <div className="mt-1 text-sm text-muted-foreground">
-                        {product.potentialScore}/100
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Assigned To */}
-                  <div>
-                    <Label className="text-sm font-medium">Assigned To</Label>
-                    <div className="mt-2 flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-medium">
-                        {product.teamLead.name.charAt(0)}
-                      </div>
-                      <div>
-                        <div className="text-sm font-medium">{product.teamLead.name}</div>
-                        <div className="text-xs text-muted-foreground">{product.teamLead.email}</div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Categories & Tags */}
-                  <div className="grid grid-cols-2 gap-6">
-                    <div>
-                      <Label className="text-sm font-medium">Categories</Label>
-                      <div className="flex flex-wrap gap-1 mt-2">
-                        {product.category.map((cat, index) => (
-                          <Badge key={index} variant="outline" className="text-xs">
-                            {cat}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                    <div>
-                      <Label className="text-sm font-medium">Tags</Label>
-                      <div className="flex flex-wrap gap-1 mt-2">
-                        {product.tags.map((tag, index) => (
-                          <Badge key={index} variant="outline" className="text-xs bg-primary/10 text-primary">
-                            {tag}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Dates */}
-                  <div className="grid grid-cols-2 gap-6">
-                    <div>
-                      <Label className="text-sm font-medium">Created</Label>
-                      <div className="text-sm text-muted-foreground mt-1 flex items-center gap-2">
-                        <Calendar className="h-4 w-4" />
-                        {product.createdAt.toLocaleDateString('en-US', {
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric'
-                        })}
-                      </div>
-                    </div>
-                    <div>
-                      <Label className="text-sm font-medium">Last Updated</Label>
-                      <div className="text-sm text-muted-foreground mt-1 flex items-center gap-2">
-                        <Calendar className="h-4 w-4" />
-                        {product.updatedAt.toLocaleDateString('en-US', {
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric'
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="details" className="space-y-6">
-                  {/* Idea Details */}
-                  {product.ideaData && (
-                    <>
-                      {product.ideaData.notes && (
-                        <div>
-                          <Label className="text-sm font-medium">Notes</Label>
-                          <div className="mt-2 p-3 bg-muted rounded-none text-sm whitespace-pre-wrap">
-                            {product.ideaData.notes}
-                          </div>
-                        </div>
-                      )}
-
-                      {product.ideaData.problemStatement && (
-                        <div>
-                          <Label className="text-sm font-medium">Problem Statement</Label>
-                          <div className="mt-2 p-3 bg-muted rounded-none text-sm">
-                            {product.ideaData.problemStatement}
-                          </div>
-                        </div>
-                      )}
-
-                      {product.ideaData.opportunityStatement && (
-                        <div>
-                          <Label className="text-sm font-medium">Opportunity Statement</Label>
-                          <div className="mt-2 p-3 bg-muted rounded-none text-sm">
-                            {product.ideaData.opportunityStatement}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Pricing */}
-                      <div className="grid grid-cols-3 gap-4">
-                        {product.ideaData.estimatedSourcePriceMin && (
-                          <div>
-                            <Label className="text-sm font-medium">Min Source Price</Label>
-                            <div className="text-sm text-muted-foreground mt-1">
-                              ₹{product.ideaData.estimatedSourcePriceMin}
-                            </div>
-                          </div>
-                        )}
-                        {product.ideaData.estimatedSourcePriceMax && (
-                          <div>
-                            <Label className="text-sm font-medium">Max Source Price</Label>
-                            <div className="text-sm text-muted-foreground mt-1">
-                              ₹{product.ideaData.estimatedSourcePriceMax}
-                            </div>
-                          </div>
-                        )}
-                        {product.ideaData.estimatedSellingPrice && (
-                          <div>
-                            <Label className="text-sm font-medium">Selling Price</Label>
-                            <div className="text-sm text-muted-foreground mt-1">
-                              ₹{product.ideaData.estimatedSellingPrice}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </>
-                  )}
-                </TabsContent>
-
-                <TabsContent value="media" className="space-y-6">
-                  <div className="text-center text-muted-foreground">
-                    Media content will be displayed here
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="activity" className="space-y-6">
-                  {product.activities.length > 0 ? (
-                    <div className="space-y-4">
-                      {product.activities.map((activity, index) => (
-                        <div key={index} className="flex items-start gap-3 p-3 border rounded-none">
-                          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                            <User className="h-4 w-4" />
-                          </div>
-                          <div className="flex-1">
-                            <div className="text-sm font-medium">{activity.action}</div>
-                            <div className="text-xs text-muted-foreground">
-                              {activity.timestamp.toLocaleDateString()}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center text-muted-foreground">
-                      No activity recorded yet
-                    </div>
-                  )}
-                </TabsContent>
-              </Tabs>
-            </div>
-          )}
+          <div className="h-full overflow-y-auto space-y-6 p-6 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100">
+            <FormContent
+              newIdeaForm={editForm}
+              setNewIdeaForm={setEditForm}
+              selectedCategories={selectedCategories}
+              setSelectedCategories={setSelectedCategories}
+              availableCategories={[]}
+              tagInput={tagInput}
+              setTagInput={setTagInput}
+              tags={tags}
+              setTags={setTags}
+              referenceLinks={referenceLinks}
+              setReferenceLinks={setReferenceLinks}
+              uploadedImages={uploadedImages}
+              uploadedVideos={uploadedVideos}
+              handleImageUpload={handleImageUpload}
+              handleVideoUpload={handleVideoUpload}
+              removeImage={removeImage}
+              removeVideo={removeVideo}
+              handleDrop={handleDrop}
+              handleDragOver={handleDragOver}
+              handleDragEnter={handleDragEnter}
+              handleDragLeave={handleDragLeave}
+              dragActive={dragActive}
+              extractDomainFromUrl={extractDomainFromUrl}
+              autoResizeTextarea={autoResizeTextarea}
+              suppliers={suppliers}
+              suppliersLoading={suppliersLoading}
+              availableOwners={availableUsers}
+              // Product image props
+              currentProductImage={currentProductImage}
+              uploadedProductImage={uploadedProductImage}
+              onChangeProductImage={handleChangeCurrentImage}
+              onRemoveCurrentImage={handleRemoveCurrentImage}
+              onRemoveUploadedImage={removeProductImage}
+            />
+          </div>
         </div>
       </DialogContent>
 

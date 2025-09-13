@@ -900,16 +900,50 @@ export default function Lifecycle() {
                   className="enhanced-card hover:shadow-elegant transition-all duration-300 cursor-pointer border-border/50 backdrop-blur-sm animate-fade-in overflow-hidden"
                 >
                   {/* Product Image - 65% of card height */}
-                  <div className="relative h-[200px] bg-muted">
-                    <img
-                      src={card.thumbnail || card.thumbnailUrl || card.ideaData?.thumbnail || `https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=400&h=300&fit=crop&crop=center`}
-                      alt={card.workingTitle || card.name}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        target.src = `https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=400&h=300&fit=crop&crop=center`;
-                      }}
-                    />
+                  <div className="relative h-[200px] bg-muted flex items-center justify-center">
+                    {card.thumbnail || card.thumbnailUrl || card.ideaData?.thumbnail ? (
+                      <img
+                        src={card.thumbnail || card.thumbnailUrl || card.ideaData?.thumbnail}
+                        alt={card.workingTitle || card.name}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          const parent = target.parentElement;
+                          if (parent) {
+                            parent.innerHTML = `
+                              <div class="flex items-center justify-center w-full h-full">
+                                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="text-muted-foreground/40">
+                                  <path d="M20 7h-3V6a3 3 0 0 0-3-3H10a3 3 0 0 0-3 3v1H4a1 1 0 0 0-1 1v11a3 3 0 0 0 3 3h12a3 3 0 0 0 3-3V8a1 1 0 0 0-1-1zM9 6a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1H9V6zm9 13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V9h2v1a1 1 0 0 0 2 0V9h6v1a1 1 0 0 0 2 0V9h2v10z" fill="currentColor"/>
+                                  <circle cx="9" cy="13" r="1" fill="currentColor"/>
+                                  <circle cx="15" cy="13" r="1" fill="currentColor"/>
+                                  <path d="M12 15.5c-1.1 0-2-.9-2-2h4c0 1.1-.9 2-2 2z" fill="currentColor"/>
+                                </svg>
+                              </div>
+                            `;
+                          }
+                        }}
+                      />
+                    ) : (
+                      // Default themed SVG icon for products without images
+                      <div className="flex items-center justify-center w-full h-full">
+                        <svg
+                          width="64"
+                          height="64"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="text-muted-foreground/40"
+                        >
+                          <path
+                            d="M20 7h-3V6a3 3 0 0 0-3-3H10a3 3 0 0 0-3 3v1H4a1 1 0 0 0-1 1v11a3 3 0 0 0 3 3h12a3 3 0 0 0 3-3V8a1 1 0 0 0-1-1zM9 6a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1H9V6zm9 13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V9h2v1a1 1 0 0 0 2 0V9h6v1a1 1 0 0 0 2 0V9h2v10z"
+                            fill="currentColor"
+                          />
+                          <circle cx="9" cy="13" r="1" fill="currentColor" />
+                          <circle cx="15" cy="13" r="1" fill="currentColor" />
+                          <path d="M12 15.5c-1.1 0-2-.9-2-2h4c0 1.1-.9 2-2 2z" fill="currentColor" />
+                        </svg>
+                      </div>
+                    )}
                   </div>
 
                   {/* Card Content - 35% of card height */}

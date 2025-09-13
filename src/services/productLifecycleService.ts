@@ -13,7 +13,7 @@ type ProductCategoriesTable = Tables['product_categories']['Row']
 type ProductTagsTable = Tables['product_tags']['Row']
 type ProductReferenceLinksTable = Tables['product_reference_links']['Row']
 type ProductMediaTable = Tables['product_media']['Row']
-type ProductActivitiesTable = Tables['product_activities']['Row']
+// type ProductActivitiesTable = Tables['product_activities']['Row'] // Table dropped during consolidation
 
 // Service types (compatible with existing UI)
 export interface LifecycleProduct {
@@ -63,7 +63,7 @@ export interface CreateProductPayload {
   competitorLinks?: string[]
   adLinks?: string[]
   notes?: string
-  thumbnail?: string
+  thumbnail?: string | File | null
   problemStatement?: string
   opportunityStatement?: string
   estimatedSourcePriceMin?: string
@@ -73,6 +73,9 @@ export interface CreateProductPayload {
   priority: 'low' | 'medium' | 'high'
   stage: 'idea' | 'production' | 'content' | 'scaling' | 'inventory'
   assignedTo: string
+  // File uploads
+  uploadedImages?: File[]
+  uploadedVideos?: File[]
 }
 
 export interface FilterOptions {
@@ -173,17 +176,10 @@ class ProductLifecycleService {
         return []
       }
 
-      // Base query for products
+      // Base query for products - now uses consolidated table structure
       let query = supabase
         .from('products')
-        .select(`
-          *,
-          product_ideas(*),
-          product_categories(category),
-          product_tags(tag),
-          product_reference_links(*),
-          product_activities(*)
-        `)
+        .select('*')
 
       // Apply stage filter
       if (options?.filters?.stages?.length) {
@@ -229,46 +225,64 @@ class ProductLifecycleService {
         const teamLead = product.assigned_to ? await this.getUserById(product.assigned_to) : null
         const owner = product.created_by ? await this.getUserById(product.created_by) : null
 
-        // Extract categories and tags
-        const categories = Array.isArray(product.product_categories)
-          ? product.product_categories.map((cat: any) => cat.category)
+        // Extract categories and tags from JSONB columns
+        const categories = product.categories
+          ? (typeof product.categories === 'string' ? JSON.parse(product.categories) : product.categories)
           : []
 
-        const tags = Array.isArray(product.product_tags)
-          ? product.product_tags.map((tag: any) => tag.tag)
+        const tags = product.tags
+          ? (typeof product.tags === 'string' ? JSON.parse(product.tags) : product.tags)
           : []
 
-        // Get idea data
-        const ideaData = Array.isArray(product.product_ideas) && product.product_ideas[0]
-          ? {
-              notes: product.product_ideas[0].notes,
-              thumbnail: product.thumbnail_url,
-              problemStatement: product.product_ideas[0].problem_statement,
-              opportunityStatement: product.product_ideas[0].opportunity_statement,
-              estimatedSourcePriceMin: product.product_ideas[0].estimated_source_price_min,
-              estimatedSourcePriceMax: product.product_ideas[0].estimated_source_price_max,
-              estimatedSellingPrice: product.product_ideas[0].estimated_selling_price,
-              selectedSupplierId: product.product_ideas[0].selected_supplier_id,
+        // Get idea data from consolidated columns
+        const ideaData = {
+          notes: product.notes,
+          thumbnail: product.thumbnail_url,
+          problemStatement: product.problem_statement,
+          opportunityStatement: product.opportunity_statement,
+          estimatedSourcePriceMin: product.estimated_source_price_min,
+          estimatedSourcePriceMax: product.estimated_source_price_max,
+          estimatedSellingPrice: product.estimated_selling_price,
+          selectedSupplierId: product.selected_supplier_id,
+          competitorLinks: product.competitor_links
+            ? (typeof product.competitor_links === 'string' ? JSON.parse(product.competitor_links) : product.competitor_links)
+            : [],
+          adLinks: product.ad_links
+            ? (typeof product.ad_links === 'string' ? JSON.parse(product.ad_links) : product.ad_links)
+            : []
+        }
+
+        // Activities table was dropped during consolidation
+        // For now, provide empty activities array
+        const activities: Array<{
+          id: string
+          action: string
+          timestamp: Date
+          actorName?: string
+        }> = []
+
+        // Get thumbnail - use direct thumbnail_url or first uploaded image
+        let thumbnailUrl = product.thumbnail_url
+        if (!thumbnailUrl && product.uploaded_images) {
+          try {
+            const uploadedImages = typeof product.uploaded_images === 'string'
+              ? JSON.parse(product.uploaded_images)
+              : product.uploaded_images
+            if (Array.isArray(uploadedImages) && uploadedImages.length > 0) {
+              thumbnailUrl = uploadedImages[0]
             }
-          : undefined
-
-        // Get activities
-        const activities = Array.isArray(product.product_activities)
-          ? product.product_activities.map((activity: any) => ({
-              id: activity.id,
-              action: activity.action,
-              timestamp: new Date(activity.timestamp),
-              actorName: 'User' // TODO: Get actual actor name
-            }))
-          : []
+          } catch (parseError) {
+            console.warn('Error parsing uploaded_images:', parseError)
+          }
+        }
 
         const lifecycleProduct: LifecycleProduct = {
           id: product.id,
           internalCode: product.internal_code || this.generateInternalCode(),
           workingTitle: product.working_title || product.name || 'Untitled Product',
           name: product.name,
-          thumbnail: product.thumbnail_url,
-          thumbnailUrl: product.thumbnail_url,
+          thumbnail: thumbnailUrl,
+          thumbnailUrl: thumbnailUrl,
           tags,
           category: categories.length > 0 ? categories : ['General'],
           owner,
@@ -420,8 +434,8 @@ class ProductLifecycleService {
         ? payload.assignedTo
         : user.id
 
-      // Create the main product record
-      const productInsert: ProductsInsert = {
+      // Create the main product record with consolidated data
+      const productInsert: any = {
         internal_code: this.generateInternalCode(),
         working_title: payload.title,
         name: payload.title,
@@ -430,7 +444,24 @@ class ProductLifecycleService {
         stage: payload.stage,
         created_by: user.id,
         assigned_to: assignedTo,
-        potential_score: 50 // Default score
+        potential_score: 50, // Default score
+
+        // Categories and tags as JSON arrays
+        categories: payload.category ? JSON.stringify(payload.category) : '[]',
+        tags: payload.tags ? JSON.stringify(payload.tags) : '[]',
+
+        // Idea stage data (stored directly in products table)
+        notes: payload.notes,
+        problem_statement: payload.problemStatement,
+        opportunity_statement: payload.opportunityStatement,
+        estimated_source_price_min: payload.estimatedSourcePriceMin ? parseFloat(payload.estimatedSourcePriceMin) : null,
+        estimated_source_price_max: payload.estimatedSourcePriceMax ? parseFloat(payload.estimatedSourcePriceMax) : null,
+        estimated_selling_price: payload.estimatedSellingPrice ? parseFloat(payload.estimatedSellingPrice) : null,
+        selected_supplier_id: payload.selectedSupplierId,
+
+        // Reference links as JSON arrays
+        competitor_links: payload.competitorLinks ? JSON.stringify(payload.competitorLinks) : '[]',
+        ad_links: payload.adLinks ? JSON.stringify(payload.adLinks) : '[]'
       }
 
       console.log('Creating product with data:', productInsert)
@@ -449,90 +480,7 @@ class ProductLifecycleService {
 
       console.log('Created product successfully:', product.id)
 
-      // Create idea data if stage is 'idea'
-      if (payload.stage === 'idea' && product) {
-        const ideaInsert: ProductIdeasInsert = {
-          product_id: product.id,
-          notes: payload.notes,
-          problem_statement: payload.problemStatement,
-          opportunity_statement: payload.opportunityStatement,
-          estimated_source_price_min: payload.estimatedSourcePriceMin ? parseFloat(payload.estimatedSourcePriceMin) : null,
-          estimated_source_price_max: payload.estimatedSourcePriceMax ? parseFloat(payload.estimatedSourcePriceMax) : null,
-          estimated_selling_price: payload.estimatedSellingPrice ? parseFloat(payload.estimatedSellingPrice) : null,
-          selected_supplier_id: payload.selectedSupplierId
-        }
-
-        const { error: ideaError } = await supabase
-          .from('product_ideas')
-          .insert(ideaInsert)
-
-        if (ideaError) {
-          console.error('Error creating product idea:', ideaError)
-        }
-      }
-
-      // Add categories
-      if (payload.category && payload.category.length > 0) {
-        const categoryInserts = payload.category.map(cat => ({
-          product_id: product.id,
-          category: cat
-        }))
-
-        const { error: catError } = await supabase
-          .from('product_categories')
-          .insert(categoryInserts)
-
-        if (catError) {
-          console.error('Error creating categories:', catError)
-        }
-      }
-
-      // Add tags
-      if (payload.tags && payload.tags.length > 0) {
-        const tagInserts = payload.tags.map(tag => ({
-          product_id: product.id,
-          tag
-        }))
-
-        const { error: tagError } = await supabase
-          .from('product_tags')
-          .insert(tagInserts)
-
-        if (tagError) {
-          console.error('Error creating tags:', tagError)
-        }
-      }
-
-      // Add reference links
-      const referenceLinks = [
-        ...(payload.competitorLinks?.map(url => ({ url, type: 'competitor' as const })) || []),
-        ...(payload.adLinks?.map(url => ({ url, type: 'ad' as const })) || [])
-      ]
-
-      if (referenceLinks.length > 0) {
-        const linkInserts = referenceLinks.map(link => ({
-          product_id: product.id,
-          url: link.url,
-          link_type: link.type
-        }))
-
-        const { error: linkError } = await supabase
-          .from('product_reference_links')
-          .insert(linkInserts)
-
-        if (linkError) {
-          console.error('Error creating reference links:', linkError)
-        }
-      }
-
-      // Add activity
-      await supabase
-        .from('product_activities')
-        .insert({
-          product_id: product.id,
-          actor_user_id: user.id,
-          action: 'Created product'
-        })
+      // Note: Activity logging removed (product_activities table was dropped during consolidation)
 
       // Create inventory records for the new product
       await this.createInventoryRecords(product.id, product.internal_code)
@@ -560,19 +508,101 @@ class ProductLifecycleService {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('User not authenticated')
 
-      // Update main product record
-      const productUpdate: ProductsUpdate = {}
+      // Build comprehensive update object for the consolidated products table
+      const productUpdate: any = {}
 
-      if (updates.title) {
+      // Basic product information (always update if provided, including empty strings to clear)
+      if (updates.title !== undefined) {
         productUpdate.working_title = updates.title
         productUpdate.name = updates.title
       }
+      // Handle thumbnail - upload if it's a File, otherwise use as string/null
+      if (updates.thumbnail !== undefined) {
+        if (updates.thumbnail instanceof File) {
+          try {
+            const uploadedUrl = await this.uploadProductImage(updates.thumbnail, id)
+            productUpdate.thumbnail_url = uploadedUrl
+          } catch (uploadError) {
+            console.warn('Failed to upload thumbnail:', uploadError)
+            // Don't update thumbnail if upload fails
+          }
+        } else {
+          productUpdate.thumbnail_url = updates.thumbnail // string URL or null
+        }
+      }
+      if (updates.priority !== undefined) productUpdate.priority = updates.priority
+      if (updates.stage !== undefined) productUpdate.stage = updates.stage
+      if (updates.assignedTo !== undefined) productUpdate.assigned_to = updates.assignedTo
 
-      if (updates.thumbnail) productUpdate.thumbnail_url = updates.thumbnail
-      if (updates.priority) productUpdate.priority = updates.priority
-      if (updates.stage) productUpdate.stage = updates.stage
-      if (updates.assignedTo) productUpdate.assigned_to = updates.assignedTo
+      // Categories and Tags as JSON arrays (always update if provided, even if empty)
+      if (updates.category !== undefined) productUpdate.categories = JSON.stringify(updates.category)
+      if (updates.tags !== undefined) productUpdate.tags = JSON.stringify(updates.tags)
 
+      // Idea stage data - now stored directly in products table (allow clearing with null/empty)
+      if (updates.notes !== undefined) productUpdate.notes = updates.notes || null
+      if (updates.problemStatement !== undefined) productUpdate.problem_statement = updates.problemStatement || null
+      if (updates.opportunityStatement !== undefined) productUpdate.opportunity_statement = updates.opportunityStatement || null
+      if (updates.estimatedSourcePriceMin !== undefined) productUpdate.estimated_source_price_min = updates.estimatedSourcePriceMin ? parseFloat(updates.estimatedSourcePriceMin) : null
+      if (updates.estimatedSourcePriceMax !== undefined) productUpdate.estimated_source_price_max = updates.estimatedSourcePriceMax ? parseFloat(updates.estimatedSourcePriceMax) : null
+      if (updates.estimatedSellingPrice !== undefined) productUpdate.estimated_selling_price = updates.estimatedSellingPrice ? parseFloat(updates.estimatedSellingPrice) : null
+      if (updates.selectedSupplierId !== undefined) productUpdate.selected_supplier_id = updates.selectedSupplierId || null
+
+      // Reference links as JSON arrays (always update if provided, even if empty)
+      if (updates.competitorLinks !== undefined) productUpdate.competitor_links = JSON.stringify(updates.competitorLinks)
+      if (updates.adLinks !== undefined) productUpdate.ad_links = JSON.stringify(updates.adLinks)
+
+      // Handle file uploads by uploading to storage first, then storing URLs
+      if (updates.uploadedImages !== undefined) {
+        if (updates.uploadedImages.length > 0) {
+          try {
+            const imageUrls = await Promise.all(
+              updates.uploadedImages.map(async (file) => {
+                if (typeof file === 'string') {
+                  return file // Already a URL
+                }
+                if (file instanceof File) {
+                  return await this.uploadProductImage(file, id)
+                }
+                return file.url || file.name || ''
+              })
+            )
+            productUpdate.uploaded_images = JSON.stringify(imageUrls.filter(url => url))
+          } catch (uploadError) {
+            console.warn('Some images failed to upload:', uploadError)
+            // Continue with update, just log the error
+            productUpdate.uploaded_images = JSON.stringify([])
+          }
+        } else {
+          productUpdate.uploaded_images = JSON.stringify([])
+        }
+      }
+
+      if (updates.uploadedVideos !== undefined) {
+        if (updates.uploadedVideos.length > 0) {
+          try {
+            const videoUrls = await Promise.all(
+              updates.uploadedVideos.map(async (file) => {
+                if (typeof file === 'string') {
+                  return file // Already a URL
+                }
+                if (file instanceof File) {
+                  // For now, store file name or implement video upload to storage
+                  return file.name
+                }
+                return file.url || file.name || ''
+              })
+            )
+            productUpdate.uploaded_videos = JSON.stringify(videoUrls.filter(url => url))
+          } catch (uploadError) {
+            console.warn('Some videos failed to process:', uploadError)
+            productUpdate.uploaded_videos = JSON.stringify([])
+          }
+        } else {
+          productUpdate.uploaded_videos = JSON.stringify([])
+        }
+      }
+
+      // Update the products table with all changes at once
       if (Object.keys(productUpdate).length > 0) {
         const { error: updateError } = await supabase
           .from('products')
@@ -585,38 +615,7 @@ class ProductLifecycleService {
         }
       }
 
-      // Update idea data if provided
-      if (updates.notes || updates.problemStatement || updates.opportunityStatement ||
-          updates.estimatedSourcePriceMin || updates.estimatedSourcePriceMax ||
-          updates.estimatedSellingPrice || updates.selectedSupplierId) {
-
-        const ideaUpdate: Partial<ProductIdeasInsert> = {}
-        if (updates.notes) ideaUpdate.notes = updates.notes
-        if (updates.problemStatement) ideaUpdate.problem_statement = updates.problemStatement
-        if (updates.opportunityStatement) ideaUpdate.opportunity_statement = updates.opportunityStatement
-        if (updates.estimatedSourcePriceMin) ideaUpdate.estimated_source_price_min = parseFloat(updates.estimatedSourcePriceMin)
-        if (updates.estimatedSourcePriceMax) ideaUpdate.estimated_source_price_max = parseFloat(updates.estimatedSourcePriceMax)
-        if (updates.estimatedSellingPrice) ideaUpdate.estimated_selling_price = parseFloat(updates.estimatedSellingPrice)
-        if (updates.selectedSupplierId) ideaUpdate.selected_supplier_id = updates.selectedSupplierId
-
-        // Try to update existing idea record, or create new one
-        const { error: ideaUpdateError } = await supabase
-          .from('product_ideas')
-          .upsert({ product_id: id, ...ideaUpdate })
-
-        if (ideaUpdateError) {
-          console.error('Error updating product idea:', ideaUpdateError)
-        }
-      }
-
-      // Add update activity
-      await supabase
-        .from('product_activities')
-        .insert({
-          product_id: id,
-          actor_user_id: user.id,
-          action: 'Updated product'
-        })
+      // Note: Activity logging removed (product_activities table was dropped during consolidation)
 
       // Return updated product
       const products = await this.listProducts()
@@ -650,28 +649,13 @@ class ProductLifecycleService {
       // inventory_details will be automatically deleted when the main product is deleted.
       // We only need to delete the lifecycle-specific data manually.
 
-      // Now delete from other tables that we know exist
+      // Delete related data that still exists in separate tables
       const deleteTasks = [
-        // Delete product ideas
-        supabase.from('product_ideas').delete().eq('product_id', id),
-
-        // Delete product categories
-        supabase.from('product_categories').delete().eq('product_id', id),
-
-        // Delete product tags
-        supabase.from('product_tags').delete().eq('product_id', id),
-
-        // Delete product reference links
-        supabase.from('product_reference_links').delete().eq('product_id', id),
-
-        // Delete product activities
-        supabase.from('product_activities').delete().eq('product_id', id),
-
         // Delete inventory details (will cascade to stock_movements)
         supabase.from('inventory_details').delete().eq('product_id', id)
       ]
 
-      // Execute all delete operations for related data
+      // Execute delete operations for remaining related data
       console.log('Deleting related product data...')
       const results = await Promise.allSettled(deleteTasks)
 
