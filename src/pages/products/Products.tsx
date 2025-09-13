@@ -136,7 +136,6 @@ export default function Lifecycle() {
   })
   const [uploadedImages, setUploadedImages] = useState<File[]>([])
   const [uploadedVideos, setUploadedVideos] = useState<File[]>([])
-  const [uploadedProductImage, setUploadedProductImage] = useState<File | null>(null)
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [tagInput, setTagInput] = useState('')
   const [tags, setTags] = useState<string[]>([])
@@ -312,13 +311,6 @@ export default function Lifecycle() {
     setUploadedVideos(prev => [...prev, ...files])
   }
 
-  const handleProductImageUpload = (file: File) => {
-    setUploadedProductImage(file)
-  }
-
-  const removeProductImage = () => {
-    setUploadedProductImage(null)
-  }
   
   const removeImage = (index: number) => {
     setUploadedImages(prev => prev.filter((_, i) => i !== index))
@@ -535,7 +527,7 @@ export default function Lifecycle() {
                   <img
                     src={card.ideaData.thumbnail}
                     alt={card.title}
-                    className="w-full h-48 object-cover rounded-lg border"
+                    className="w-full h-48 object-cover rounded-none border"
                   />
                 </div>
               </div>
@@ -608,7 +600,7 @@ export default function Lifecycle() {
             {getCardNotes(card) && (
               <div>
                 <Label className="text-sm font-medium">Notes</Label>
-                <div className="mt-2 p-3 bg-muted rounded-lg text-sm">
+                <div className="mt-2 p-3 bg-muted rounded-none text-sm">
                   {getCardNotes(card)}
                 </div>
               </div>
@@ -669,8 +661,7 @@ export default function Lifecycle() {
         opportunityStatement: newIdeaForm.opportunityStatement,
         estimatedSourcePriceMin: newIdeaForm.estimatedSourcePriceMin,
         estimatedSourcePriceMax: newIdeaForm.estimatedSourcePriceMax,
-        selectedSupplierId: newIdeaForm.selectedSupplierId,
-        productImage: uploadedProductImage
+        selectedSupplierId: newIdeaForm.selectedSupplierId
       }
 
       console.log('Creating new card with data:', newCardData)
@@ -685,7 +676,7 @@ export default function Lifecycle() {
         competitorLinks: referenceLinks.filter(link => link.type === 'competitor').map(link => link.url),
         adLinks: referenceLinks.filter(link => link.type === 'ad').map(link => link.url),
         notes: newCardData.notes,
-        thumbnail: uploadedProductImage ? URL.createObjectURL(uploadedProductImage) : undefined,
+        thumbnail: undefined,
         estimatedSourcePriceMin: newCardData.estimatedSourcePriceMin,
         estimatedSourcePriceMax: newCardData.estimatedSourcePriceMax,
         selectedSupplierId: newCardData.selectedSupplierId
@@ -727,7 +718,6 @@ export default function Lifecycle() {
       })
       setUploadedImages([])
       setUploadedVideos([])
-      setUploadedProductImage(null)
       setSelectedCategories([])
       setTagInput('')
       setTags([])
@@ -795,11 +785,11 @@ export default function Lifecycle() {
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
         <div className="px-6 py-6">
           <div className="animate-pulse">
-            <div className="h-8 bg-muted rounded w-64 mb-6" />
-            <div className="h-12 bg-muted rounded mb-6" />
+            <div className="h-8 bg-muted rounded-none w-64 mb-6" />
+            <div className="h-12 bg-muted rounded-none mb-6" />
             <div className="grid grid-cols-4 gap-4">
               {[...Array(8)].map((_, i) => (
-                <div key={i} className="h-48 bg-muted rounded" />
+                <div key={i} className="h-48 bg-muted rounded-none" />
               ))}
             </div>
           </div>
@@ -818,12 +808,12 @@ export default function Lifecycle() {
               <div className="flex flex-col">
                 <h1 className="text-3xl font-bold tracking-tight">Product Management</h1>
                 <div className="flex items-center gap-4 mt-2">
-                  <div className="flex items-center gap-1 p-1 bg-muted rounded-lg">
+                  <div className="flex items-center gap-1 p-1 bg-muted rounded-none">
                     <Button
                       variant={selectedView === 'gallery' ? 'default' : 'ghost'}
                       size="sm"
                       onClick={() => setSelectedView('gallery')}
-                      className="gap-2"
+                      className="gap-2 rounded-none"
                     >
                       <Images className="h-4 w-4" />
                       Gallery
@@ -832,7 +822,7 @@ export default function Lifecycle() {
                       variant={selectedView === 'table' ? 'default' : 'ghost'}
                       size="sm"
                       onClick={() => setSelectedView('table')}
-                      className="gap-2"
+                      className="gap-2 rounded-none"
                     >
                       <TableIcon className="h-4 w-4" />
                       Table
@@ -863,14 +853,14 @@ export default function Lifecycle() {
             <div className="flex items-center gap-2">
               <Button
                 onClick={() => setShowNewIdeaModal(true)}
-                className="gap-2"
+                className="gap-2 rounded-none"
               >
                 <Plus className="h-4 w-4" />
                 New Idea
               </Button>
               <Button
                 variant="outline"
-                className="gap-2"
+                className="gap-2 rounded-none"
                 onClick={() => {
                   // Export functionality would go here
                   toast({
@@ -888,12 +878,12 @@ export default function Lifecycle() {
         
         {/* Stage Filter Tabs */}
         <div className="mb-6">
-          <div className="flex flex-wrap items-center gap-1 p-1 bg-muted rounded-lg w-fit">
+          <div className="flex flex-wrap items-center gap-1 p-1 bg-muted rounded-none w-fit">
             <Button
               variant={activeStageFilter === 'all' ? 'default' : 'ghost'}
               size="sm"
               onClick={() => setActiveStageFilter('all')}
-              className="gap-2"
+              className="gap-2 rounded-none"
             >
               <LayoutGrid className="h-4 w-4" />
               All Stages
@@ -908,7 +898,7 @@ export default function Lifecycle() {
                   variant={activeStageFilter === stage ? 'default' : 'ghost'}
                   size="sm"
                   onClick={() => setActiveStageFilter(stage as Stage)}
-                  className="gap-2"
+                  className="gap-2 rounded-none"
                 >
                   <StageIcon className="h-4 w-4" />
                   {config.name}
@@ -924,7 +914,7 @@ export default function Lifecycle() {
         
         {/* Main Content Based on View */}
         {selectedView === 'table' && (
-          <div className="bg-white rounded-lg border">
+          <div className="bg-white rounded-none border">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-gray-50 border-b">
@@ -1018,10 +1008,10 @@ export default function Lifecycle() {
 
                       {/* Priority and Stage */}
                       <div className="flex items-center gap-2">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${priorityColor}`}>
+                        <span className={`px-2 py-1 rounded-none text-xs font-medium ${priorityColor}`}>
                           {(card.priority || 'medium').charAt(0).toUpperCase() + (card.priority || 'medium').slice(1)}
                         </span>
-                        <div className="flex items-center gap-1 px-2 py-1 bg-muted text-muted-foreground rounded-full text-xs">
+                        <div className="flex items-center gap-1 px-2 py-1 bg-muted text-muted-foreground rounded-none text-xs">
                           <StageIcon className="h-3 w-3" />
                           <span className="font-medium">{stageConfig?.name || card.stage}</span>
                         </div>
@@ -1029,7 +1019,7 @@ export default function Lifecycle() {
 
                       {/* Category and Assigned User */}
                       <div className="flex items-center justify-between gap-2">
-                        <span className="px-2 py-0.5 bg-muted text-muted-foreground rounded-md text-xs">
+                        <span className="px-2 py-0.5 bg-muted text-muted-foreground rounded-none text-xs">
                           {card.category[0] || 'Uncategorized'}
                         </span>
                         <div className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -1045,12 +1035,12 @@ export default function Lifecycle() {
                         <div className="pt-2 border-t border-gray-200">
                           <div className="flex items-center gap-1 overflow-hidden">
                             {card.tags.slice(0, 3).map((tag, index) => (
-                              <span key={index} className="px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded-sm text-[10px] font-normal whitespace-nowrap flex-shrink-0">
+                              <span key={index} className="px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded-none text-[10px] font-normal whitespace-nowrap flex-shrink-0">
                                 {tag}
                               </span>
                             ))}
                             {card.tags.length > 3 && (
-                              <span className="px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded-sm text-[10px] font-normal flex-shrink-0">
+                              <span className="px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded-none text-[10px] font-normal flex-shrink-0">
                                 +{card.tags.length - 3}
                               </span>
                             )}
@@ -1067,27 +1057,45 @@ export default function Lifecycle() {
         
         {/* New Idea Modal */}
         <Dialog open={showNewIdeaModal} onOpenChange={setShowNewIdeaModal}>
-          <DialogContent className="w-[calc(100vw-4rem)] h-[calc(100vh-4rem)] max-w-none max-h-none flex flex-col">
+          <DialogContent className="w-[50vw] h-[calc(100vh-4rem)] max-w-none max-h-none flex flex-col">
             <DialogHeader className="flex-shrink-0 pb-4 border-b border-border/20">
               <div className="flex items-center justify-between">
                 <DialogTitle className="flex items-center gap-3 text-xl font-semibold">
-                  <div className="p-2 rounded-lg bg-primary/10">
+                  <div className="p-2 rounded-none bg-primary/10">
                     <Lightbulb className="h-5 w-5 text-primary" />
                   </div>
                   New Product Idea
                 </DialogTitle>
                 
-                {/* Activity panel toggle for desktop */}
-                <div className="hidden lg:flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowActivityPanel(!showActivityPanel)}
-                    className="flex items-center gap-2"
-                  >
-                    <div className="w-2 h-2 rounded-full bg-primary animate-pulse"></div>
-                    Activity
-                  </Button>
+                {/* Assigned To - top right corner */}
+                <div className="hidden lg:flex items-center gap-4 mr-8">
+                  <div className="flex items-center gap-2">
+                    <Label className="text-sm font-medium text-foreground">Assigned To:</Label>
+                    <Select
+                      value={newIdeaForm.assignedTo || ''}
+                      onValueChange={(value) => setNewIdeaForm(prev => ({ ...prev, assignedTo: value }))}
+                    >
+                      <SelectTrigger className="h-8 w-40 rounded-none">
+                        <SelectValue placeholder="Select..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableOwners.length === 0 ? (
+                          <SelectItem value="no-users" disabled>No users available</SelectItem>
+                        ) : (
+                          availableOwners.map((owner) => (
+                            <SelectItem key={owner.id} value={owner.id}>
+                              <div className="flex items-center gap-2">
+                                <div className="w-4 h-4 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium">
+                                  {owner.name.charAt(0)}
+                                </div>
+                                <span className="text-xs">{owner.name.split(' ')[0]}</span>
+                              </div>
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
             </DialogHeader>
@@ -1135,9 +1143,6 @@ export default function Lifecycle() {
                     suppliers={suppliers}
                     suppliersLoading={suppliersLoading}
                     availableOwners={availableOwners}
-                    uploadedProductImage={uploadedProductImage}
-                    handleProductImageUpload={handleProductImageUpload}
-                    removeProductImage={removeProductImage}
                   />
                 </TabsContent>
                 
@@ -1190,15 +1195,12 @@ export default function Lifecycle() {
                   suppliers={suppliers}
                   suppliersLoading={suppliersLoading}
                   availableOwners={availableOwners}
-                  uploadedProductImage={uploadedProductImage}
-                  handleProductImageUpload={handleProductImageUpload}
-                  removeProductImage={removeProductImage}
                 />
               </div>
               
               {/* Right pane: Activity Panel */}
               {showActivityPanel && (
-                <div className="sticky top-0 max-h-[calc(100vh-160px)] overflow-y-auto bg-muted/30 rounded-lg p-4">
+                <div className="sticky top-0 max-h-[calc(100vh-160px)] overflow-y-auto bg-muted/30 rounded-none p-4">
                   <ActivityPanel
                     currentStage={currentStage}
                     entries={timelineEntries}
@@ -1219,13 +1221,13 @@ export default function Lifecycle() {
                 <Button
                   variant="outline"
                   onClick={() => setShowNewIdeaModal(false)}
-                  className="min-w-[80px]"
+                  className="min-w-[80px] rounded-none"
                 >
                   Cancel
                 </Button>
-                <Button 
+                <Button
                   onClick={handleCreateIdea}
-                  className="min-w-[120px] bg-primary hover:bg-primary/90"
+                  className="min-w-[120px] bg-primary hover:bg-primary/90 rounded-none"
                 >
                   Create Idea
                 </Button>

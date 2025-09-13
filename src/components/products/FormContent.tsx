@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -35,9 +35,6 @@ interface FormContentProps {
   suppliers: any[]
   suppliersLoading: boolean
   availableOwners: any[]
-  uploadedProductImage?: File | null
-  handleProductImageUpload?: (file: File) => void
-  removeProductImage?: () => void
 }
 
 export const FormContent: React.FC<FormContentProps> = ({
@@ -67,10 +64,7 @@ export const FormContent: React.FC<FormContentProps> = ({
   autoResizeTextarea,
   suppliers,
   suppliersLoading,
-  availableOwners = [],
-  uploadedProductImage,
-  handleProductImageUpload,
-  removeProductImage
+  availableOwners = []
 }) => {
   const addTag = (tag: string) => {
     if (tag.trim() && !tags.includes(tag.trim())) {
@@ -83,12 +77,27 @@ export const FormContent: React.FC<FormContentProps> = ({
     setTags(tags.filter((_, index) => index !== indexToRemove))
   }
 
+  const [showLinkInput, setShowLinkInput] = useState(false)
+  const [newLinkUrl, setNewLinkUrl] = useState('')
+  const [newLinkType, setNewLinkType] = useState<'competitor' | 'ad'>('competitor')
+
   const addReferenceLink = () => {
-    const link = prompt('Enter reference URL:')
-    const type = prompt('Type (competitor/ad):') as 'competitor' | 'ad'
-    if (link && (type === 'competitor' || type === 'ad')) {
-      setReferenceLinks([...referenceLinks, { url: link, type }])
+    setShowLinkInput(true)
+  }
+
+  const saveLinkInput = () => {
+    if (newLinkUrl.trim()) {
+      setReferenceLinks([...referenceLinks, { url: newLinkUrl.trim(), type: newLinkType }])
+      setNewLinkUrl('')
+      setNewLinkType('competitor')
+      setShowLinkInput(false)
     }
+  }
+
+  const cancelLinkInput = () => {
+    setNewLinkUrl('')
+    setNewLinkType('competitor')
+    setShowLinkInput(false)
   }
 
   const removeReferenceLink = (indexToRemove: number) => {
@@ -108,7 +117,7 @@ export const FormContent: React.FC<FormContentProps> = ({
             </h3>
             <p className="text-sm text-muted-foreground mt-1">Core product information</p>
           </div>
-          
+
           <div className="space-y-4">
             {/* Product Name */}
             <div>
@@ -118,10 +127,10 @@ export const FormContent: React.FC<FormContentProps> = ({
                 value={newIdeaForm.title}
                 onChange={(e) => setNewIdeaForm(prev => ({ ...prev, title: e.target.value }))}
                 placeholder="e.g., Eraya Smart Home Diffuser"
-                className="mt-2 text-base font-medium h-11"
+                className="mt-2 text-base font-medium h-11 rounded-none"
               />
             </div>
-            
+
             {/* Category */}
             <div>
               <Label className="text-sm font-medium text-foreground">Category</Label>
@@ -129,7 +138,7 @@ export const FormContent: React.FC<FormContentProps> = ({
                 value={selectedCategories[0] || ''}
                 onValueChange={(value) => setSelectedCategories([value])}
               >
-                <SelectTrigger className="mt-2 h-10">
+                <SelectTrigger className="mt-2 h-10 rounded-none">
                   <SelectValue placeholder="Select category..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -149,13 +158,13 @@ export const FormContent: React.FC<FormContentProps> = ({
                 value={newIdeaForm.priority || 'medium'}
                 onValueChange={(value) => setNewIdeaForm(prev => ({ ...prev, priority: value }))}
               >
-                <SelectTrigger className="mt-2 h-10">
+                <SelectTrigger className="mt-2 h-10 rounded-none">
                   <SelectValue placeholder="Select priority..." />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="high">🔥 High Priority</SelectItem>
-                  <SelectItem value="medium">⚖️ Medium Priority</SelectItem>
-                  <SelectItem value="low">🕊️ Low Priority</SelectItem>
+                  <SelectItem value="high">High Priority</SelectItem>
+                  <SelectItem value="medium">Medium Priority</SelectItem>
+                  <SelectItem value="low">Low Priority</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -167,44 +176,14 @@ export const FormContent: React.FC<FormContentProps> = ({
                 value={newIdeaForm.stage || 'idea'}
                 onValueChange={(value) => setNewIdeaForm(prev => ({ ...prev, stage: value }))}
               >
-                <SelectTrigger className="mt-2 h-10">
+                <SelectTrigger className="mt-2 h-10 rounded-none">
                   <SelectValue placeholder="Select stage..." />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="idea">💡 Idea</SelectItem>
-                  <SelectItem value="production">🏭 Production</SelectItem>
-                  <SelectItem value="content">📷 Content</SelectItem>
-                  <SelectItem value="scaling">📈 Scaling</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Assigned To */}
-            <div>
-              <Label className="text-sm font-medium text-foreground">Assigned To</Label>
-              <div className="text-xs text-gray-500 mb-1">Available users: {availableOwners.length}</div>
-              <Select
-                value={newIdeaForm.assignedTo || ''}
-                onValueChange={(value) => setNewIdeaForm(prev => ({ ...prev, assignedTo: value }))}
-              >
-                <SelectTrigger className="mt-2 h-10">
-                  <SelectValue placeholder="Select team member..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableOwners.length === 0 ? (
-                    <SelectItem value="no-users" disabled>No users available</SelectItem>
-                  ) : (
-                    availableOwners.map((owner) => (
-                      <SelectItem key={owner.id} value={owner.id}>
-                        <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium">
-                            {owner.name.charAt(0)}
-                          </div>
-                          {owner.name}
-                        </div>
-                      </SelectItem>
-                    ))
-                  )}
+                  <SelectItem value="idea">Idea</SelectItem>
+                  <SelectItem value="production">Production</SelectItem>
+                  <SelectItem value="content">Content</SelectItem>
+                  <SelectItem value="scaling">Scaling</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -223,7 +202,7 @@ export const FormContent: React.FC<FormContentProps> = ({
                       addTag(tagInput)
                     }
                   }}
-                  className="h-10"
+                  className="h-10 rounded-none"
                 />
                 {tags.length > 0 && (
                   <div className="flex flex-wrap gap-1 mt-2">
@@ -246,85 +225,28 @@ export const FormContent: React.FC<FormContentProps> = ({
               </div>
             </div>
 
-            {/* Product Image */}
-            <div>
-              <Label className="text-sm font-medium text-foreground">Product Image</Label>
-              <div className="mt-2">
-                {uploadedProductImage ? (
-                  <div className="relative inline-block">
-                    <img
-                      src={URL.createObjectURL(uploadedProductImage)}
-                      alt="Product"
-                      className="w-32 h-32 object-cover rounded-lg border"
-                    />
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="sm"
-                      className="absolute -top-2 -right-2 h-6 w-6 rounded-full p-0"
-                      onClick={removeProductImage}
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  </div>
-                ) : (
-                  <label className="flex flex-col items-center justify-center w-32 h-32 border-2 border-dashed border-muted-foreground/25 rounded-lg cursor-pointer hover:border-muted-foreground/50 transition-colors">
-                    <ImagePlus className="h-8 w-8 text-muted-foreground mb-2" />
-                    <span className="text-xs text-muted-foreground text-center">Upload Image</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0]
-                        if (file && handleProductImageUpload) {
-                          handleProductImageUpload(file)
-                        }
-                      }}
-                      className="hidden"
-                    />
-                  </label>
-                )}
-              </div>
+            {/* Source Price */}
+            <div className="w-full">
+              <Label className="text-sm font-medium text-foreground">Estimated Source Price (₹)</Label>
+              <Input
+                type="number"
+                step="1"
+                value={newIdeaForm.estimatedSourcePriceMin}
+                onChange={(e) => setNewIdeaForm(prev => ({ ...prev, estimatedSourcePriceMin: e.target.value }))}
+                placeholder="500"
+                className="mt-2 h-10 rounded-none"
+              />
+              <p className="text-xs text-muted-foreground mt-1">Price in INR</p>
             </div>
 
-            {/* Source Price Range */}
-            <div className="w-full">
-              <Label className="text-sm font-medium text-foreground">Estimated Source Price</Label>
-              <div className="grid grid-cols-2 gap-2 mt-2">
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-medium">₹</span>
-                  <Input
-                    type="number"
-                    step="1"
-                    value={newIdeaForm.estimatedSourcePriceMin}
-                    onChange={(e) => setNewIdeaForm(prev => ({ ...prev, estimatedSourcePriceMin: e.target.value }))}
-                    placeholder="500"
-                    className="pl-8 h-10"
-                  />
-                </div>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-medium">₹</span>
-                  <Input
-                    type="number"
-                    step="1"
-                    value={newIdeaForm.estimatedSourcePriceMax}
-                    onChange={(e) => setNewIdeaForm(prev => ({ ...prev, estimatedSourcePriceMax: e.target.value }))}
-                    placeholder="800"
-                    className="pl-8 h-10"
-                  />
-                </div>
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">Min - Max range in INR</p>
-            </div>
-            
             {/* Supplier Selection */}
             <div>
               <Label className="text-sm font-medium text-foreground">Select Supplier</Label>
-              <Select 
-                value={newIdeaForm.selectedSupplierId} 
+              <Select
+                value={newIdeaForm.selectedSupplierId}
                 onValueChange={(value) => setNewIdeaForm(prev => ({ ...prev, selectedSupplierId: value }))}
               >
-                <SelectTrigger className="mt-2 h-10">
+                <SelectTrigger className="mt-2 h-10 rounded-none">
                   <SelectValue placeholder="Choose a supplier..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -364,7 +286,7 @@ export const FormContent: React.FC<FormContentProps> = ({
             </div>
           </div>
         </div>
-        
+
         {/* Right Column - Market Research */}
         <div className="space-y-4">
           <div className="pb-3 border-b border-border/30">
@@ -374,7 +296,7 @@ export const FormContent: React.FC<FormContentProps> = ({
             </h3>
             <p className="text-sm text-muted-foreground mt-1">Analysis and insights</p>
           </div>
-          
+
           <div className="space-y-4">
             {/* Problem Statement */}
             <div>
@@ -386,7 +308,7 @@ export const FormContent: React.FC<FormContentProps> = ({
                   autoResizeTextarea(e)
                 }}
                 placeholder="What customer problem does this product solve?"
-                className="mt-2 min-h-[72px] resize-none"
+                className="mt-2 min-h-[72px] resize-none rounded-none"
               />
             </div>
 
@@ -400,7 +322,7 @@ export const FormContent: React.FC<FormContentProps> = ({
                   autoResizeTextarea(e)
                 }}
                 placeholder="Describe the market opportunity and potential..."
-                className="mt-2 min-h-[72px] resize-none"
+                className="mt-2 min-h-[72px] resize-none rounded-none"
               />
             </div>
 
@@ -414,26 +336,40 @@ export const FormContent: React.FC<FormContentProps> = ({
                   autoResizeTextarea(e)
                 }}
                 placeholder="Key features, target audience, concept notes..."
-                className="mt-2 min-h-[100px] resize-none"
+                className="mt-2 min-h-[100px] resize-none rounded-none"
               />
+            </div>
+
+            {/* Selling Price */}
+            <div>
+              <Label className="text-sm font-medium text-foreground">Estimated Selling Price (₹)</Label>
+              <Input
+                type="number"
+                step="1"
+                value={newIdeaForm.estimatedSellingPrice}
+                onChange={(e) => setNewIdeaForm(prev => ({ ...prev, estimatedSellingPrice: e.target.value }))}
+                placeholder="800"
+                className="mt-2 h-10 rounded-none"
+              />
+              <p className="text-xs text-muted-foreground mt-1">Selling price in INR</p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Section 2: References & Media */}
-      <div className="space-y-4">
+      {/* References & Media Section - Full Width */}
+      <div className="mt-8 pt-8 border-t border-border/30">
         <div className="pb-3 border-b border-border/30">
-          <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
+          <h4 className="text-base font-semibold text-foreground flex items-center gap-2">
             <div className="w-1 h-4 bg-amber-500 rounded-full"></div>
             References & Media
-          </h3>
+          </h4>
           <p className="text-sm text-muted-foreground mt-1">Supporting materials and inspiration</p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="space-y-4 mt-6">
           {/* Reference Links */}
-          <div className="space-y-3">
+          <div>
             <div className="flex items-center justify-between">
               <Label className="text-sm font-medium text-foreground">Reference Links</Label>
               <Button
@@ -447,16 +383,80 @@ export const FormContent: React.FC<FormContentProps> = ({
               </Button>
             </div>
 
+            {/* Add Link Input */}
+            {showLinkInput && (
+              <div className="space-y-3 mt-3 p-3 border border-border/50 rounded-none bg-muted/20">
+                <div>
+                  <Label className="text-xs font-medium text-foreground">Link Type</Label>
+                  <Select value={newLinkType} onValueChange={(value: 'competitor' | 'ad') => setNewLinkType(value)}>
+                    <SelectTrigger className="mt-1 h-8 rounded-none">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="competitor">Competitor</SelectItem>
+                      <SelectItem value="ad">Advertisement</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label className="text-xs font-medium text-foreground">URL</Label>
+                  <Input
+                    value={newLinkUrl}
+                    onChange={(e) => setNewLinkUrl(e.target.value)}
+                    placeholder="https://example.com"
+                    className="mt-1 h-8 rounded-none"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        saveLinkInput()
+                      }
+                      if (e.key === 'Escape') {
+                        e.preventDefault()
+                        cancelLinkInput()
+                      }
+                    }}
+                  />
+                </div>
+
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={saveLinkInput}
+                    className="h-7 text-xs"
+                  >
+                    Add Link
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={cancelLinkInput}
+                    className="h-7 text-xs"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {referenceLinks.length > 0 && (
-              <div className="space-y-2">
+              <div className="space-y-2 mt-3">
                 {referenceLinks.map((link, index) => (
-                  <div key={index} className="flex items-center gap-2 p-2 bg-muted/30 rounded">
+                  <div key={index} className="flex items-center gap-2 p-2 bg-muted/30 rounded-none">
                     <Badge variant={link.type === 'competitor' ? 'destructive' : 'default'} className="text-xs">
                       {link.type}
                     </Badge>
-                    <span className="text-xs text-muted-foreground flex-1 truncate">
+                    <a
+                      href={link.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-blue-600 hover:text-blue-800 underline flex-1 truncate cursor-pointer"
+                      title={link.url}
+                    >
                       {extractDomainFromUrl(link.url)}
-                    </span>
+                    </a>
                     <Button
                       type="button"
                       variant="ghost"
@@ -473,7 +473,7 @@ export const FormContent: React.FC<FormContentProps> = ({
           </div>
 
           {/* Media Upload */}
-          <div className="space-y-3">
+          <div>
             <Label className="text-sm font-medium text-foreground">Media Upload</Label>
 
             <div
@@ -481,7 +481,7 @@ export const FormContent: React.FC<FormContentProps> = ({
               onDragOver={handleDragOver}
               onDragEnter={handleDragEnter}
               onDragLeave={handleDragLeave}
-              className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors ${
+              className={`border-2 border-dashed rounded-none p-4 text-center transition-colors mt-2 ${
                 dragActive
                   ? 'border-primary bg-primary/5'
                   : 'border-muted-foreground/25 hover:border-muted-foreground/50'
@@ -529,7 +529,7 @@ export const FormContent: React.FC<FormContentProps> = ({
 
             {/* Media Preview */}
             {(uploadedImages.length > 0 || uploadedVideos.length > 0) && (
-              <div className="mt-3 p-3 bg-muted/30 rounded-lg">
+              <div className="mt-3 p-3 bg-muted/30 rounded-none">
                 {uploadedImages.length > 0 && (
                   <div className="mb-3">
                     <p className="text-xs font-medium text-muted-foreground mb-2">
@@ -541,7 +541,7 @@ export const FormContent: React.FC<FormContentProps> = ({
                           <img
                             src={URL.createObjectURL(file)}
                             alt={`Upload ${index + 1}`}
-                            className="w-full h-12 object-cover rounded border"
+                            className="w-full h-12 object-cover rounded-none border"
                           />
                           <Button
                             type="button"
@@ -566,7 +566,7 @@ export const FormContent: React.FC<FormContentProps> = ({
                     <div className="grid grid-cols-4 gap-2">
                       {uploadedVideos.map((file, index) => (
                         <div key={index} className="relative group">
-                          <div className="w-full h-12 bg-muted/60 rounded border flex items-center justify-center">
+                          <div className="w-full h-12 bg-muted/60 rounded-none border flex items-center justify-center">
                             <VideoIcon className="h-4 w-4 text-muted-foreground" />
                           </div>
                           <Button
@@ -588,6 +588,9 @@ export const FormContent: React.FC<FormContentProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Bottom spacing */}
+      <div className="h-16"></div>
     </div>
   )
 }
