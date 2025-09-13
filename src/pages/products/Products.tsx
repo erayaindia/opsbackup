@@ -56,7 +56,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Separator } from '@/components/ui/separator'
 
@@ -84,6 +83,7 @@ import { useSuppliers } from '@/hooks/useSuppliers'
 import { useUsers } from '@/hooks/useUsers'
 import { ActivityPanel, type StageKey, type TimelineEntry, type NowNextBlocked, saveTimelineEntry, updateStage, setNowNextBlocked } from '@/components/products/ActivityPanel'
 import { FormContent } from '@/components/products/FormContent'
+import { ProductDetailsModal } from '@/components/products/ProductDetailsModal'
 import { debugProductsRLS } from '@/utils/debugProductsRLS'
 
 const STORAGE_KEYS = {
@@ -174,16 +174,6 @@ export default function Lifecycle() {
   
   // Get selected card
   const selectedCard = cards.find(card => card.id === selectedCardId)
-  
-  // Get stage-specific notes for the selected card
-  const getCardNotes = (card: LifecycleCard) => {
-    switch (card.stage) {
-      case 'idea':
-        return card.ideaData?.notes || ''
-      default:
-        return ''
-    }
-  }
   
   // Available tags and categories derived from cards
   const availableTags = useMemo(() => {
@@ -501,155 +491,35 @@ export default function Lifecycle() {
     textarea.style.height = Math.max(textarea.scrollHeight, 72) + 'px'
   }
 
-  // Card Details Drawer Component
-  const CardDetailsDrawer = ({
-    card,
-    open,
-    onOpenChange,
-    onUpdate
-  }: {
-    card?: LifecycleCard | null,
-    open: boolean,
-    onOpenChange: (open: boolean) => void,
-    onUpdate: (card: LifecycleCard) => void
-  }) => {
-    if (!card) return null
+  const handleUpdateProduct = async (productId: string, updates: Partial<CreateProductPayload>): Promise<LifecycleProduct> => {
+    try {
+      const updatedProduct = await productLifecycleService.updateProduct(productId, updates)
 
-    const cardIndex = filteredCards.findIndex(c => c.id === card.id);
-    const sequentialId = cardIndex >= 0 ? cardIndex + 1 : 'N/A';
-    const stageConfig = STAGE_CONFIG[card.stage];
-    const StageIcon = stageConfig?.icon || Package;
+      // Update the product in the local state
+      setCards(prev => prev.map(card =>
+        card.id === productId ? updatedProduct : card
+      ))
 
-    return (
-      <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent className="w-[400px] sm:w-[540px] overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-primary"></div>
-              {card.workingTitle || card.name || `Demo Product ${sequentialId}`}
-            </SheetTitle>
-            <div className="text-sm text-muted-foreground">
-              Product ID: #{sequentialId}
-            </div>
-          </SheetHeader>
-
-          <div className="mt-6 space-y-6">
-            {/* Product Image */}
-            {(card.thumbnail || card.thumbnailUrl || card.ideaData?.thumbnail) && (
-              <div>
-                <Label className="text-sm font-medium">Product Image</Label>
-                <div className="mt-2">
-                  <img
-                    src={card.thumbnail || card.thumbnailUrl || card.ideaData?.thumbnail}
-                    alt={card.workingTitle || card.name}
-                    className="w-full h-48 object-cover rounded-none border"
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Stage and Priority */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label className="text-sm font-medium">Stage</Label>
-                <div className="mt-1 flex items-center gap-2">
-                  <StageIcon className="h-4 w-4 text-primary" />
-                  <Badge variant="secondary" className="capitalize">
-                    {stageConfig?.name || card.stage}
-                  </Badge>
-                </div>
-              </div>
-              <div>
-                <Label className="text-sm font-medium">Priority</Label>
-                <Badge
-                  variant={card.priority === 'high' ? 'destructive' :
-                          card.priority === 'medium' ? 'default' : 'secondary'}
-                  className="mt-1 capitalize"
-                >
-                  {card.priority || 'Medium'}
-                </Badge>
-              </div>
-            </div>
-
-            {/* Team Lead */}
-            <div>
-              <Label className="text-sm font-medium">Assigned To</Label>
-              <div className="mt-1 flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-medium">
-                  {card.teamLead.name.charAt(0)}
-                </div>
-                <div>
-                  <div className="text-sm font-medium">{card.teamLead.name}</div>
-                  <div className="text-xs text-muted-foreground">Team Lead</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Categories */}
-            <div>
-              <Label className="text-sm font-medium">Categories</Label>
-              <div className="flex flex-wrap gap-1 mt-2">
-                {card.category.map((cat, index) => (
-                  <Badge key={index} variant="outline" className="text-xs">
-                    {cat}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-
-            {/* Tags */}
-            {card.tags.length > 0 && (
-              <div>
-                <Label className="text-sm font-medium">Tags</Label>
-                <div className="flex flex-wrap gap-1 mt-2">
-                  {card.tags.map((tag, index) => (
-                    <Badge key={index} variant="outline" className="text-xs bg-primary/10 text-primary">
-                      {tag}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Notes */}
-            {getCardNotes(card) && (
-              <div>
-                <Label className="text-sm font-medium">Notes</Label>
-                <div className="mt-2 p-3 bg-muted rounded-none text-sm">
-                  {getCardNotes(card)}
-                </div>
-              </div>
-            )}
-
-            {/* Dates */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label className="text-sm font-medium">Created</Label>
-                <div className="text-sm text-muted-foreground mt-1">
-                  {card.createdAt.toLocaleDateString('en-US', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
-                  })}
-                </div>
-              </div>
-              <div>
-                <Label className="text-sm font-medium">Last Updated</Label>
-                <div className="text-sm text-muted-foreground mt-1">
-                  {card.updatedAt.toLocaleDateString('en-US', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
-                  })}
-                </div>
-              </div>
-            </div>
-          </div>
-        </SheetContent>
-      </Sheet>
-    )
+      return updatedProduct
+    } catch (error) {
+      console.error('Failed to update product:', error)
+      throw error
+    }
   }
 
+  const handleDeleteProduct = async (productId: string): Promise<void> => {
+    try {
+      await productLifecycleService.deleteProduct(productId)
+
+      // Remove the product from the local state
+      setCards(prev => prev.filter(card => card.id !== productId))
+
+      console.log('Product deleted successfully:', productId)
+    } catch (error) {
+      console.error('Failed to delete product:', error)
+      throw error
+    }
+  }
 
   const handleCreateIdea = async () => {
     try {
@@ -981,7 +851,6 @@ export default function Lifecycle() {
                 </thead>
                 <tbody>
                   {filteredCards.map((card, index) => {
-                    const sequentialId = index + 1;
                     return (
                       <tr
                         key={card.id}
@@ -993,8 +862,8 @@ export default function Lifecycle() {
                       >
                         <td className="p-4">
                           <div>
-                            <div className="font-medium">{card.workingTitle || card.name || `Demo Product ${sequentialId}`}</div>
-                            <div className="text-xs text-gray-500">ID: #{sequentialId}</div>
+                            <div className="font-medium">{card.workingTitle || card.name || `Product ${card.internalCode}`}</div>
+                            <div className="text-xs text-gray-500">{card.internalCode}</div>
                           </div>
                         </td>
                         <td className="p-4">
@@ -1015,7 +884,6 @@ export default function Lifecycle() {
         {selectedView === 'gallery' && (
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-6">
             {filteredCards.map((card, index) => {
-              const sequentialId = index + 1;
               const priorityColor = card.priority === 'high' ? 'bg-red-100 text-red-700 border border-red-200' :
                                   card.priority === 'medium' ? 'bg-yellow-100 text-yellow-700 border border-yellow-200' :
                                   'bg-green-100 text-green-700 border border-green-200';
@@ -1048,7 +916,7 @@ export default function Lifecycle() {
                   <CardContent className="p-4">
                     <div className="space-y-2">
                       <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <span>ID: #{sequentialId}</span>
+                        <span className="font-mono text-xs">{card.internalCode}</span>
                         <span>{new Date(card.createdAt).toLocaleDateString('en-US', {
                           month: 'short',
                           day: 'numeric'
@@ -1057,7 +925,7 @@ export default function Lifecycle() {
 
                       {/* Product Name */}
                       <div className="text-sm font-bold text-foreground truncate">
-                        {card.workingTitle || card.name || `Demo Product ${sequentialId}`}
+                        {card.workingTitle || card.name || `Product ${card.internalCode}`}
                       </div>
 
                       {/* Priority and Stage */}
@@ -1340,16 +1208,18 @@ export default function Lifecycle() {
           </DialogContent>
         </Dialog>
         
-        {/* Card Details Drawer */}
-        <CardDetailsDrawer 
-          card={selectedCard}
+        {/* Product Details Modal */}
+        <ProductDetailsModal
+          product={selectedCard}
           open={isDrawerOpen}
           onOpenChange={setIsDrawerOpen}
-          onUpdate={(updatedCard) => {
-            setCards(prev => prev.map(card => 
-              card.id === updatedCard.id ? updatedCard : card
+          onUpdate={(updatedProduct) => {
+            setCards(prev => prev.map(card =>
+              card.id === updatedProduct.id ? updatedProduct : card
             ))
           }}
+          onUpdateProduct={handleUpdateProduct}
+          onDeleteProduct={handleDeleteProduct}
         />
       </div>
     </div>

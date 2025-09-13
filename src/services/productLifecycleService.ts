@@ -301,6 +301,98 @@ class ProductLifecycleService {
   }
 
   /**
+   * Generate SKU for inventory
+   */
+  private generateSKU(productCode: string): string {
+    const timestamp = Date.now().toString().slice(-4)
+    return `SKU-${productCode.split('-')[2]}-${timestamp}`
+  }
+
+  /**
+   * Create inventory records for a new product
+   */
+  private async createInventoryRecords(productId: string, productCode: string): Promise<void> {
+    try {
+      // Generate SKU
+      const sku = this.generateSKU(productCode)
+
+      // Get default warehouse (assume first warehouse, or create default if none exist)
+      let { data: warehouses, error: warehouseError } = await supabase
+        .from('warehouses')
+        .select('id')
+        .limit(1)
+
+      if (warehouseError) {
+        console.warn('Warehouses table may not exist:', warehouseError.message)
+        return // Skip inventory creation if warehouses don't exist
+      }
+
+      if (!warehouses || warehouses.length === 0) {
+        // Create a default warehouse
+        const { data: newWarehouse, error: createWarehouseError } = await supabase
+          .from('warehouses')
+          .insert({
+            name: 'Default Warehouse',
+            location: 'Main Location',
+            is_active: true
+          })
+          .select('id')
+          .single()
+
+        if (createWarehouseError) {
+          console.warn('Could not create default warehouse:', createWarehouseError.message)
+          return
+        }
+        warehouses = [newWarehouse]
+      }
+
+      const warehouseId = warehouses[0].id
+
+      // Create inventory_details record (now includes all stock data)
+      const inventoryDetails = {
+        product_id: productId,
+        sku: sku,
+        barcode: null, // Can be set later
+        attributes: {},
+        cost: 0, // Default cost, can be updated later
+        price: 0, // Default price, can be updated later
+        weight: null,
+        min_stock_level: 10, // Default reorder level
+        reorder_point: 5,
+        reorder_quantity: 50,
+        status_id: 1, // Active status
+        warehouse_id: warehouseId,
+        on_hand_qty: 0,
+        allocated_qty: 0,
+        available_qty: 0,
+        last_counted_date: new Date().toISOString(),
+        last_movement_date: new Date().toISOString()
+      }
+
+      const { data: inventoryDetail, error: inventoryError } = await supabase
+        .from('inventory_details')
+        .insert(inventoryDetails)
+        .select('id')
+        .single()
+
+      if (inventoryError) {
+        console.warn('Could not create inventory details:', inventoryError.message)
+        return
+      }
+
+      console.log(`✅ Created inventory records for product ${productId}:`, {
+        sku,
+        inventory_detail_id: inventoryDetail.id,
+        warehouse_id: warehouseId
+      })
+
+    } catch (error) {
+      console.warn('Error creating inventory records:', error)
+      // Don't throw - inventory creation is optional and shouldn't block product creation
+    }
+  }
+
+  /**
    * Create a new product
    */
   async createProduct(payload: CreateProductPayload): Promise<LifecycleProduct> {
@@ -341,7 +433,7 @@ class ProductLifecycleService {
         potential_score: 50 // Default score
       }
 
-      console.log('Product insert data:', productInsert)
+      console.log('Creating product with data:', productInsert)
 
       const { data: product, error: productError } = await supabase
         .from('products')
@@ -354,6 +446,8 @@ class ProductLifecycleService {
         console.error('Insert data was:', productInsert)
         throw productError
       }
+
+      console.log('Created product successfully:', product.id)
 
       // Create idea data if stage is 'idea'
       if (payload.stage === 'idea' && product) {
@@ -439,6 +533,9 @@ class ProductLifecycleService {
           actor_user_id: user.id,
           action: 'Created product'
         })
+
+      // Create inventory records for the new product
+      await this.createInventoryRecords(product.id, product.internal_code)
 
       // Return the created product by fetching it with all relations
       const products = await this.listProducts()
@@ -537,19 +634,90 @@ class ProductLifecycleService {
   }
 
   /**
-   * Delete a product
+   * Delete a product and all related data
    */
   async deleteProduct(id: string): Promise<void> {
     try {
-      const { error } = await supabase
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        throw new Error('User not authenticated')
+      }
+
+      console.log('Starting product deletion for ID:', id)
+
+      // Note: With CASCADE DELETE constraints properly set up,
+      // stock_movements will be automatically deleted when inventory_details are deleted,
+      // inventory_details will be automatically deleted when the main product is deleted.
+      // We only need to delete the lifecycle-specific data manually.
+
+      // Now delete from other tables that we know exist
+      const deleteTasks = [
+        // Delete product ideas
+        supabase.from('product_ideas').delete().eq('product_id', id),
+
+        // Delete product categories
+        supabase.from('product_categories').delete().eq('product_id', id),
+
+        // Delete product tags
+        supabase.from('product_tags').delete().eq('product_id', id),
+
+        // Delete product reference links
+        supabase.from('product_reference_links').delete().eq('product_id', id),
+
+        // Delete product activities
+        supabase.from('product_activities').delete().eq('product_id', id),
+
+        // Delete inventory details (will cascade to stock_movements)
+        supabase.from('inventory_details').delete().eq('product_id', id)
+      ]
+
+      // Execute all delete operations for related data
+      console.log('Deleting related product data...')
+      const results = await Promise.allSettled(deleteTasks)
+
+      // Log any errors from related data deletion (but don't fail)
+      results.forEach((result, index) => {
+        if (result.status === 'rejected') {
+          const error = result.reason
+          // Only log if it's not a "table not found" error (404/PGRST116)
+          if (error?.code !== 'PGRST116' && !error?.message?.includes('404')) {
+            console.warn(`Failed to delete related data at index ${index}:`, result.reason)
+          }
+        }
+      })
+
+      // Now delete from the main products table
+      console.log('Deleting main product record...')
+      const { error: productError } = await supabase
         .from('products')
         .delete()
         .eq('id', id)
 
-      if (error) {
-        console.error('Error deleting product:', error)
-        throw error
+      if (productError) {
+        console.error('Error deleting main product record:', productError)
+        throw productError
       }
+
+      // Clean up product images from storage (if any)
+      try {
+        console.log('Cleaning up product images from storage...')
+        const { data: files } = await supabase.storage
+          .from('product-images')
+          .list('products', { search: id })
+
+        if (files && files.length > 0) {
+          const filePaths = files.map(file => `products/${file.name}`)
+          await supabase.storage
+            .from('product-images')
+            .remove(filePaths)
+          console.log(`Deleted ${files.length} images from storage`)
+        }
+      } catch (storageError) {
+        console.warn('Error cleaning up storage files:', storageError)
+        // Don't throw - storage cleanup is not critical
+      }
+
+      console.log('Product deletion completed successfully')
     } catch (error) {
       console.error('Error in deleteProduct:', error)
       throw error

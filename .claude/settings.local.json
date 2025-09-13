@@ -31,7 +31,13 @@
       "Bash(timeout 10s npm run dev)",
       "Bash(cat:*)",
       "Bash(timeout 5s npm run dev)",
-      "Bash(npx supabase link:*)"
+      "Bash(npx supabase link:*)",
+      "Bash(npx supabase:*)",
+      "Bash(dir supabasemigrations)",
+      "Bash(ls:*)",
+      "Bash(timeout 3s npm run dev)",
+      "Bash(curl:*)",
+      "Bash(VITE_PORT=8080 npm run dev)"
     ],
     "deny": [],
     "ask": []

@@ -32,7 +32,23 @@ export const HistoryDialog: React.FC<HistoryDialogProps> = ({
   movements,
   loading,
 }) => {
-  const getMovementColor = (movementType: string) => {
+  // Map movement type IDs back to readable strings
+  const getMovementTypeFromId = (id: number | undefined): string => {
+    if (!id) return 'UNKNOWN';
+
+    const idToTypeMap: Record<number, string> = {
+      1: 'IN',
+      2: 'OUT',
+      3: 'ADJUST',
+      4: 'TRANSFER'
+    };
+
+    return idToTypeMap[id] || 'UNKNOWN';
+  };
+
+  const getMovementColor = (movementType: string | undefined) => {
+    if (!movementType) return 'bg-gray-100 text-gray-800 border-gray-200';
+
     switch (movementType.toUpperCase()) {
       case 'IN':
         return 'bg-green-100 text-green-800 border-green-200';
@@ -117,15 +133,15 @@ export const HistoryDialog: React.FC<HistoryDialogProps> = ({
                         </code>
                       </TableCell>
                       <TableCell className="border-r border-border/50">
-                        <Badge className={getMovementColor(movement.movement_type_detail?.code || movement.movement_type)}>
-                          {movement.movement_type_detail?.code || movement.movement_type}
+                        <Badge className={getMovementColor(getMovementTypeFromId(movement.movement_type_id))}>
+                          {getMovementTypeFromId(movement.movement_type_id)}
                         </Badge>
                       </TableCell>
                       <TableCell className="border-r border-border/50">
                         <span className={`font-bold ${
-                          movement.movement_type_detail?.code === 'IN' ? 'text-green-600' : 'text-red-600'
+                          getMovementTypeFromId(movement.movement_type_id) === 'IN' ? 'text-green-600' : 'text-red-600'
                         }`}>
-                          {movement.movement_type_detail?.code === 'IN' ? '+' : '-'}{movement.qty}
+                          {getMovementTypeFromId(movement.movement_type_id) === 'IN' ? '+' : '-'}{movement.qty}
                         </span>
                         {movement.unit_cost && (
                           <div className="text-xs text-muted-foreground">
