@@ -60,7 +60,8 @@ import InfluencerCollabs from "./pages/marketing/InfluencerCollabs";
 
 // Product Management pages
 import ProductsVariants from "./pages/products/ProductsVariants";
-import Lifecycle from "./pages/products/Lifecycle";
+import Products from "./pages/products/Products";
+import Categories from "./pages/products/Categories";
 import PerformanceInsight from "./pages/products/PerformanceInsight";
 import Suppliers from "./pages/products/Suppliers";
 import InventoryManagement from "./pages/products/InventoryManagement";
@@ -287,9 +288,14 @@ const App = () => (
                     <ProductsVariants />
                   </PermissionGuard>
                 } />
-                <Route path="products/lifecycle" element={
+                <Route path="products" element={
                   <PermissionGuard requiredModule="products">
-                    <Lifecycle />
+                    <Products />
+                  </PermissionGuard>
+                } />
+                <Route path="products/categories" element={
+                  <PermissionGuard requiredModule="products">
+                    <Categories />
                   </PermissionGuard>
                 } />
                 <Route path="products/performance-insight" element={

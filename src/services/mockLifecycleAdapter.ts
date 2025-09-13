@@ -47,12 +47,64 @@ export interface Task {
   createdAt: Date
 }
 
+export interface TargetPersona {
+  demographics: string
+  keyInterests: string[]
+  painPoints: string[]
+}
+
+export interface FeasibilityScore {
+  demand: number // 1-5
+  difficulty: number // 1-5
+  profitPotential: number // 1-5
+}
+
+export interface CostSheet {
+  landedCost: number
+  shippingEstimate: number
+  breakdown: Array<{ item: string; cost: number }>
+}
+
+export interface SampleTracking {
+  requestDate?: Date
+  receivedDate?: Date
+  approvalStatus: 'pending' | 'approved' | 'rejected'
+  notes: string
+}
+
+export interface ProductSpecifications {
+  dimensions: string
+  weight: string
+  finishOptions: string[]
+  technicalDrawings: Array<{ name: string; url: string }>
+}
+
+export interface ComplianceInfo {
+  certificationsNeeded: string[]
+  certificationsReceived: string[]
+}
+
+export interface ProductionTimeline {
+  start?: Date
+  end?: Date
+  milestones: Array<{ name: string; date: Date; status: string }>
+}
+
+export interface EnhancedSupplier extends Supplier {
+  location: string
+  leadTime: string
+  costSheet?: CostSheet
+}
+
 export interface LifecycleCard {
   id: string
-  title: string
+  internalCode: string
+  workingTitle: string
   thumbnail?: string
   tags: string[]
+  category: string[]
   owner: User
+  teamLead: User
   priority: Priority
   stage: Stage
   createdAt: Date
@@ -66,20 +118,27 @@ export interface LifecycleCard {
     competitorLinks: string[]
     adLinks: string[]
     media: string[]
-    demand: number // 1-5
-    margin: number // 1-5
-    difficulty: number // 1-5
+    problemStatement: string
+    opportunityStatement: string
+    marketResearchNotes: string
+    referenceImages: string[]
+    referenceVideos: string[]
+    targetPersona: TargetPersona
+    estimatedSourcePriceMin: number
+    estimatedSourcePriceMax: number
+    selectedSupplierId?: string
+    marginRange: { min: number; max: number }
+    feasibilityScore: FeasibilityScore
   }
   
   productionData?: {
-    suppliers: Supplier[]
-    sampleStatus: SampleStatus
-    sampleRequestDate?: Date
-    sampleReceivedDate?: Date
-    sampleApprovedDate?: Date
+    suppliers: EnhancedSupplier[]
+    sampleTracking: SampleTracking
+    materials: string[]
+    specifications: ProductSpecifications
+    compliance: ComplianceInfo
+    productionTimeline: ProductionTimeline
     specAttachments: Array<{ name: string; url: string }>
-    targetTimelineStart?: Date
-    targetTimelineEnd?: Date
   }
   
   contentData?: {
@@ -145,14 +204,21 @@ export interface SavedView {
 export interface FilterOptions {
   stages: Stage[]
   tags: string[]
+  categories: string[]
   owners: string[]
+  teamLeads: string[]
   priority?: Priority[]
   potentialScoreMin?: number
   potentialScoreMax?: number
   idleDaysMin?: number
+  internalCodePattern?: string
+  createdDateRange?: { start: Date; end: Date }
+  updatedDateRange?: { start: Date; end: Date }
+  marginRange?: { min: number; max: number }
+  supplierLocations?: string[]
 }
 
-export type ViewType = 'kanban' | 'table' | 'gallery'
+export type ViewType = 'table' | 'gallery'
 export type SortField = 'title' | 'createdAt' | 'updatedAt' | 'potentialScore' | 'idleDays'
 export type SortDirection = 'asc' | 'desc'
 
@@ -165,9 +231,18 @@ const mockUsers: User[] = [
   { id: '5', name: 'Alex Kim', email: 'alex@company.com', avatar: 'https://api.dicebear.com/7.x/avatars/svg?seed=alex' }
 ]
 
-// Helper to calculate potential score
-function calculatePotentialScore(demand: number, margin: number, difficulty: number): number {
-  return Math.round((demand * 0.45 + margin * 0.35 + (6 - difficulty) * 0.20) / 5 * 100)
+// Helper to generate internal product codes
+function generateInternalCode(category: string, index: number): string {
+  const categoryPrefix = category.substring(0, 3).toUpperCase()
+  const year = new Date().getFullYear().toString().slice(-2)
+  const sequence = (index + 1).toString().padStart(3, '0')
+  return `${categoryPrefix}${year}${sequence}`
+}
+
+// Helper to calculate potential score from feasibility scores
+function calculatePotentialScore(feasibilityScore: FeasibilityScore): number {
+  const { demand, difficulty, profitPotential } = feasibilityScore
+  return Math.round((demand * 0.4 + profitPotential * 0.35 + (6 - difficulty) * 0.25) / 5 * 100)
 }
 
 // Helper to calculate idle days
@@ -178,14 +253,17 @@ function calculateIdleDays(updatedAt: Date): number {
 }
 
 // Mock data
-let mockCards: LifecycleCard[] = [
+const mockCards: LifecycleCard[] = [
   // Idea stage cards
   {
     id: uuidv4(),
-    title: 'Smart Water Bottle with Temperature Control',
+    internalCode: generateInternalCode('lifestyle', 0),
+    workingTitle: 'Smart Water Bottle with Temperature Control',
     thumbnail: 'https://images.unsplash.com/photo-1523362628745-0c100150b504?w=400',
     tags: ['smart-tech', 'lifestyle', 'health'],
+    category: ['Lifestyle', 'Smart Tech'],
     owner: mockUsers[0],
+    teamLead: mockUsers[0],
     priority: 'high',
     stage: 'idea',
     createdAt: new Date('2024-01-15'),
@@ -197,19 +275,37 @@ let mockCards: LifecycleCard[] = [
       competitorLinks: ['https://example.com/competitor1', 'https://example.com/competitor2'],
       adLinks: ['https://facebook.com/ads/library/123', 'https://tiktok.com/ads/456'],
       media: ['https://images.unsplash.com/photo-1523362628745-0c100150b504'],
-      demand: 4,
-      margin: 3,
-      difficulty: 4
+      problemStatement: 'People struggle to maintain proper hydration and prefer beverages at specific temperatures throughout the day',
+      opportunityStatement: 'Smart hydration market growing 15% annually with premium segment showing highest margins',
+      marketResearchNotes: 'TAM: $2.1B, competitor analysis shows gap in premium temperature-controlled segment',
+      referenceImages: ['https://images.unsplash.com/photo-1523362628745-0c100150b504'],
+      referenceVideos: ['https://youtube.com/watch?v=sample'],
+      targetPersona: {
+        demographics: 'Health-conscious professionals, 25-45, $50K+ income',
+        keyInterests: ['fitness', 'wellness', 'technology', 'sustainability'],
+        painPoints: ['forgetting to drink water', 'beverage temperature inconsistency', 'lack of hydration tracking']
+      },
+      estimatedSourcePriceMin: 1200,
+      estimatedSourcePriceMax: 1800,
+      marginRange: { min: 55, max: 65 },
+      feasibilityScore: {
+        demand: 4,
+        difficulty: 4,
+        profitPotential: 4
+      }
     },
     activities: [],
     tasks: []
   },
   {
     id: uuidv4(),
-    title: 'Eco-Friendly Phone Case Line',
+    internalCode: generateInternalCode('accessories', 1),
+    workingTitle: 'Eco-Friendly Phone Case Line',
     thumbnail: 'https://images.unsplash.com/photo-1556656793-08538906a9f8?w=400',
     tags: ['eco-friendly', 'phone-accessories', 'sustainability'],
+    category: ['Accessories', 'Eco-Friendly'],
     owner: mockUsers[1],
+    teamLead: mockUsers[1],
     priority: 'medium',
     stage: 'idea',
     createdAt: new Date('2024-01-20'),
@@ -221,9 +317,24 @@ let mockCards: LifecycleCard[] = [
       competitorLinks: ['https://example.com/eco-competitor'],
       adLinks: [],
       media: [],
-      demand: 3,
-      margin: 4,
-      difficulty: 2
+      problemStatement: 'Plastic phone cases contribute to environmental waste, consumers want sustainable alternatives',
+      opportunityStatement: 'Eco-friendly accessories market growing 25% YoY, high consumer willingness to pay premium for sustainable products',
+      marketResearchNotes: 'Market research shows 73% of millennials willing to pay more for sustainable products',
+      referenceImages: ['https://images.unsplash.com/photo-1556656793-08538906a9f8?w=400'],
+      referenceVideos: [],
+      targetPersona: {
+        demographics: 'Environmentally conscious consumers, 18-35, diverse income levels',
+        keyInterests: ['sustainability', 'environmental protection', 'minimalism', 'social responsibility'],
+        painPoints: ['guilt about environmental impact', 'lack of durable eco alternatives', 'limited design options in sustainable products']
+      },
+      estimatedSourcePriceMin: 400,
+      estimatedSourcePriceMax: 600,
+      marginRange: { min: 60, max: 70 },
+      feasibilityScore: {
+        demand: 3,
+        difficulty: 2,
+        profitPotential: 4
+      }
     },
     activities: [],
     tasks: []
@@ -231,10 +342,13 @@ let mockCards: LifecycleCard[] = [
   // Production stage cards
   {
     id: uuidv4(),
-    title: 'Wireless Charging Desk Organizer',
+    internalCode: generateInternalCode('office', 2),
+    workingTitle: 'Wireless Charging Desk Organizer',
     thumbnail: 'https://images.unsplash.com/photo-1586953208448-b95a79798f07?w=400',
     tags: ['office', 'wireless-charging', 'organization'],
+    category: ['Office', 'Electronics'],
     owner: mockUsers[2],
+    teamLead: mockUsers[2],
     priority: 'high',
     stage: 'production',
     createdAt: new Date('2023-12-10'),
@@ -247,20 +361,57 @@ let mockCards: LifecycleCard[] = [
           id: uuidv4(),
           name: 'TechCorp Manufacturing',
           contact: 'supplier@techcorp.com',
+          location: 'Shenzhen, China',
+          leadTime: '15-20 days',
           quoteLink: 'https://example.com/quote1',
           moq: 500,
-          targetLandedCost: 25.50
+          targetLandedCost: 25.50,
+          costSheet: {
+            landedCost: 25.50,
+            shippingEstimate: 3.50,
+            breakdown: [
+              { item: 'Manufacturing', cost: 18.00 },
+              { item: 'Materials', cost: 4.00 },
+              { item: 'Shipping', cost: 3.50 }
+            ]
+          }
         }
       ],
-      sampleStatus: 'received',
-      sampleRequestDate: new Date('2023-12-15'),
-      sampleReceivedDate: new Date('2024-01-05'),
+      sampleTracking: {
+        requestDate: new Date('2023-12-15'),
+        receivedDate: new Date('2024-01-05'),
+        approvalStatus: 'approved',
+        notes: 'Sample approved with minor adjustments to charging pad positioning'
+      },
+      materials: ['ABS Plastic', 'Bamboo Wood', 'Wireless Charging Coil', 'LED Indicators'],
+      specifications: {
+        dimensions: '250mm x 150mm x 80mm',
+        weight: '450g',
+        finishOptions: ['Natural Bamboo', 'Dark Walnut', 'White Oak'],
+        technicalDrawings: [
+          { name: 'Technical Specifications.pdf', url: 'https://example.com/specs.pdf' },
+          { name: 'Design Guidelines.pdf', url: 'https://example.com/design.pdf' }
+        ]
+      },
+      compliance: {
+        certificationsNeeded: ['FCC', 'CE', 'Qi Wireless Charging'],
+        certificationsReceived: ['FCC', 'CE']
+      },
+      productionTimeline: {
+        start: new Date('2024-02-01'),
+        end: new Date('2024-03-15'),
+        milestones: [
+          { name: 'Production Start', date: new Date('2024-02-01'), status: 'completed' },
+          { name: 'First Article Inspection', date: new Date('2024-02-10'), status: 'completed' },
+          { name: 'Bulk Production', date: new Date('2024-02-20'), status: 'in-progress' },
+          { name: 'Quality Testing', date: new Date('2024-03-05'), status: 'pending' },
+          { name: 'Delivery', date: new Date('2024-03-15'), status: 'pending' }
+        ]
+      },
       specAttachments: [
         { name: 'Technical Specifications.pdf', url: 'https://example.com/specs.pdf' },
         { name: 'Design Guidelines.pdf', url: 'https://example.com/design.pdf' }
-      ],
-      targetTimelineStart: new Date('2024-02-01'),
-      targetTimelineEnd: new Date('2024-03-15')
+      ]
     },
     activities: [],
     tasks: []
@@ -268,10 +419,13 @@ let mockCards: LifecycleCard[] = [
   // Content stage cards
   {
     id: uuidv4(),
-    title: 'LED Strip Lights Kit',
+    internalCode: generateInternalCode('lighting', 3),
+    workingTitle: 'LED Strip Lights Kit',
     thumbnail: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400',
     tags: ['lighting', 'home-decor', 'smart-home'],
+    category: ['Lighting', 'Home Decor'],
     owner: mockUsers[3],
+    teamLead: mockUsers[3],
     priority: 'medium',
     stage: 'content',
     createdAt: new Date('2023-11-20'),
@@ -307,10 +461,13 @@ let mockCards: LifecycleCard[] = [
   // Scaling stage cards
   {
     id: uuidv4(),
-    title: 'Bluetooth Sleep Headphones',
+    internalCode: generateInternalCode('audio', 4),
+    workingTitle: 'Bluetooth Sleep Headphones',
     thumbnail: 'https://images.unsplash.com/photo-1484704849700-f032a568e944?w=400',
     tags: ['audio', 'sleep', 'wellness', 'bluetooth'],
+    category: ['Audio', 'Wellness'],
     owner: mockUsers[0],
+    teamLead: mockUsers[0],
     priority: 'high',
     stage: 'scaling',
     createdAt: new Date('2023-10-01'),
@@ -353,12 +510,8 @@ let mockCards: LifecycleCard[] = [
 
 // Calculate potential scores for cards with idea data
 mockCards.forEach(card => {
-  if (card.ideaData) {
-    card.potentialScore = calculatePotentialScore(
-      card.ideaData.demand,
-      card.ideaData.margin,
-      card.ideaData.difficulty
-    )
+  if (card.ideaData && card.ideaData.feasibilityScore) {
+    card.potentialScore = calculatePotentialScore(card.ideaData.feasibilityScore)
   }
 })
 
@@ -368,7 +521,7 @@ let savedViews: SavedView[] = [
     name: 'High Priority Items',
     filters: { stages: [], tags: [], owners: [], priority: ['high'] },
     search: '',
-    view: 'kanban',
+    view: 'gallery',
     createdAt: new Date()
   },
   {
@@ -389,7 +542,7 @@ export class MockLifecycleAdapter {
     filters?: FilterOptions
     search?: string
     sort?: { field: SortField; direction: SortDirection }
-    viewPrefs?: any
+    viewPrefs?: Record<string, unknown>
   }): Promise<LifecycleCard[]> {
     // TODO: wire to Supabase later - implement real filtering and sorting
     await delay(Math.random() * 200 + 100)
@@ -445,8 +598,8 @@ export class MockLifecycleAdapter {
     if (options?.sort) {
       const { field, direction } = options.sort
       filtered.sort((a, b) => {
-        let aVal: any = a[field]
-        let bVal: any = b[field]
+        let aVal: unknown = a[field]
+        let bVal: unknown = b[field]
         
         if (field === 'title') {
           aVal = aVal.toLowerCase()
@@ -469,34 +622,59 @@ export class MockLifecycleAdapter {
   async createIdea(payload: {
     title: string
     tags?: string[]
+    category?: string[]
     competitorLinks?: string[]
     adLinks?: string[]
     notes?: string
     thumbnail?: string
+    estimatedSourcePriceMin?: string
+    estimatedSourcePriceMax?: string
+    selectedSupplierId?: string
   }): Promise<LifecycleCard> {
     // TODO: wire to Supabase later - implement real card creation
     await delay(Math.random() * 200 + 50)
     
+    const feasibilityScore: FeasibilityScore = {
+      demand: 3,
+      difficulty: 3,
+      profitPotential: 3
+    }
+    
     const newCard: LifecycleCard = {
       id: uuidv4(),
-      title: payload.title,
+      internalCode: generateInternalCode(payload.category?.[0] || 'product', mockCards.length),
+      workingTitle: payload.title,
       thumbnail: payload.thumbnail,
       tags: payload.tags || [],
+      category: payload.category || ['General'],
       owner: mockUsers[0], // Default to first user
+      teamLead: mockUsers[0],
       priority: 'medium',
       stage: 'idea',
       createdAt: new Date(),
       updatedAt: new Date(),
       idleDays: 0,
-      potentialScore: 50, // Default score
+      potentialScore: calculatePotentialScore(feasibilityScore),
       ideaData: {
         notes: payload.notes || '',
         competitorLinks: payload.competitorLinks || [],
         adLinks: payload.adLinks || [],
         media: [],
-        demand: 3,
-        margin: 3,
-        difficulty: 3
+        problemStatement: '',
+        opportunityStatement: '',
+        marketResearchNotes: '',
+        referenceImages: [],
+        referenceVideos: [],
+        targetPersona: {
+          demographics: '',
+          keyInterests: [],
+          painPoints: []
+        },
+        estimatedSourcePriceMin: payload.estimatedSourcePriceMin ? parseFloat(payload.estimatedSourcePriceMin) : 0,
+        estimatedSourcePriceMax: payload.estimatedSourcePriceMax ? parseFloat(payload.estimatedSourcePriceMax) : 0,
+        selectedSupplierId: payload.selectedSupplierId,
+        marginRange: { min: 50, max: 70 },
+        feasibilityScore
       },
       activities: [{
         id: uuidv4(),
@@ -528,12 +706,8 @@ export class MockLifecycleAdapter {
     }
     
     // Recalculate potential score if idea data changed
-    if (patch.ideaData && updatedCard.ideaData) {
-      updatedCard.potentialScore = calculatePotentialScore(
-        updatedCard.ideaData.demand,
-        updatedCard.ideaData.margin,
-        updatedCard.ideaData.difficulty
-      )
+    if (patch.ideaData && updatedCard.ideaData && updatedCard.ideaData.feasibilityScore) {
+      updatedCard.potentialScore = calculatePotentialScore(updatedCard.ideaData.feasibilityScore)
     }
     
     mockCards[cardIndex] = updatedCard

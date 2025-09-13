@@ -70,7 +70,8 @@ import {
   ShoppingCart,
   Building,
   Lock,
-  ScrollText
+  ScrollText,
+  Grid3X3
 } from "lucide-react";
 import {
   Sidebar,
@@ -152,8 +153,8 @@ const marketingGrowthItems = [
 
 // Product Management Section  
 const productManagementItems = [
-  { title: "Active Products", url: "/products/products-variants", icon: Box },
-  { title: "Lifecycle", url: "/products/lifecycle", icon: Repeat },
+  { title: "Products", url: "/products", icon: Repeat },
+  { title: "Categories", url: "/products/categories", icon: Grid3X3 },
   { title: "Performance Insight", url: "/products/performance-insight", icon: Activity },
   { title: "Suppliers", url: "/products/suppliers", icon: Truck },
   { title: "Inventory", url: "/product/inventory", icon: ClipboardList },

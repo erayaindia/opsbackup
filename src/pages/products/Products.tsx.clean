@@ -1,0 +1,7 @@
+// Clean ending for Products.tsx - to be appended manually
+        />
+      </div>
+    )
+  }
+
+export default Lifecycle
