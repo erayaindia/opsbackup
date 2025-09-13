@@ -1,7 +1,36 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
-// Types for our inventory system
+// Simplified types for our inventory system (completely independent)
+export interface InventoryDetail {
+  id: string;
+  product_name: string;
+  product_description?: string;
+  product_image_url?: string;
+  product_category: string;
+  sku: string;
+  barcode?: string;
+  cost: number;
+  price: number;
+  supplier_name: string;
+  supplier_contact?: string;
+  warehouse_location: string;
+  on_hand_qty: number;
+  allocated_qty: number;
+  available_qty: number;
+  min_stock_level: number;
+  reorder_point: number;
+  reorder_quantity: number;
+  attributes?: Record<string, any>;
+  notes?: string;
+  last_counted_date?: string;
+  last_movement_date?: string;
+  created_at: string;
+  updated_at: string;
+  deleted_at?: string;
+}
+
+// Legacy interface for backward compatibility
 export interface ProductVariantWithDetails {
   id: string;
   sku: string;
@@ -39,8 +68,34 @@ export interface ProductVariantWithDetails {
     email?: string;
     phone?: string;
   };
+  created_at?: string;
+  updated_at?: string;
 }
 
+export interface InventoryLog {
+  id: string;
+  inventory_detail_id: string;
+  movement_type: 'IN' | 'OUT' | 'ADJUST' | 'TRANSFER';
+  quantity: number;
+  unit_cost?: number;
+  from_location?: string;
+  to_location?: string;
+  reference_type?: string;
+  reference_id?: string;
+  reason?: string;
+  performed_by?: string;
+  notes?: string;
+  occurred_at: string;
+  created_at: string;
+  inventory_detail?: {
+    sku: string;
+    product?: {
+      name: string;
+    };
+  };
+}
+
+// Legacy interface for backward compatibility
 export interface StockMovementWithDetails {
   id: string;
   product_variant_id: string;
@@ -69,242 +124,258 @@ export interface StockMovementWithDetails {
   };
 }
 
+// Simplified alerts (computed from inventory data)
 export interface InventoryAlert {
   id: string;
-  product_variant_id: string;
-  warehouse_id: string;
-  alert_type: string;
-  priority: string;
-  current_stock?: number;
-  threshold?: number;
-  message?: string;
+  inventory_detail_id: string;
+  alert_type: 'LOW_STOCK' | 'OUT_OF_STOCK' | 'OVERSTOCK';
+  priority: 'HIGH' | 'MEDIUM' | 'LOW';
+  current_stock: number;
+  threshold: number;
+  message: string;
   auto_reorder_suggested: boolean;
   suggested_qty?: number;
-  status: string;
   created_at: string;
-  product_variant: {
+  inventory_detail: {
+    sku: string;
+    supplier_name: string;
+    warehouse_location: string;
+    product?: {
+      name: string;
+    };
+  };
+  // Legacy compatibility fields
+  product_variant_id?: string;
+  warehouse_id?: string;
+  product_variant?: {
     sku: string;
     product: {
       name: string;
     };
   };
-  warehouse: {
+  warehouse?: {
     name: string;
   };
 }
 
 export const useInventory = () => {
   const [user, setUser] = useState<any>(null);
-  const [products, setProducts] = useState<ProductVariantWithDetails[]>([]);
-  const [stockMovements, setStockMovements] = useState<StockMovementWithDetails[]>([]);
+  const [inventoryDetails, setInventoryDetails] = useState<InventoryDetail[]>([]);
+  const [inventoryLogs, setInventoryLogs] = useState<InventoryLog[]>([]);
   const [alerts, setAlerts] = useState<InventoryAlert[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch inventory details with product information from database
-  const fetchProducts = async () => {
+  // Legacy compatibility - transform to old format
+  const [products, setProducts] = useState<ProductVariantWithDetails[]>([]);
+  const [stockMovements, setStockMovements] = useState<StockMovementWithDetails[]>([]);
+
+  // Fetch simplified inventory details
+  const fetchInventoryDetails = async () => {
     try {
       setLoading(true);
 
-      // Fetch from inventory_details table (now includes all stock data)
-      const { data: inventoryData, error: inventoryError } = await supabase
+      // Try new independent structure first, fallback to old structure
+      let inventoryData, inventoryError;
+
+      // Try new independent structure
+      const { data: newData, error: newError } = await supabase
         .from('inventory_details')
         .select(`
           id,
-          product_id,
+          product_name,
+          product_description,
+          product_image_url,
+          product_category,
           sku,
           barcode,
-          attributes,
           cost,
           price,
-          weight,
-          min_stock_level,
-          reorder_point,
-          reorder_quantity,
-          status_id,
+          supplier_name,
+          supplier_contact,
+          warehouse_location,
           on_hand_qty,
           allocated_qty,
           available_qty,
-          warehouse_id,
+          min_stock_level,
+          reorder_point,
+          reorder_quantity,
+          attributes,
+          notes,
           last_counted_date,
           last_movement_date,
           created_at,
           updated_at,
-          deleted_at,
-          product:products (
-            id,
-            name,
-            description,
-            image_url,
-            internal_code,
-            working_title,
-            category:categories (
-              id,
-              name
-            )
-          ),
-          warehouse:warehouses!warehouse_id (
-            id,
-            name,
-            code
-          ),
-          supplier_prices (
-            supplier:suppliers (
-              id,
-              name,
-              contact_person,
-              email,
-              phone
-            ),
-            unit_cost,
-            moq
-          )
+          deleted_at
         `)
         .is('deleted_at', null)
         .order('created_at', { ascending: false });
 
-      if (inventoryError) {
-        console.error('❌ inventory_details table error, using products table only:', inventoryError.message);
-        console.error('❌ Full error details:', inventoryError);
-
-        // Fallback to products table if inventory_details doesn't exist
-        const { data: products, error: productsError } = await supabase
-          .from('products')
+      if (newError && newError.code === '42703') {
+        // Column doesn't exist yet, try old structure
+        console.log('⚠️ Using old database structure - migration not yet applied');
+        const { data: oldData, error: oldError } = await supabase
+          .from('inventory_details')
           .select(`
             id,
-            name,
-            description,
-            image_url,
-            internal_code,
-            working_title,
+            product_id,
+            sku,
+            barcode,
+            cost,
+            price,
+            warehouse_id,
+            on_hand_qty,
+            allocated_qty,
+            available_qty,
+            min_stock_level,
+            reorder_point,
+            reorder_quantity,
+            attributes,
+            notes,
+            last_counted_date,
+            last_movement_date,
             created_at,
             updated_at,
-            categories (
+            deleted_at,
+            product:products (
               id,
-              name
+              name,
+              description,
+              image_url,
+              category:categories (
+                id,
+                name
+              )
             )
           `)
+          .is('deleted_at', null)
           .order('created_at', { ascending: false });
 
-        if (productsError) throw productsError;
+        inventoryData = oldData;
+        inventoryError = oldError;
+      } else {
+        inventoryData = newData;
+        inventoryError = newError;
+      }
 
-        // Transform products to match inventory format (temporary fallback)
-        const transformedProducts: ProductVariantWithDetails[] = products?.map(item => ({
-          id: item.id,
-          sku: item.internal_code || `SKU-${item.id.slice(0, 8)}`,
-          barcode: undefined,
-          attributes: {},
-          cost: 0, // Will be set when inventory_details is created
-          price: 0, // Will be set when inventory_details is created
-          weight: undefined,
-          min_stock_level: 10,
-          reorder_point: 5,
-          reorder_quantity: 20,
-          status_id: undefined,
-          product: {
-            id: item.id,
-            name: item.name || item.working_title || 'Unnamed Product',
-            description: item.description,
-            image_url: item.image_url || '/api/placeholder/60/60',
-            category: item.categories ? {
-              id: item.categories.id,
-              name: item.categories.name
-            } : {
-              id: 'uncategorized',
-              name: 'Uncategorized'
-            },
-          },
-          current_stock: 0, // No inventory data yet
-          available_stock: 0,
-          allocated_stock: 0,
-          warehouse: {
-            id: 'default-warehouse',
-            name: 'Main Warehouse',
-            code: 'MW001'
-          },
-          supplier: {
-            id: 'no-supplier',
-            name: 'No Supplier Assigned',
-            contact_person: 'N/A',
-            email: 'N/A',
-            phone: 'N/A'
-          },
-          created_at: item.created_at,
-          updated_at: item.updated_at,
-        })) || [];
-
-        setProducts(transformedProducts);
-        return;
+      if (inventoryError) {
+        console.error('❌ inventory_details table error:', inventoryError.message);
+        throw inventoryError;
       }
 
       console.log('✅ Successfully fetched inventory_details data:', inventoryData?.length, 'records');
 
-      // Transform real inventory details data
-      const transformedProducts: ProductVariantWithDetails[] = inventoryData?.map(item => {
-        // Stock data is now directly in inventory_details
-        const totalStock = item.on_hand_qty || 0;
-        const totalAllocated = item.allocated_qty || 0;
-        const totalAvailable = item.available_qty || 0;
+      // Store simplified independent inventory data
+      const inventoryDetails: InventoryDetail[] = inventoryData?.map(item => {
+        // Check if this is new independent structure or old structure
+        const isNewStructure = item.product_name !== undefined;
 
-        // Get primary supplier (first one or the one with lowest cost)
-        const primarySupplierPrice = item.supplier_prices?.sort((a, b) => (a.unit_cost || 0) - (b.unit_cost || 0))[0];
-
-        return {
-          id: item.id,
-          sku: item.sku,
-          barcode: item.barcode,
-          attributes: item.attributes || {},
-          cost: item.cost || primarySupplierPrice?.unit_cost || 0,
-          price: item.price || 0,
-          weight: item.weight,
-          min_stock_level: item.min_stock_level || 0,
-          reorder_point: item.reorder_point || 0,
-          reorder_quantity: item.reorder_quantity || 0,
-          status_id: item.status_id,
-          product: {
-            id: item.product?.id || '',
-            name: item.product?.name || item.product?.working_title || 'Unknown Product',
-            description: item.product?.description,
-            image_url: item.product?.image_url || '/api/placeholder/60/60',
-            category: item.product?.category ? {
-              id: item.product.category.id,
-              name: item.product.category.name
-            } : {
-              id: 'uncategorized',
-              name: 'Uncategorized'
-            },
-          },
-          current_stock: totalStock,
-          available_stock: totalAvailable,
-          allocated_stock: totalAllocated,
-          warehouse: item.warehouse ? {
-            id: item.warehouse.id,
-            name: item.warehouse.name,
-            code: item.warehouse.code || 'N/A'
-          } : {
-            id: 'no-warehouse',
-            name: 'No Warehouse Assigned',
-            code: 'N/A'
-          },
-          supplier: primarySupplierPrice?.supplier ? {
-            id: primarySupplierPrice.supplier.id,
-            name: primarySupplierPrice.supplier.name,
-            contact_person: primarySupplierPrice.supplier.contact_person,
-            email: primarySupplierPrice.supplier.email,
-            phone: primarySupplierPrice.supplier.phone
-          } : {
-            id: 'no-supplier',
-            name: 'No Supplier Assigned',
-            contact_person: 'N/A',
-            email: 'N/A',
-            phone: 'N/A'
-          },
-          created_at: item.created_at,
-          updated_at: item.updated_at,
-        };
+        if (isNewStructure) {
+          // New independent structure
+          return {
+            id: item.id,
+            product_name: item.product_name || 'Unknown Product',
+            product_description: item.product_description,
+            product_image_url: item.product_image_url || '/api/placeholder/60/60',
+            product_category: item.product_category || 'Uncategorized',
+            sku: item.sku,
+            barcode: item.barcode,
+            cost: item.cost || 0,
+            price: item.price || 0,
+            supplier_name: item.supplier_name || 'No Supplier',
+            supplier_contact: item.supplier_contact,
+            warehouse_location: item.warehouse_location || 'Main Warehouse',
+            on_hand_qty: item.on_hand_qty || 0,
+            allocated_qty: item.allocated_qty || 0,
+            available_qty: item.available_qty || 0,
+            min_stock_level: item.min_stock_level || 10,
+            reorder_point: item.reorder_point || 5,
+            reorder_quantity: item.reorder_quantity || 20,
+            attributes: item.attributes || {},
+            notes: item.notes,
+            last_counted_date: item.last_counted_date,
+            last_movement_date: item.last_movement_date,
+            created_at: item.created_at,
+            updated_at: item.updated_at,
+            deleted_at: item.deleted_at,
+          };
+        } else {
+          // Old structure - transform from products table
+          return {
+            id: item.id,
+            product_name: item.product?.name || 'Unknown Product',
+            product_description: item.product?.description || '',
+            product_image_url: item.product?.image_url || '/api/placeholder/60/60',
+            product_category: item.product?.category?.name || 'Uncategorized',
+            sku: item.sku,
+            barcode: item.barcode,
+            cost: item.cost || 0,
+            price: item.price || 0,
+            supplier_name: 'Default Supplier', // Old structure doesn't have supplier info
+            supplier_contact: '',
+            warehouse_location: 'Main Warehouse',
+            on_hand_qty: item.on_hand_qty || 0,
+            allocated_qty: item.allocated_qty || 0,
+            available_qty: item.available_qty || 0,
+            min_stock_level: item.min_stock_level || 10,
+            reorder_point: item.reorder_point || 5,
+            reorder_quantity: item.reorder_quantity || 20,
+            attributes: item.attributes || {},
+            notes: item.notes,
+            last_counted_date: item.last_counted_date,
+            last_movement_date: item.last_movement_date,
+            created_at: item.created_at,
+            updated_at: item.updated_at,
+            deleted_at: item.deleted_at,
+          };
+        }
       }) || [];
 
-      console.log('Fetched inventory details for products:', transformedProducts.length);
+      setInventoryDetails(inventoryDetails);
+
+      // Transform to legacy format for backward compatibility
+      const transformedProducts: ProductVariantWithDetails[] = inventoryDetails.map(item => ({
+        id: item.id,
+        sku: item.sku,
+        barcode: item.barcode,
+        attributes: item.attributes || {},
+        cost: item.cost,
+        price: item.price,
+        weight: undefined,
+        min_stock_level: item.min_stock_level,
+        reorder_point: item.reorder_point,
+        reorder_quantity: item.reorder_quantity,
+        status_id: undefined,
+        product: {
+          id: item.id, // Use inventory item ID since we don't have separate product ID
+          name: item.product_name,
+          description: item.product_description || '',
+          image_url: item.product_image_url || '/api/placeholder/60/60',
+          category: {
+            id: 'category-' + item.product_category.toLowerCase().replace(/\s+/g, '-'),
+            name: item.product_category
+          },
+        },
+        current_stock: item.on_hand_qty,
+        available_stock: item.available_qty,
+        allocated_stock: item.allocated_qty,
+        warehouse: {
+          id: 'warehouse-1',
+          name: item.warehouse_location,
+          code: 'W001'
+        },
+        supplier: {
+          id: 'supplier-1',
+          name: item.supplier_name,
+          contact_person: item.supplier_contact,
+          email: undefined,
+          phone: undefined
+        },
+        created_at: item.created_at,
+        updated_at: item.updated_at,
+      }));
+
+      console.log('Transformed inventory details for products:', transformedProducts.length);
       setProducts(transformedProducts);
     } catch (err) {
       console.error('Error fetching inventory:', err);
@@ -314,303 +385,351 @@ export const useInventory = () => {
     }
   };
 
-  // Fetch recent stock movements from database
-  const fetchStockMovements = async (limit = 50) => {
+  // Fetch inventory logs (simplified movement tracking)
+  const fetchInventoryLogs = async (limit = 50) => {
     try {
       const { data, error } = await supabase
-        .from('stock_movements')
+        .from('inventory_logs')
         .select(`
           id,
-          product_variant_id,
-          warehouse_id,
-          movement_type_id,
-          qty,
+          inventory_detail_id,
+          movement_type,
+          quantity,
           unit_cost,
+          from_location,
+          to_location,
           reference_type,
           reference_id,
+          reason,
+          performed_by,
           notes,
           occurred_at,
-          created_at
+          created_at,
+          inventory_detail:inventory_details (
+            sku,
+            product:products (
+              name
+            )
+          )
         `)
         .order('occurred_at', { ascending: false })
         .limit(limit);
 
       if (error) {
-        console.warn('Stock movements table error:', error.message);
+        console.warn('Inventory logs table error:', error.message);
+        setInventoryLogs([]);
         setStockMovements([]);
         return;
       }
 
-      // Transform to match expected format (simplified)
-      const transformedMovements: StockMovementWithDetails[] = data?.map(item => ({
+      const logs: InventoryLog[] = data?.map(item => ({
         id: item.id,
-        product_variant_id: item.product_variant_id,
-        warehouse_id: item.warehouse_id,
-        movement_type: 'UNKNOWN', // Will be resolved later
-        qty: item.qty,
+        inventory_detail_id: item.inventory_detail_id,
+        movement_type: item.movement_type,
+        quantity: item.quantity,
+        unit_cost: item.unit_cost,
+        from_location: item.from_location,
+        to_location: item.to_location,
+        reference_type: item.reference_type,
+        reference_id: item.reference_id,
+        reason: item.reason,
+        performed_by: item.performed_by,
+        notes: item.notes,
+        occurred_at: item.occurred_at,
+        created_at: item.created_at,
+        inventory_detail: item.inventory_detail ? {
+          sku: item.inventory_detail.sku,
+          product: item.inventory_detail.product ? {
+            name: item.inventory_detail.product.name
+          } : undefined
+        } : undefined,
+      })) || [];
+
+      setInventoryLogs(logs);
+
+      // Transform to legacy format for backward compatibility
+      const transformedMovements: StockMovementWithDetails[] = logs.map(item => ({
+        id: item.id,
+        product_variant_id: item.inventory_detail_id,
+        warehouse_id: 'warehouse-1',
+        movement_type: item.movement_type,
+        qty: item.quantity,
         unit_cost: item.unit_cost,
         reference_type: item.reference_type,
         reference_id: item.reference_id,
-        user_id: item.user_id,
+        user_id: item.performed_by,
         notes: item.notes,
         occurred_at: item.occurred_at,
         product_variant: {
-          sku: 'UNKNOWN',
+          sku: item.inventory_detail?.sku || 'UNKNOWN',
           product: {
-            name: 'Product Movement'
+            name: item.inventory_detail?.product?.name || 'Unknown Product'
           }
         },
         warehouse: {
-          name: 'Warehouse',
-          code: 'N/A'
+          name: item.from_location || item.to_location || 'Main Warehouse',
+          code: 'MW001'
         },
         movement_type_detail: {
-          code: 'UNKNOWN',
-          description: 'Movement recorded'
+          code: item.movement_type,
+          description: item.reason || 'Inventory movement'
         }
-      })) || [];
+      }));
 
       setStockMovements(transformedMovements);
     } catch (err) {
-      console.error('Error fetching stock movements:', err);
+      console.error('Error fetching inventory logs:', err);
+      setInventoryLogs([]);
       setStockMovements([]);
     }
   };
 
-  // Fetch active alerts (placeholder until inventory tables exist)
-  const fetchAlerts = async () => {
-    try {
-      // For now, return empty array since inventory_alerts table doesn't exist
-      console.log('Inventory alerts table not available yet, returning empty array');
-      setAlerts([]);
-    } catch (err) {
-      console.error('Error fetching alerts:', err);
-      setAlerts([]);
-    }
+  // Generate alerts from inventory data (computed, not stored)
+  const generateAlerts = () => {
+    const alerts: InventoryAlert[] = [];
+
+    inventoryDetails.forEach(item => {
+      const currentStock = item.on_hand_qty || 0;
+      const threshold = item.min_stock_level || 0;
+      const reorderPoint = item.reorder_point || 0;
+
+      if (currentStock === 0) {
+        alerts.push({
+          id: `out-${item.id}`,
+          inventory_detail_id: item.id,
+          alert_type: 'OUT_OF_STOCK',
+          priority: 'HIGH',
+          current_stock: currentStock,
+          threshold: threshold,
+          message: `${item.product_name || item.sku} is out of stock`,
+          auto_reorder_suggested: true,
+          suggested_qty: item.reorder_quantity,
+          created_at: new Date().toISOString(),
+          inventory_detail: {
+            sku: item.sku,
+            supplier_name: item.supplier_name,
+            warehouse_location: item.warehouse_location,
+            product: {
+              name: item.product_name
+            }
+          },
+          // Legacy compatibility
+          product_variant_id: item.id,
+          warehouse_id: 'warehouse-1',
+          product_variant: {
+            sku: item.sku,
+            product: {
+              name: item.product_name || 'Unknown Product'
+            }
+          },
+          warehouse: {
+            name: item.warehouse_location
+          }
+        });
+      } else if (currentStock <= reorderPoint) {
+        alerts.push({
+          id: `low-${item.id}`,
+          inventory_detail_id: item.id,
+          alert_type: 'LOW_STOCK',
+          priority: 'MEDIUM',
+          current_stock: currentStock,
+          threshold: reorderPoint,
+          message: `${item.product_name || item.sku} is below reorder point (${currentStock} <= ${reorderPoint})`,
+          auto_reorder_suggested: true,
+          suggested_qty: item.reorder_quantity,
+          created_at: new Date().toISOString(),
+          inventory_detail: {
+            sku: item.sku,
+            supplier_name: item.supplier_name,
+            warehouse_location: item.warehouse_location,
+            product: {
+              name: item.product_name
+            }
+          },
+          // Legacy compatibility
+          product_variant_id: item.id,
+          warehouse_id: 'warehouse-1',
+          product_variant: {
+            sku: item.sku,
+            product: {
+              name: item.product_name || 'Unknown Product'
+            }
+          },
+          warehouse: {
+            name: item.warehouse_location
+          }
+        });
+      }
+    });
+
+    setAlerts(alerts);
   };
 
-  // Add new inventory detail for existing product
-  const addProduct = async (productData: {
-    product_id?: string; // Link to existing product
-    name?: string; // For creating new product
-    description?: string;
-    category_id?: string;
-    warehouse_id: string;
-    supplier_id: string;
-    sku: string;
-    barcode?: string;
-    cost: number;
-    price?: number;
-    min_stock_level?: number;
-    reorder_point?: number;
-    reorder_quantity?: number;
-    attributes?: Record<string, any>;
-  }) => {
+  // Generate alerts when inventory data changes
+  useEffect(() => {
+    generateAlerts();
+  }, [inventoryDetails]);
+
+  // Add new inventory item (completely independent)
+  const addInventoryItem = async (inventoryData: Partial<InventoryDetail>) => {
     try {
-      let productId = productData.product_id;
-
-      // If no product_id provided, create a new product
-      if (!productId && productData.name) {
-        const { data: productResult, error: productError } = await supabase
-          .from('products')
-          .insert({
-            name: productData.name,
-            description: productData.description,
-            category_id: productData.category_id,
-          })
-          .select()
-          .single();
-
-        if (productError) throw productError;
-        productId = productResult.id;
-      }
-
-      if (!productId) {
-        throw new Error('Either product_id or name must be provided');
-      }
-
-      // Create the inventory detail (renamed from product variant)
-      const { data: inventoryResult, error: inventoryError } = await supabase
+      const { data: result, error } = await supabase
         .from('inventory_details')
         .insert({
-          product_id: productId,
-          sku: productData.sku,
-          barcode: productData.barcode,
-          cost: productData.cost,
-          price: productData.price,
-          min_stock_level: productData.min_stock_level || 0,
-          reorder_point: productData.reorder_point || 0,
-          reorder_quantity: productData.reorder_quantity || 0,
-          attributes: productData.attributes || {},
+          product_name: inventoryData.product_name || 'Unknown Product',
+          product_description: inventoryData.product_description,
+          product_image_url: inventoryData.product_image_url,
+          product_category: inventoryData.product_category || 'Uncategorized',
+          sku: inventoryData.sku,
+          barcode: inventoryData.barcode,
+          cost: inventoryData.cost || 0,
+          price: inventoryData.price || 0,
+          supplier_name: inventoryData.supplier_name || 'No Supplier',
+          supplier_contact: inventoryData.supplier_contact,
+          warehouse_location: inventoryData.warehouse_location || 'Main Warehouse',
+          on_hand_qty: inventoryData.on_hand_qty || 0,
+          allocated_qty: inventoryData.allocated_qty || 0,
+          min_stock_level: inventoryData.min_stock_level || 10,
+          reorder_point: inventoryData.reorder_point || 5,
+          reorder_quantity: inventoryData.reorder_quantity || 20,
+          attributes: inventoryData.attributes || {},
+          notes: inventoryData.notes,
         })
         .select()
         .single();
 
-      if (inventoryError) throw inventoryError;
+      if (error) throw error;
 
-      // Create supplier relationship with cost information
-      const { error: supplierPriceError } = await supabase
-        .from('supplier_prices')
-        .insert({
-          inventory_detail_id: inventoryResult.id, // Updated reference
-          supplier_id: productData.supplier_id,
-          unit_cost: productData.cost,
-          currency: 'INR',
-          valid_from: new Date().toISOString().split('T')[0], // Today's date
-        });
-
-      if (supplierPriceError) {
-        console.warn('Failed to create supplier price relationship:', supplierPriceError);
-      }
-
-
-      await fetchProducts(); // Refresh the list
-      return inventoryResult;
+      await fetchInventoryDetails(); // Refresh the list
+      return result;
     } catch (err) {
-      console.error('Error adding inventory detail:', err);
+      console.error('Error adding inventory item:', err);
       throw err;
     }
   };
 
-  // Update inventory detail
-  const updateProduct = async (id: string, updates: Partial<ProductVariantWithDetails>) => {
+  // Legacy function for backward compatibility
+  const addProduct = async (productData: any) => {
+    return addInventoryItem({
+      product_name: productData.product_name || productData.name || 'Unknown Product',
+      product_description: productData.product_description || productData.description,
+      product_image_url: productData.product_image_url || productData.image_url,
+      product_category: productData.product_category || productData.category || 'Uncategorized',
+      sku: productData.sku,
+      barcode: productData.barcode,
+      cost: productData.cost,
+      price: productData.price,
+      supplier_name: productData.supplier_name || 'Default Supplier',
+      supplier_contact: productData.supplier_contact,
+      warehouse_location: productData.warehouse_location || 'Main Warehouse',
+      on_hand_qty: productData.on_hand_qty || 0,
+      allocated_qty: productData.allocated_qty || 0,
+      min_stock_level: productData.min_stock_level || 10,
+      reorder_point: productData.reorder_point || 5,
+      reorder_quantity: productData.reorder_quantity || 20,
+      attributes: productData.attributes || {},
+      notes: productData.notes,
+    });
+  };
+
+  // Update inventory item
+  const updateInventoryItem = async (id: string, updates: Partial<InventoryDetail>) => {
     try {
+      const updateData: any = {};
+
+      // Only update fields that are provided
+      if (updates.product_name !== undefined) updateData.product_name = updates.product_name;
+      if (updates.product_description !== undefined) updateData.product_description = updates.product_description;
+      if (updates.product_image_url !== undefined) updateData.product_image_url = updates.product_image_url;
+      if (updates.product_category !== undefined) updateData.product_category = updates.product_category;
+      if (updates.sku !== undefined) updateData.sku = updates.sku;
+      if (updates.barcode !== undefined) updateData.barcode = updates.barcode;
+      if (updates.cost !== undefined) updateData.cost = updates.cost;
+      if (updates.price !== undefined) updateData.price = updates.price;
+      if (updates.supplier_name !== undefined) updateData.supplier_name = updates.supplier_name;
+      if (updates.supplier_contact !== undefined) updateData.supplier_contact = updates.supplier_contact;
+      if (updates.warehouse_location !== undefined) updateData.warehouse_location = updates.warehouse_location;
+      if (updates.on_hand_qty !== undefined) updateData.on_hand_qty = updates.on_hand_qty;
+      if (updates.allocated_qty !== undefined) updateData.allocated_qty = updates.allocated_qty;
+      if (updates.min_stock_level !== undefined) updateData.min_stock_level = updates.min_stock_level;
+      if (updates.reorder_point !== undefined) updateData.reorder_point = updates.reorder_point;
+      if (updates.reorder_quantity !== undefined) updateData.reorder_quantity = updates.reorder_quantity;
+      if (updates.attributes !== undefined) updateData.attributes = updates.attributes;
+      if (updates.notes !== undefined) updateData.notes = updates.notes;
+
       const { error } = await supabase
         .from('inventory_details')
-        .update({
-          sku: updates.sku,
-          barcode: updates.barcode,
-          cost: updates.cost,
-          price: updates.price,
-          min_stock_level: updates.min_stock_level,
-          reorder_point: updates.reorder_point,
-          reorder_quantity: updates.reorder_quantity,
-          attributes: updates.attributes,
-        })
+        .update(updateData)
         .eq('id', id);
 
       if (error) throw error;
 
-      await fetchProducts(); // Refresh the list
+      await fetchInventoryDetails(); // Refresh the list
     } catch (err) {
-      console.error('Error updating inventory detail:', err);
+      console.error('Error updating inventory item:', err);
       throw err;
     }
   };
 
-  // Record stock movement in database
-  // Update inventory quantities in inventory_details table
-  const updateInventoryQuantities = async (inventoryDetailId: string, movementType: string, qty: number) => {
+  // Legacy function for backward compatibility
+  const updateProduct = async (id: string, updates: Partial<ProductVariantWithDetails>) => {
+    return updateInventoryItem(id, {
+      sku: updates.sku,
+      barcode: updates.barcode,
+      cost: updates.cost,
+      price: updates.price,
+      min_stock_level: updates.min_stock_level,
+      reorder_point: updates.reorder_point,
+      reorder_quantity: updates.reorder_quantity,
+      attributes: updates.attributes,
+    });
+  };
+
+  // Delete inventory item (soft delete)
+  const deleteInventoryItem = async (id: string) => {
     try {
-      // Get current quantities
-      const { data: currentData, error: fetchError } = await supabase
+      const { error } = await supabase
         .from('inventory_details')
-        .select('on_hand_qty, allocated_qty, available_qty')
-        .eq('id', inventoryDetailId)
-        .single();
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('id', id);
 
-      if (fetchError) throw fetchError;
+      if (error) throw error;
 
-      const currentOnHand = currentData.on_hand_qty || 0;
-      const currentAllocated = currentData.allocated_qty || 0;
-
-      let newOnHand = currentOnHand;
-      let newAvailable = 0;
-
-      // Calculate new quantities based on movement type
-      switch (movementType) {
-        case 'IN':
-          newOnHand = currentOnHand + qty;
-          break;
-        case 'OUT':
-          newOnHand = Math.max(0, currentOnHand - qty);
-          break;
-        case 'ADJUST':
-          newOnHand = qty; // Set to exact quantity
-          break;
-        case 'TRANSFER':
-          // For transfers, this might need more complex logic depending on direction
-          newOnHand = currentOnHand; // Keep same for now
-          break;
-      }
-
-      // Available = on_hand - allocated
-      newAvailable = Math.max(0, newOnHand - currentAllocated);
-
-      // Update the inventory_details record
-      const { error: updateError } = await supabase
-        .from('inventory_details')
-        .update({
-          on_hand_qty: newOnHand,
-          available_qty: newAvailable,
-          last_movement_date: new Date().toISOString()
-        })
-        .eq('id', inventoryDetailId);
-
-      if (updateError) throw updateError;
-
-      console.log(`✅ Updated inventory quantities for ${inventoryDetailId}:`, {
-        movement: `${movementType} ${qty}`,
-        old_qty: currentOnHand,
-        new_qty: newOnHand,
-        available: newAvailable
-      });
-
-    } catch (error) {
-      console.error('Error updating inventory quantities:', error);
-      throw error;
+      await fetchInventoryDetails(); // Refresh the list
+    } catch (err) {
+      console.error('Error deleting inventory item:', err);
+      throw err;
     }
   };
 
-  const recordStockMovement = async (movement: {
-    product_variant_id: string; // This is actually inventory_detail_id now
-    warehouse_id: string;
+  // Record inventory movement (simplified)
+  const recordInventoryMovement = async (movement: {
+    inventory_detail_id: string;
     movement_type: 'IN' | 'OUT' | 'ADJUST' | 'TRANSFER';
-    qty: number;
+    quantity: number;
     unit_cost?: number;
+    from_location?: string;
+    to_location?: string;
     reference_type?: string;
     reference_id?: string;
+    reason?: string;
     notes?: string;
-    from_location_id?: string;
-    to_location_id?: string;
-    lot_id?: string;
-    reason_code_id?: number;
   }) => {
     try {
-      // Get movement type ID from the database
-      const { data: movementTypeData, error: movementTypeError } = await supabase
-        .from('movement_types')
-        .select('id')
-        .eq('code', movement.movement_type)
-        .single();
-
-      if (movementTypeError) {
-        console.warn('Movement types table error, using fallback:', movementTypeError.message);
-        // Fallback - show demo message
-        alert(`Stock movement recorded: ${movement.movement_type} ${movement.qty} units. (Demo mode - database tables not fully set up)`);
-        return { id: 'demo-movement-' + Date.now() };
-      }
-
-      if (!movementTypeData) {
-        throw new Error(`Movement type '${movement.movement_type}' not found`);
-      }
-
-      // Insert stock movement (using product_variant_id - matches existing table structure)
+      // Insert movement log
       const { data, error } = await supabase
-        .from('stock_movements')
+        .from('inventory_logs')
         .insert({
-          product_variant_id: movement.product_variant_id, // Use existing column name
-          warehouse_id: movement.warehouse_id,
-          lot_id: movement.lot_id,
-          from_location_id: movement.from_location_id,
-          to_location_id: movement.to_location_id,
-          movement_type_id: movementTypeData.id,
-          qty: movement.qty,
+          inventory_detail_id: movement.inventory_detail_id,
+          movement_type: movement.movement_type,
+          quantity: movement.quantity,
           unit_cost: movement.unit_cost,
+          from_location: movement.from_location,
+          to_location: movement.to_location,
           reference_type: movement.reference_type,
           reference_id: movement.reference_id,
-          reason_code_id: movement.reason_code_id,
-          user_id: user?.id,
+          reason: movement.reason,
+          performed_by: user?.id,
           notes: movement.notes,
           occurred_at: new Date().toISOString(),
         })
@@ -619,80 +738,84 @@ export const useInventory = () => {
 
       if (error) throw error;
 
-      console.log('Stock movement recorded successfully:', data);
+      console.log('Inventory movement recorded successfully:', data);
 
-      // Skip manual update - database trigger handles this automatically
-      // await updateInventoryQuantities(movement.product_variant_id, movement.movement_type, movement.qty);
+      // Update inventory quantities based on movement type
+      const { data: currentData, error: fetchError } = await supabase
+        .from('inventory_details')
+        .select('on_hand_qty, allocated_qty')
+        .eq('id', movement.inventory_detail_id)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      const currentOnHand = currentData.on_hand_qty || 0;
+      let newOnHand = currentOnHand;
+
+      switch (movement.movement_type) {
+        case 'IN':
+          newOnHand = currentOnHand + movement.quantity;
+          break;
+        case 'OUT':
+          newOnHand = Math.max(0, currentOnHand - movement.quantity);
+          break;
+        case 'ADJUST':
+          newOnHand = movement.quantity; // Set to exact quantity
+          break;
+        case 'TRANSFER':
+          // For transfers, this might need more complex logic
+          break;
+      }
+
+      // Update inventory quantities (trigger will handle available_qty calculation)
+      const { error: updateError } = await supabase
+        .from('inventory_details')
+        .update({
+          on_hand_qty: newOnHand,
+        })
+        .eq('id', movement.inventory_detail_id);
+
+      if (updateError) throw updateError;
 
       // Refresh data after successful movement
-      await Promise.all([fetchProducts(), fetchStockMovements()]);
+      await Promise.all([fetchInventoryDetails(), fetchInventoryLogs()]);
       return data;
     } catch (err) {
-      console.error('Error recording stock movement:', err);
+      console.error('Error recording inventory movement:', err);
       throw err;
     }
   };
 
-  // Acknowledge alert
+  // Legacy function for backward compatibility
+  const recordStockMovement = async (movement: any) => {
+    return recordInventoryMovement({
+      inventory_detail_id: movement.product_variant_id,
+      movement_type: movement.movement_type,
+      quantity: movement.qty,
+      unit_cost: movement.unit_cost,
+      from_location: movement.from_location_id,
+      to_location: movement.to_location_id,
+      reference_type: movement.reference_type,
+      reference_id: movement.reference_id,
+      reason: movement.reason,
+      notes: movement.notes,
+    });
+  };
+
+  // Simplified alert management (alerts are computed, not stored)
   const acknowledgeAlert = async (alertId: string) => {
-    try {
-      // Get acknowledged status ID
-      const { data: statusData } = await supabase
-        .from('statuses')
-        .select('id')
-        .eq('domain', 'alert')
-        .eq('code', 'acknowledged')
-        .single();
-
-      if (!statusData) throw new Error('Status not found');
-
-      const { error } = await supabase
-        .from('inventory_alerts')
-        .update({
-          status_id: statusData.id,
-          acknowledged_by: user?.id,
-          acknowledged_at: new Date().toISOString(),
-        })
-        .eq('id', alertId);
-
-      if (error) throw error;
-
-      await fetchAlerts(); // Refresh alerts
-    } catch (err) {
-      console.error('Error acknowledging alert:', err);
-      throw err;
-    }
+    // For computed alerts, we don't store acknowledgment state
+    // This could be enhanced to store alert states in a separate table if needed
+    console.log('Alert acknowledged:', alertId);
+    // For now, just trigger a refresh to recalculate alerts
+    generateAlerts();
   };
 
-  // Resolve alert
   const resolveAlert = async (alertId: string) => {
-    try {
-      // Get resolved status ID
-      const { data: statusData } = await supabase
-        .from('statuses')
-        .select('id')
-        .eq('domain', 'alert')
-        .eq('code', 'resolved')
-        .single();
-
-      if (!statusData) throw new Error('Status not found');
-
-      const { error } = await supabase
-        .from('inventory_alerts')
-        .update({
-          status_id: statusData.id,
-          resolved_by: user?.id,
-          resolved_at: new Date().toISOString(),
-        })
-        .eq('id', alertId);
-
-      if (error) throw error;
-
-      await fetchAlerts(); // Refresh alerts
-    } catch (err) {
-      console.error('Error resolving alert:', err);
-      throw err;
-    }
+    // For computed alerts, resolution typically means updating the inventory
+    // This is just a placeholder - actual resolution would update stock levels
+    console.log('Alert resolved:', alertId);
+    generateAlerts();
   };
 
   // Get current user and initial data fetch
@@ -700,32 +823,42 @@ export const useInventory = () => {
     const initUser = async () => {
       const { data: { user: currentUser } } = await supabase.auth.getUser();
       setUser(currentUser);
-      
+
       if (currentUser) {
-        Promise.all([
-          fetchProducts(),
-          fetchStockMovements(),
-          fetchAlerts()
+        await Promise.all([
+          fetchInventoryDetails(),
+          fetchInventoryLogs()
         ]);
+        // Alerts are generated automatically when inventory data loads
       }
     };
-    
+
     initUser();
   }, []);
 
   return {
+    // New simplified data
+    inventoryDetails,
+    inventoryLogs,
+    // Legacy compatibility
     products,
     stockMovements,
     alerts,
     loading,
     error,
     actions: {
+      // New simplified actions
+      addInventoryItem,
+      updateInventoryItem,
+      deleteInventoryItem,
+      recordInventoryMovement,
+      // Legacy compatibility
       addProduct,
       updateProduct,
       recordStockMovement,
       acknowledgeAlert,
       resolveAlert,
-      refreshData: () => Promise.all([fetchProducts(), fetchStockMovements(), fetchAlerts()])
+      refreshData: () => Promise.all([fetchInventoryDetails(), fetchInventoryLogs()])
     }
   };
 };

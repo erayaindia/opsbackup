@@ -1,0 +1,603 @@
+import React, { useState, useEffect } from 'react';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { Package, RefreshCw, Upload, Dice1, RotateCw } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+
+interface InventoryProductData {
+  id?: string;
+  product_name: string;
+  product_description?: string;
+  product_image_url?: string;
+  product_category: string;
+  sku: string;
+  barcode?: string;
+  cost: number;
+  price: number;
+  supplier_name: string;
+  supplier_contact?: string;
+  warehouse_location: string;
+  on_hand_qty: number;
+  allocated_qty: number;
+  min_stock_level: number;
+  reorder_point: number;
+  reorder_quantity: number;
+  attributes?: Record<string, any>;
+  notes?: string;
+}
+
+interface InventoryProductModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  inventoryItem?: InventoryProductData | null;
+  onSubmit: (data: InventoryProductData) => Promise<void>;
+  loading?: boolean;
+}
+
+export function InventoryProductModal({
+  open,
+  onOpenChange,
+  inventoryItem,
+  onSubmit,
+  loading = false
+}: InventoryProductModalProps) {
+  const [formData, setFormData] = useState<InventoryProductData>({
+    product_name: '',
+    product_description: '',
+    product_image_url: '',
+    product_category: 'Uncategorized',
+    sku: '',
+    barcode: '',
+    cost: 0,
+    price: 0,
+    supplier_name: '',
+    supplier_contact: '',
+    warehouse_location: 'Main Warehouse',
+    on_hand_qty: 0,
+    allocated_qty: 0,
+    min_stock_level: 10,
+    reorder_point: 5,
+    reorder_quantity: 20,
+    attributes: {},
+    notes: ''
+  });
+
+  // Available categories
+  const availableCategories = [
+    'Electronics',
+    'Furniture',
+    'Clothing',
+    'Books',
+    'Sports',
+    'Home & Garden',
+    'Toys',
+    'Health & Beauty',
+    'Food & Beverages',
+    'Office Supplies',
+    'Automotive',
+    'Jewelry',
+    'Musical Instruments',
+    'Pet Supplies',
+    'Tools & Hardware',
+    'Uncategorized'
+  ];
+
+  // Reset form when dialog opens/closes
+  useEffect(() => {
+    if (open) {
+      if (inventoryItem) {
+        // Edit mode
+        setFormData(inventoryItem);
+      } else {
+        // Create mode - reset form
+        setFormData({
+          product_name: '',
+          product_description: '',
+          product_image_url: '',
+          product_category: 'Uncategorized',
+          sku: '',
+          barcode: '',
+          cost: 0,
+          price: 0,
+          supplier_name: '',
+          supplier_contact: '',
+          warehouse_location: 'Main Warehouse',
+          on_hand_qty: 0,
+          allocated_qty: 0,
+          min_stock_level: 10,
+          reorder_point: 5,
+          reorder_quantity: 20,
+          attributes: {},
+          notes: ''
+        });
+
+        // Auto-generate SKU for new items
+        setTimeout(() => {
+          generateSKU();
+        }, 100);
+      }
+    }
+  }, [open, inventoryItem]);
+
+  const handleInputChange = (field: keyof InventoryProductData, value: any) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const generateSKU = async () => {
+    try {
+      // Try to get next sequential SKU from database function
+      const { data, error } = await supabase.rpc('generate_inventory_sku');
+
+      if (error || !data) {
+        // Fallback to random/timestamp based SKU
+        const randomPart = Math.floor(Math.random() * 9000) + 1000;
+        const timestamp = Date.now().toString().slice(-4);
+        const fallbackSku = `INV-${randomPart}${timestamp}`;
+
+        setFormData(prev => ({
+          ...prev,
+          sku: fallbackSku
+        }));
+      } else {
+        setFormData(prev => ({
+          ...prev,
+          sku: data
+        }));
+      }
+    } catch (error) {
+      console.error('Error generating SKU:', error);
+      // Ultimate fallback
+      const randomSku = `INV-${Math.floor(Math.random() * 1000000).toString().padStart(7, '0')}`;
+      setFormData(prev => ({
+        ...prev,
+        sku: randomSku
+      }));
+    }
+  };
+
+  const handleImageUpload = async (file: File) => {
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random()}.${fileExt}`;
+      const filePath = `inventory-images/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('product-images')
+        .upload(filePath, file);
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      const { data } = supabase.storage
+        .from('product-images')
+        .getPublicUrl(filePath);
+
+      setFormData(prev => ({
+        ...prev,
+        product_image_url: data.publicUrl
+      }));
+
+      return data.publicUrl;
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      alert('Failed to upload image. Please try again.');
+      throw error;
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // Validation
+    if (!formData.product_name.trim()) {
+      alert('Product name is required');
+      return;
+    }
+
+    if (!formData.sku.trim()) {
+      alert('SKU is required');
+      return;
+    }
+
+    if (!formData.supplier_name.trim()) {
+      alert('Supplier name is required');
+      return;
+    }
+
+    try {
+      await onSubmit(formData);
+      onOpenChange(false);
+    } catch (error) {
+      console.error('Error submitting form:', error);
+    }
+  };
+
+  const isEditing = !!inventoryItem;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Package className="h-5 w-5" />
+            {isEditing ? 'Edit Inventory Item' : 'Add Inventory Item'}
+          </DialogTitle>
+          <DialogDescription>
+            {isEditing
+              ? 'Update the inventory details for this product'
+              : 'Add a new product to your inventory system'
+            }
+          </DialogDescription>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Product Information */}
+          <div className="space-y-4">
+            <Label className="text-base font-semibold">Product Information</Label>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="product_name">Product Name *</Label>
+                <Input
+                  id="product_name"
+                  value={formData.product_name}
+                  onChange={(e) => {
+                    handleInputChange('product_name', e.target.value);
+                  }}
+                  placeholder="Enter product name"
+                  required
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="product_category">Category</Label>
+                <Select
+                  value={formData.product_category}
+                  onValueChange={(value) => handleInputChange('product_category', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableCategories.map(category => (
+                      <SelectItem key={category} value={category}>
+                        {category}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="product_description">Description</Label>
+              <Textarea
+                id="product_description"
+                value={formData.product_description}
+                onChange={(e) => handleInputChange('product_description', e.target.value)}
+                placeholder="Enter product description"
+                rows={2}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="product_image_url">Product Image</Label>
+              <div className="space-y-3">
+                {/* Image Upload */}
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="imageUpload"
+                    type="file"
+                    accept="image/*"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        try {
+                          await handleImageUpload(file);
+                        } catch (error) {
+                          // Error handling is done in handleImageUpload
+                        }
+                      }
+                    }}
+                    className="file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => document.getElementById('imageUpload')?.click()}
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    Upload
+                  </Button>
+                </div>
+
+                {/* OR Image URL */}
+                <div>
+                  <Label htmlFor="product_image_url" className="text-sm text-muted-foreground">
+                    Or enter image URL
+                  </Label>
+                  <Input
+                    id="product_image_url"
+                    value={formData.product_image_url}
+                    onChange={(e) => handleInputChange('product_image_url', e.target.value)}
+                    placeholder="https://example.com/image.jpg"
+                    type="url"
+                  />
+                </div>
+
+                {/* Image Preview */}
+                {formData.product_image_url && (
+                  <div className="mt-2">
+                    <img
+                      src={formData.product_image_url}
+                      alt="Product preview"
+                      className="h-24 w-24 rounded-lg object-cover border"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Inventory Details */}
+          <div className="space-y-4">
+            <Label className="text-base font-semibold">Inventory Details</Label>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="sku">SKU *</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="sku"
+                    value={formData.sku}
+                    onChange={(e) => handleInputChange('sku', e.target.value)}
+                    placeholder="e.g., INV-0001000"
+                    required
+                  />
+                  {!isEditing && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={generateSKU}
+                      className="whitespace-nowrap"
+                    >
+                      <RotateCw className="h-4 w-4 mr-1" />
+                      Generate
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="barcode">Barcode</Label>
+                <Input
+                  id="barcode"
+                  value={formData.barcode}
+                  onChange={(e) => handleInputChange('barcode', e.target.value)}
+                  placeholder="Product barcode"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="cost">Cost Price (₹) *</Label>
+                <Input
+                  id="cost"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={formData.cost}
+                  onChange={(e) => handleInputChange('cost', parseFloat(e.target.value) || 0)}
+                  required
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="price">Selling Price (₹) *</Label>
+                <Input
+                  id="price"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={formData.price}
+                  onChange={(e) => handleInputChange('price', parseFloat(e.target.value) || 0)}
+                  required
+                />
+              </div>
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Supplier Information */}
+          <div className="space-y-4">
+            <Label className="text-base font-semibold">Supplier Information</Label>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="supplier_name">Supplier Name *</Label>
+                <Input
+                  id="supplier_name"
+                  value={formData.supplier_name}
+                  onChange={(e) => handleInputChange('supplier_name', e.target.value)}
+                  placeholder="Supplier company name"
+                  required
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="supplier_contact">Supplier Contact</Label>
+                <Input
+                  id="supplier_contact"
+                  value={formData.supplier_contact}
+                  onChange={(e) => handleInputChange('supplier_contact', e.target.value)}
+                  placeholder="Phone, email, or person name"
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="warehouse_location">Warehouse Location</Label>
+              <Select
+                value={formData.warehouse_location}
+                onValueChange={(value) => handleInputChange('warehouse_location', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Main Warehouse">Main Warehouse</SelectItem>
+                  <SelectItem value="Secondary Warehouse">Secondary Warehouse</SelectItem>
+                  <SelectItem value="Retail Store">Retail Store</SelectItem>
+                  <SelectItem value="Online Fulfillment">Online Fulfillment</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Stock Information */}
+          <div className="space-y-4">
+            <Label className="text-base font-semibold">Stock Information</Label>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <Label htmlFor="on_hand_qty">On Hand Quantity</Label>
+                <Input
+                  id="on_hand_qty"
+                  type="number"
+                  min="0"
+                  value={formData.on_hand_qty}
+                  onChange={(e) => handleInputChange('on_hand_qty', parseInt(e.target.value) || 0)}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="allocated_qty">Allocated Quantity</Label>
+                <Input
+                  id="allocated_qty"
+                  type="number"
+                  min="0"
+                  value={formData.allocated_qty}
+                  onChange={(e) => handleInputChange('allocated_qty', parseInt(e.target.value) || 0)}
+                />
+              </div>
+
+              <div>
+                <Label>Available Quantity</Label>
+                <Input
+                  value={Math.max(0, formData.on_hand_qty - formData.allocated_qty)}
+                  disabled
+                  className="bg-muted"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <Label htmlFor="min_stock_level">Min Stock Level</Label>
+                <Input
+                  id="min_stock_level"
+                  type="number"
+                  min="0"
+                  value={formData.min_stock_level}
+                  onChange={(e) => handleInputChange('min_stock_level', parseInt(e.target.value) || 0)}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="reorder_point">Reorder Point</Label>
+                <Input
+                  id="reorder_point"
+                  type="number"
+                  min="0"
+                  value={formData.reorder_point}
+                  onChange={(e) => handleInputChange('reorder_point', parseInt(e.target.value) || 0)}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="reorder_quantity">Reorder Quantity</Label>
+                <Input
+                  id="reorder_quantity"
+                  type="number"
+                  min="0"
+                  value={formData.reorder_quantity}
+                  onChange={(e) => handleInputChange('reorder_quantity', parseInt(e.target.value) || 0)}
+                />
+              </div>
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Additional Information */}
+          <div className="space-y-4">
+            <Label className="text-base font-semibold">Additional Information</Label>
+
+            <div>
+              <Label htmlFor="notes">Notes</Label>
+              <Textarea
+                id="notes"
+                value={formData.notes}
+                onChange={(e) => handleInputChange('notes', e.target.value)}
+                placeholder="Additional notes about this inventory item"
+                rows={3}
+              />
+            </div>
+          </div>
+        </form>
+
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={loading}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={loading}
+          >
+            {loading && <RefreshCw className="h-4 w-4 mr-2 animate-spin" />}
+            {isEditing ? 'Update' : 'Add'} Inventory Item
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}

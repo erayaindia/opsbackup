@@ -53,6 +53,7 @@ import {
 } from "@/components/ui/dialog";
 import StockMovementsDialog from "@/components/inventory/StockMovementsDialog";
 import StockMovementForm from "@/components/inventory/StockMovementForm";
+import { InventoryProductModal } from "@/components/inventory/InventoryProductModal";
 
 import {
   Package,
@@ -130,8 +131,10 @@ export default function Inventory() {
   // Dialog states
   const [movementsDialogOpen, setMovementsDialogOpen] = useState(false);
   const [movementFormOpen, setMovementFormOpen] = useState(false);
+  const [productModalOpen, setProductModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [recordingMovement, setRecordingMovement] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<any>(null);
 
   // Transform database products to inventory format
   const inventoryData: InventoryItem[] = useMemo(() => {
@@ -250,6 +253,34 @@ export default function Inventory() {
       throw error;
     } finally {
       setRecordingMovement(false);
+    }
+  };
+
+  // Handle add new product
+  const handleAddProduct = () => {
+    setEditingProduct(null);
+    setProductModalOpen(true);
+  };
+
+  // Handle edit product
+  const handleEditProduct = (product: any) => {
+    setEditingProduct(product);
+    setProductModalOpen(true);
+  };
+
+  // Handle product form submit
+  const handleProductSubmit = async (productData: any) => {
+    try {
+      if (editingProduct) {
+        // Update existing product
+        await actions.updateProduct(editingProduct.id, productData);
+      } else {
+        // Add new product
+        await actions.addProduct(productData);
+      }
+    } catch (error) {
+      console.error('Error saving product:', error);
+      throw error;
     }
   };
 
@@ -427,6 +458,13 @@ export default function Inventory() {
             <CardTitle>Products ({filteredData.length})</CardTitle>
             <div className="flex gap-2">
               <Button
+                onClick={handleAddProduct}
+                className="mr-4"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Product
+              </Button>
+              <Button
                 variant={viewMode === 'table' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setViewMode('table')}
@@ -478,11 +516,22 @@ export default function Inventory() {
                     <TableRow key={item.id}>
                       <TableCell>
                         <div className="flex items-center gap-3">
-                          <img
-                            src={item.image_url}
-                            alt={item.product_name}
-                            className="h-10 w-10 rounded object-cover"
-                          />
+                          <div className="relative h-12 w-12 rounded-lg overflow-hidden border bg-muted">
+                            {item.image_url && item.image_url !== '/api/placeholder/60/60' ? (
+                              <img
+                                src={item.image_url}
+                                alt={item.product_name}
+                                className="h-full w-full object-cover"
+                                onError={(e) => {
+                                  e.currentTarget.src = '/api/placeholder/60/60';
+                                }}
+                              />
+                            ) : (
+                              <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100">
+                                <Package className="h-6 w-6 text-blue-400" />
+                              </div>
+                            )}
+                          </div>
                           <div>
                             <div className="font-medium">{item.product_name}</div>
                             {item.description && (
@@ -530,6 +579,15 @@ export default function Inventory() {
                           <Button
                             variant="outline"
                             size="sm"
+                            onClick={() => handleEditProduct(item)}
+                            className="text-xs"
+                          >
+                            <Edit className="h-3 w-3 mr-1" />
+                            Edit
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
                             onClick={() => handleViewMovements(item)}
                             className="text-xs"
                           >
@@ -555,16 +613,30 @@ export default function Inventory() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {filteredData.map((item) => (
-                <Card key={item.id}>
+                <Card key={item.id} className="hover:shadow-lg transition-shadow">
                   <CardContent className="p-4">
-                    <div className="aspect-square mb-3 relative overflow-hidden rounded-lg bg-muted">
-                      <img
-                        src={item.image_url}
-                        alt={item.product_name}
-                        className="h-full w-full object-cover"
-                      />
+                    <div className="aspect-square mb-3 relative overflow-hidden rounded-lg bg-gradient-to-br from-gray-50 to-gray-100 border">
+                      {item.image_url && item.image_url !== '/api/placeholder/60/60' ? (
+                        <img
+                          src={item.image_url}
+                          alt={item.product_name}
+                          className="h-full w-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                            e.currentTarget.nextElementSibling.style.display = 'flex';
+                          }}
+                        />
+                      ) : null}
+                      <div
+                        className="absolute inset-0 flex items-center justify-center"
+                        style={{
+                          display: (!item.image_url || item.image_url === '/api/placeholder/60/60') ? 'flex' : 'none'
+                        }}
+                      >
+                        <Package className="h-12 w-12 text-gray-300" />
+                      </div>
                       <Badge
-                        className="absolute top-2 right-2"
+                        className="absolute top-2 right-2 shadow-sm"
                         variant={
                           item.status === 'in_stock'
                             ? 'default'
@@ -605,6 +677,15 @@ export default function Inventory() {
 
                     {/* Action buttons for grid view */}
                     <div className="flex gap-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEditProduct(item)}
+                        className="text-xs flex-1"
+                      >
+                        <Edit className="h-3 w-3 mr-1" />
+                        Edit
+                      </Button>
                       <Button
                         variant="outline"
                         size="sm"
@@ -652,6 +733,15 @@ export default function Inventory() {
           loading={recordingMovement}
         />
       )}
+
+      {/* Add/Edit Product Modal */}
+      <InventoryProductModal
+        open={productModalOpen}
+        onOpenChange={setProductModalOpen}
+        inventoryItem={editingProduct}
+        onSubmit={handleProductSubmit}
+        loading={inventoryLoading}
+      />
     </div>
   );
 }
