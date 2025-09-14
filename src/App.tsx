@@ -7,24 +7,24 @@ import { Layout } from "./components/Layout";
 import { PermissionGuard } from "./components/PermissionGuard";
 import { PermissionsProvider } from "./contexts/PermissionsContext";
 import Dashboard from "./pages/Dashboard";
-import Orders from "./pages/Orders";
+import Orders from "./pages/orders/OrdersList";
 import AbandonedCart from "./pages/orders/AbandonedCart";
-import Inventory from "./pages/Inventory";
-import InventoryHistory from "./pages/InventoryHistory";
-import NewInventory from "./pages/NewInventory";
-import Tasks from "./pages/Tasks";
-import TeamManagement from "./pages/TeamManagement";
-import Packing from "./pages/Packing";
+import Inventory from "./pages/inventory/InventoryList";
+import InventoryHistory from "./pages/inventory/InventoryHistory";
+import NewInventory from "./pages/inventory/NewInventory";
+import Tasks from "./pages/team-hub/Tasks";
+import TeamManagement from "./pages/team-hub/TeamManagement";
+import Packing from "./pages/orders/PackingStation";
 import Support from "./pages/Support";
-import Chat from "./pages/Chat";
-import Settings from "./pages/Settings";
+import Chat from "./pages/team-hub/Chat";
+import Settings from "./pages/system/Settings";
 import { Users } from "./pages/users/Users";
 import Analytics from "./pages/Analytics";
-import Security from "./pages/Security";
-import TeamChat from "./pages/TeamChat";
+import Security from "./pages/system/Security";
+import TeamChat from "./pages/team-hub/TeamChat";
 import NotFound from "./pages/NotFound";
 import Auth from "./pages/Auth";
-import Onboard from "./pages/Onboard";
+import Onboard from "./pages/onboarding/Onboard";
 
 // Fulfillment pages
 import FulfillmentPacking from "./pages/fulfillment/FulfillmentPacking";
@@ -67,8 +67,8 @@ import PerformanceInsight from "./pages/products/PerformanceInsight";
 import Suppliers from "./pages/products/Suppliers";
 import InventoryManagement from "./pages/products/InventoryManagement";
 import SampleTesting from "./pages/products/SampleTesting";
-import Warehouse from "./pages/Warehouse";
-import SuppliersPage from "./pages/Suppliers";
+import Warehouse from "./pages/inventory/Warehouse";
+import SuppliersPage from "./pages/inventory/Suppliers";
 
 // Finance pages
 import BankAccounts from "./pages/finance/BankAccounts";
@@ -90,7 +90,7 @@ import AnalyticsInsights from "./pages/management/AnalyticsInsights";
 import OnboardingApplications from "./pages/admin/OnboardingApplications";
 
 // Profile page
-import Profile from "./pages/Profile";
+import Profile from "./pages/system/Profile";
 
 // Alerts pages
 import InventoryAlerts from "./pages/alerts/InventoryAlerts";
@@ -98,7 +98,7 @@ import DisputeAlerts from "./pages/alerts/DisputeAlerts";
 import SystemNotifications from "./pages/alerts/SystemNotifications";
 
 // Logs page
-import Logs from "./pages/Logs";
+import Logs from "./pages/system/Logs";
 
 const App = () => (
   <TooltipProvider>
