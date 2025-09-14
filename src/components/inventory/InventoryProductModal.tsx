@@ -24,6 +24,7 @@ import { Package, RefreshCw, Upload, Dice1, RotateCw, Camera, Trash2, Edit3 } fr
 import { supabase } from '@/integrations/supabase/client';
 import { useSuppliers } from '@/hooks/useSuppliers';
 import { useWarehouses } from '@/hooks/useWarehouses';
+import { useCategories } from '@/hooks/useCategories';
 
 interface InventoryProductData {
   id?: string;
@@ -63,6 +64,7 @@ export function InventoryProductModal({
 }: InventoryProductModalProps) {
   const { suppliers } = useSuppliers();
   const { warehouses } = useWarehouses();
+  const { allCategories, loading: categoriesLoading } = useCategories();
 
   const [formData, setFormData] = useState<InventoryProductData>({
     product_name: '',
@@ -84,25 +86,10 @@ export function InventoryProductModal({
     notes: ''
   });
 
-  // Available categories
-  const availableCategories = [
-    'Electronics',
-    'Furniture',
-    'Clothing',
-    'Books',
-    'Sports',
-    'Home & Garden',
-    'Toys',
-    'Health & Beauty',
-    'Food & Beverages',
-    'Office Supplies',
-    'Automotive',
-    'Jewelry',
-    'Musical Instruments',
-    'Pet Supplies',
-    'Tools & Hardware',
-    'Uncategorized'
-  ];
+  // Get categories from database, with fallback to default if none exist
+  const availableCategories = allCategories.length > 0
+    ? allCategories.map(cat => cat.name)
+    : ['Uncategorized'];
 
   // Reset form when dialog opens/closes
   useEffect(() => {
@@ -378,9 +365,10 @@ export function InventoryProductModal({
                 <Select
                   value={formData.product_category}
                   onValueChange={(value) => handleInputChange('product_category', value)}
+                  disabled={categoriesLoading}
                 >
                   <SelectTrigger className="rounded-none">
-                    <SelectValue placeholder="Select category" />
+                    <SelectValue placeholder={categoriesLoading ? "Loading categories..." : "Select category"} />
                   </SelectTrigger>
                   <SelectContent>
                     {availableCategories.map(category => (
@@ -388,6 +376,11 @@ export function InventoryProductModal({
                         {category}
                       </SelectItem>
                     ))}
+                    {allCategories.length === 0 && !categoriesLoading && (
+                      <SelectItem value="Uncategorized" disabled className="text-muted-foreground">
+                        No categories found - Add categories first
+                      </SelectItem>
+                    )}
                   </SelectContent>
                 </Select>
               </div>

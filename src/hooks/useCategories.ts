@@ -23,10 +23,10 @@ export const useCategories = () => {
       setLoading(true);
       
       const { data, error } = await supabase
-        .from('categories')
+        .from('product_categories')
         .select(`
           *,
-          parent_category:categories!parent_category_id (
+          parent_category:product_categories!parent_category_id (
             name
           )
         `)
@@ -94,7 +94,7 @@ export const useCategories = () => {
   }) => {
     try {
       const { data, error } = await supabase
-        .from('categories')
+        .from('product_categories')
         .insert(categoryData)
         .select()
         .single();
@@ -115,7 +115,7 @@ export const useCategories = () => {
   }) => {
     try {
       const { error } = await supabase
-        .from('categories')
+        .from('product_categories')
         .update(updates)
         .eq('id', id);
 
@@ -143,7 +143,7 @@ export const useCategories = () => {
 
       // Check if category has subcategories
       const { data: subcategories } = await supabase
-        .from('categories')
+        .from('product_categories')
         .select('id')
         .eq('parent_category_id', id)
         .limit(1);
@@ -153,7 +153,7 @@ export const useCategories = () => {
       }
 
       const { error } = await supabase
-        .from('categories')
+        .from('product_categories')
         .delete()
         .eq('id', id);
 
