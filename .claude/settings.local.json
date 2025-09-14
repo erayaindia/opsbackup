@@ -37,7 +37,8 @@
       "Bash(ls:*)",
       "Bash(timeout 3s npm run dev)",
       "Bash(curl:*)",
-      "Bash(VITE_PORT=8080 npm run dev)"
+      "Bash(VITE_PORT=8080 npm run dev)",
+      "Bash(npm run lint:*)"
     ],
     "deny": [],
     "ask": []

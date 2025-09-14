@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { uploadInvoiceFile, FileUploadResult } from '@/lib/fileUpload';
+import { uploadInvoiceFile, uploadProductImage, FileUploadResult } from '@/lib/fileUpload';
 
 // Simplified types for our inventory system (completely independent)
 export interface InventoryDetail {
@@ -89,6 +89,9 @@ export interface InventoryLog {
   invoice_file_url?: string;
   invoice_file_name?: string;
   invoice_file_size?: number;
+  product_image_url?: string;
+  product_image_name?: string;
+  product_image_size?: number;
   occurred_at: string;
   created_at: string;
   inventory_detail?: {
@@ -115,6 +118,9 @@ export interface StockMovementWithDetails {
   invoice_file_url?: string;
   invoice_file_name?: string;
   invoice_file_size?: number;
+  product_image_url?: string;
+  product_image_name?: string;
+  product_image_size?: number;
   product_variant: {
     sku: string;
     product: {
@@ -413,6 +419,9 @@ export const useInventory = () => {
           invoice_file_url,
           invoice_file_name,
           invoice_file_size,
+          product_image_url,
+          product_image_name,
+          product_image_size,
           notes,
           occurred_at,
           created_at
@@ -764,14 +773,23 @@ export const useInventory = () => {
     reason?: string;
     notes?: string;
     invoice_file?: File;
+    product_image?: File;
   }) => {
     console.log('🚀 recordInventoryMovement called');
     console.log('🚀 Movement type:', movement.movement_type);
     console.log('🚀 Invoice file received:', movement.invoice_file);
+    console.log('🚀 Product image received:', movement.product_image);
     console.log('🚀 File details:', {
-      name: movement.invoice_file?.name,
-      size: movement.invoice_file?.size,
-      type: movement.invoice_file?.type
+      invoiceFile: movement.invoice_file ? {
+        name: movement.invoice_file.name,
+        size: movement.invoice_file.size,
+        type: movement.invoice_file.type
+      } : null,
+      productImage: movement.product_image ? {
+        name: movement.product_image.name,
+        size: movement.product_image.size,
+        type: movement.product_image.type
+      } : null
     });
 
     try {
@@ -797,23 +815,50 @@ export const useInventory = () => {
 
       if (error) throw error;
 
-      // Handle file upload if provided (for Stock In movements)
-      if (movement.invoice_file && movement.movement_type === 'IN') {
-        console.log('🚀 Starting file upload process...');
-        try {
-          console.log('🚀 Calling uploadInvoiceFile...');
-          const uploadResult = await uploadInvoiceFile(movement.invoice_file, data.id);
-          console.log('✅ File upload successful:', uploadResult);
+      // Handle file uploads for Stock In movements
+      if (movement.movement_type === 'IN') {
+        const updateData: any = {};
 
-          // Update the movement log with file information
-          console.log('🚀 Updating database with file info...');
+        // Handle invoice file upload
+        if (movement.invoice_file) {
+          console.log('🚀 Starting invoice file upload...');
+          try {
+            console.log('🚀 Calling uploadInvoiceFile...');
+            const invoiceUploadResult = await uploadInvoiceFile(movement.invoice_file, data.id);
+            console.log('✅ Invoice upload successful:', invoiceUploadResult);
+
+            updateData.invoice_file_url = invoiceUploadResult.url;
+            updateData.invoice_file_name = invoiceUploadResult.name;
+            updateData.invoice_file_size = invoiceUploadResult.size;
+          } catch (fileError) {
+            console.error('❌ Error uploading invoice file:', fileError);
+            // Don't fail the entire movement, just log the error
+          }
+        }
+
+        // Handle product image upload
+        if (movement.product_image) {
+          console.log('🚀 Starting product image upload...');
+          try {
+            console.log('🚀 Calling uploadProductImage...');
+            const imageUploadResult = await uploadProductImage(movement.product_image, data.id);
+            console.log('✅ Product image upload successful:', imageUploadResult);
+
+            updateData.product_image_url = imageUploadResult.url;
+            updateData.product_image_name = imageUploadResult.name;
+            updateData.product_image_size = imageUploadResult.size;
+          } catch (fileError) {
+            console.error('❌ Error uploading product image:', fileError);
+            // Don't fail the entire movement, just log the error
+          }
+        }
+
+        // Update database with file information if any files were uploaded
+        if (Object.keys(updateData).length > 0) {
+          console.log('🚀 Updating database with file info:', updateData);
           const { error: updateError } = await supabase
             .from('inventory_logs')
-            .update({
-              invoice_file_url: uploadResult.url,
-              invoice_file_name: uploadResult.name,
-              invoice_file_size: uploadResult.size
-            })
+            .update(updateData)
             .eq('id', data.id);
 
           if (updateError) {
@@ -822,15 +867,9 @@ export const useInventory = () => {
           } else {
             console.log('✅ Database updated with file info successfully');
           }
-        } catch (fileError) {
-          console.error('❌ Error uploading invoice file:', fileError);
-          // Don't fail the entire movement, just log the error
+        } else {
+          console.log('⚠️ No files to upload for Stock In movement');
         }
-      } else {
-        console.log('⚠️ No file upload needed:', {
-          hasFile: !!movement.invoice_file,
-          isStockIn: movement.movement_type === 'IN'
-        });
       }
 
       if (error) throw error;
@@ -897,6 +936,7 @@ export const useInventory = () => {
       reason: movement.reason,
       notes: movement.notes,
       invoice_file: movement.invoice_file,
+      product_image: movement.product_image,
     });
   };
 

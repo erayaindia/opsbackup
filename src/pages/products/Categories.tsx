@@ -5,8 +5,11 @@ import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { Plus, Edit2, Trash2, Package } from 'lucide-react'
+import { Plus, Edit2, Package, ChevronUp, ChevronDown } from 'lucide-react'
 import { useCategories, Category } from '@/hooks/useCategories'
+
+type SortField = 'name' | 'created_at' | 'status'
+type SortDirection = 'asc' | 'desc'
 
 export default function Categories() {
   const { categories, allCategories, loading, error, actions } = useCategories()
@@ -15,6 +18,8 @@ export default function Categories() {
   const [editingCategory, setEditingCategory] = useState<Category | null>(null)
   const [editCategoryName, setEditCategoryName] = useState('')
   const [isEditing, setIsEditing] = useState(false)
+  const [sortField, setSortField] = useState<SortField>('name')
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
 
 
   const handleAddCategory = async () => {
@@ -52,18 +57,44 @@ export default function Categories() {
     }
   }
 
-  const handleDeleteCategory = async (id: string, categoryName: string) => {
-    if (window.confirm(`Are you sure you want to delete "${categoryName}"? This action cannot be undone.`)) {
-      try {
-        await actions.deleteCategory(id)
-      } catch (err) {
-        console.error('Error deleting category:', err)
-        alert(err instanceof Error ? err.message : 'Failed to delete category')
-      }
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortField(field)
+      setSortDirection('asc')
     }
   }
 
-  const displayCategories = allCategories
+  const getSortIcon = (field: SortField) => {
+    if (sortField !== field) {
+      return <ChevronUp className="h-4 w-4 text-muted-foreground" />
+    }
+    return sortDirection === 'asc'
+      ? <ChevronUp className="h-4 w-4" />
+      : <ChevronDown className="h-4 w-4" />
+  }
+
+  const sortedCategories = [...allCategories].sort((a, b) => {
+    let aVal: string | number = a[sortField as keyof Category] || ''
+    let bVal: string | number = b[sortField as keyof Category] || ''
+
+    if (sortField === 'created_at') {
+      aVal = new Date(aVal as string).getTime()
+      bVal = new Date(bVal as string).getTime()
+    } else {
+      aVal = aVal.toString().toLowerCase()
+      bVal = bVal.toString().toLowerCase()
+    }
+
+    if (sortDirection === 'asc') {
+      return aVal < bVal ? -1 : aVal > bVal ? 1 : 0
+    } else {
+      return aVal > bVal ? -1 : aVal < bVal ? 1 : 0
+    }
+  })
+
+  const displayCategories = sortedCategories
 
   if (loading) {
     return (
@@ -167,58 +198,100 @@ export default function Categories() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="rounded-md border">
+            <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Category Name</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Created</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead
+                      className="cursor-pointer hover:bg-muted/50 border-r border-border/50 text-left"
+                      onClick={() => handleSort('name')}
+                    >
+                      <div className="flex items-center justify-start gap-1">
+                        <span>Category Name</span>
+                        {getSortIcon('name')}
+                      </div>
+                    </TableHead>
+                    <TableHead className="border-r border-border/50 text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <span>Type</span>
+                      </div>
+                    </TableHead>
+                    <TableHead
+                      className="cursor-pointer hover:bg-muted/50 border-r border-border/50 text-center"
+                      onClick={() => handleSort('created_at')}
+                    >
+                      <div className="flex items-center justify-center gap-1">
+                        <span>Created</span>
+                        {getSortIcon('created_at')}
+                      </div>
+                    </TableHead>
+                    <TableHead
+                      className="cursor-pointer hover:bg-muted/50 border-r border-border/50 text-center"
+                      onClick={() => handleSort('status')}
+                    >
+                      <div className="flex items-center justify-center gap-1">
+                        <span>Status</span>
+                        {getSortIcon('status')}
+                      </div>
+                    </TableHead>
+                    <TableHead className="text-center">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {displayCategories.map((category, index) => (
                     <TableRow key={category.id || index}>
-                      <TableCell className="font-medium">
-                        {category.name}
-                        {category.description && (
-                          <p className="text-sm text-muted-foreground mt-1">
-                            {category.description}
-                          </p>
-                        )}
+                      <TableCell className="border-r border-border/50 text-left">
+                        <div className="flex items-center justify-start gap-3">
+                          <div className="relative h-12 w-12 overflow-hidden border bg-muted rounded-sm">
+                            <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-purple-50 to-purple-100">
+                              <Package className="h-6 w-6 text-purple-400" />
+                            </div>
+                          </div>
+                          <div>
+                            <div className="font-medium">{category.name}</div>
+                            {category.description && (
+                              <div className="text-sm text-muted-foreground truncate max-w-[200px]">
+                                {category.description}
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       </TableCell>
-                      <TableCell>
-                        <Badge variant="secondary">
-                          {category.parent_category_id ? 'Sub-category' : 'Main Category'}
-                        </Badge>
+                      <TableCell className="border-r border-border/50 text-center">
+                        <div className="flex justify-center">
+                          <Badge variant="outline" className="rounded-none">
+                            {category.parent_category_id ? 'Sub-category' : 'Main Category'}
+                          </Badge>
+                        </div>
                       </TableCell>
-                      <TableCell>
-                        {new Date(category.created_at).toLocaleDateString()}
+                      <TableCell className="border-r border-border/50 text-center">
+                        <div className="text-sm">
+                          <div className="font-medium">{new Date(category.created_at).toLocaleDateString()}</div>
+                          <div className="text-muted-foreground text-xs">
+                            {new Date(category.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          </div>
+                        </div>
                       </TableCell>
-                      <TableCell>
-                        <Badge variant="default" className="bg-green-100 text-green-800 hover:bg-green-100">
-                          Active
-                        </Badge>
+                      <TableCell className="border-r border-border/50 text-center">
+                        <div className="flex justify-center">
+                          <Badge
+                            variant="default"
+                            className="rounded-none bg-green-100 text-green-800 hover:bg-green-100"
+                          >
+                            Active
+                          </Badge>
+                        </div>
                       </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
+                      <TableCell className="text-center">
+                        <div className="flex items-center justify-center gap-1">
                           <Button
-                            variant="ghost"
+                            variant="outline"
                             size="sm"
-                            className="h-8 w-8 p-0"
                             onClick={() => handleEditCategory(category)}
+                            className="text-xs rounded-none"
                           >
-                            <Edit2 className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
-                            onClick={() => handleDeleteCategory(category.id, category.name)}
-                          >
-                            <Trash2 className="h-4 w-4" />
+                            <Edit2 className="h-3 w-3 mr-1" />
+                            Edit
                           </Button>
                         </div>
                       </TableCell>

@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { StockMovementWithDetails } from "@/hooks/useInventory";
 import InvoiceViewer from "./InvoiceViewer";
+import ImageViewer from "./ImageViewer";
 
 interface StockMovementsDialogProps {
   open: boolean;
@@ -157,6 +158,7 @@ export default function StockMovementsDialog({
                   <TableHead>Warehouse</TableHead>
                   <TableHead>Reference</TableHead>
                   <TableHead>Invoice</TableHead>
+                  <TableHead>Product Image</TableHead>
                   <TableHead>Cost</TableHead>
                   <TableHead>Notes</TableHead>
                 </TableRow>
@@ -231,6 +233,15 @@ export default function StockMovementsDialog({
                         invoiceUrl={movement.invoice_file_url}
                         fileName={movement.invoice_file_name}
                         fileSize={movement.invoice_file_size}
+                        compact={true}
+                      />
+                    </TableCell>
+
+                    <TableCell>
+                      <ImageViewer
+                        imageUrl={movement.product_image_url}
+                        fileName={movement.product_image_name}
+                        fileSize={movement.product_image_size}
                         compact={true}
                       />
                     </TableCell>

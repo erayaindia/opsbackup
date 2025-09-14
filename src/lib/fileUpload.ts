@@ -7,39 +7,16 @@ export interface FileUploadResult {
   name: string;
 }
 
-export async function uploadInvoiceFile(file: File, movementId: string): Promise<FileUploadResult> {
-  console.log('🚀 uploadInvoiceFile called with:', {
-    fileName: file.name,
-    fileSize: file.size,
-    fileType: file.type,
-    movementId
-  });
-
+// Generic file upload function
+async function uploadFileToStorage(file: File, movementId: string, folder: string): Promise<FileUploadResult> {
   try {
-    // Alert to make sure this function is being called
-    alert('🚀 Upload function called! Check console for details.');
-
-    // Skip bucket check for now since we know it exists
-    console.log('🚀 Skipping bucket check - we know inventory-docs exists');
-
     // Generate a unique filename with movement ID and timestamp
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const fileExtension = file.name.split('.').pop()?.toLowerCase() || 'pdf';
     const fileName = `${movementId}_${timestamp}.${fileExtension}`;
-    const filePath = `invoices/${fileName}`;
-
-    console.log('🚀 Generated file path:', filePath);
+    const filePath = `${folder}/${fileName}`;
 
     // Upload file to Supabase Storage
-    console.log('🚀 Uploading to Supabase Storage bucket: inventory-docs');
-    console.log('🚀 File path:', filePath);
-    console.log('🚀 File details:', {
-      name: file.name,
-      size: file.size,
-      type: file.type,
-      lastModified: file.lastModified
-    });
-
     const { data, error } = await supabase.storage
       .from('inventory-docs')
       .upload(filePath, file, {
@@ -47,26 +24,14 @@ export async function uploadInvoiceFile(file: File, movementId: string): Promise
         upsert: false
       });
 
-    console.log('🚀 Upload response - data:', data);
-    console.log('🚀 Upload response - error:', error);
-
     if (error) {
-      console.error('❌ File upload error:', error);
-      console.error('❌ Error type:', typeof error);
-      console.error('❌ Error properties:', Object.keys(error));
-      alert(`❌ Supabase upload error: ${error.message || 'Unknown error'}`);
       throw new Error(`Failed to upload file: ${error.message || 'Unknown storage error'}`);
     }
 
-    console.log('✅ File uploaded successfully to:', data.path);
-
     // Get public URL
-    console.log('🚀 Getting public URL...');
     const { data: { publicUrl } } = supabase.storage
       .from('inventory-docs')
       .getPublicUrl(data.path);
-
-    console.log('✅ Public URL generated:', publicUrl);
 
     const result = {
       url: publicUrl,
@@ -75,18 +40,21 @@ export async function uploadInvoiceFile(file: File, movementId: string): Promise
       name: file.name
     };
 
-    console.log('✅ File upload complete:', result);
     return result;
   } catch (error) {
-    console.error('❌ Error uploading invoice file:', error);
-    console.error('❌ Error details:', {
-      message: error.message,
-      stack: error.stack,
-      name: error.name
-    });
-    alert(`❌ Upload failed: ${error.message}`);
+    console.error('Error uploading file:', error);
     throw error;
   }
+}
+
+// Specific function for invoice file uploads
+export async function uploadInvoiceFile(file: File, movementId: string): Promise<FileUploadResult> {
+  return uploadFileToStorage(file, movementId, 'invoices');
+}
+
+// Specific function for product image uploads
+export async function uploadProductImage(file: File, movementId: string): Promise<FileUploadResult> {
+  return uploadFileToStorage(file, movementId, 'product-images');
 }
 
 export async function deleteInvoiceFile(filePath: string): Promise<void> {

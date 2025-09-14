@@ -46,6 +46,7 @@ import {
 } from "lucide-react";
 import { supabase } from '@/integrations/supabase/client';
 import InvoiceViewer from "@/components/inventory/InvoiceViewer";
+import ImageViewer from "@/components/inventory/ImageViewer";
 
 interface MovementData {
   id: string;
@@ -65,6 +66,9 @@ interface MovementData {
   invoice_file_url?: string;
   invoice_file_name?: string;
   invoice_file_size?: number;
+  product_image_url?: string;
+  product_image_name?: string;
+  product_image_size?: number;
 }
 
 const movementTypeIcons = {
@@ -114,7 +118,10 @@ export default function InventoryHistory() {
           performed_by,
           invoice_file_url,
           invoice_file_name,
-          invoice_file_size
+          invoice_file_size,
+          product_image_url,
+          product_image_name,
+          product_image_size
         `)
         .order('occurred_at', { ascending: false })
         .limit(100);
@@ -689,6 +696,7 @@ export default function InventoryHistory() {
                         </TableHead>
                         <TableHead className="w-[120px] text-center">Reference</TableHead>
                         <TableHead className="w-[150px] text-center">Invoice</TableHead>
+                        <TableHead className="w-[150px] text-center">Product Image</TableHead>
                         <TableHead className="w-[140px] text-center">Mover</TableHead>
                         <TableHead className="text-center">Notes</TableHead>
                       </TableRow>
@@ -763,6 +771,15 @@ export default function InventoryHistory() {
                               invoiceUrl={movement.invoice_file_url}
                               fileName={movement.invoice_file_name}
                               fileSize={movement.invoice_file_size}
+                              compact={true}
+                            />
+                          </TableCell>
+
+                          <TableCell className="text-center border-r border-border/50">
+                            <ImageViewer
+                              imageUrl={movement.product_image_url}
+                              fileName={movement.product_image_name}
+                              fileSize={movement.product_image_size}
                               compact={true}
                             />
                           </TableCell>
