@@ -45,6 +45,7 @@ import {
   X
 } from "lucide-react";
 import { supabase } from '@/integrations/supabase/client';
+import InvoiceViewer from "@/components/inventory/InvoiceViewer";
 
 interface MovementData {
   id: string;
@@ -61,6 +62,9 @@ interface MovementData {
   product_name?: string;
   sku?: string;
   warehouse_location?: string;
+  invoice_file_url?: string;
+  invoice_file_name?: string;
+  invoice_file_size?: number;
 }
 
 const movementTypeIcons = {
@@ -107,7 +111,10 @@ export default function InventoryHistory() {
           notes,
           reason,
           reference_type,
-          performed_by
+          performed_by,
+          invoice_file_url,
+          invoice_file_name,
+          invoice_file_size
         `)
         .order('occurred_at', { ascending: false })
         .limit(100);
@@ -205,6 +212,11 @@ export default function InventoryHistory() {
         const user = usersMap.get(log.performed_by);
 
         console.log(`Log ${log.id}: performed_by=${log.performed_by}, user found:`, user);
+        console.log(`Log ${log.id} invoice data:`, {
+          invoice_file_url: log.invoice_file_url,
+          invoice_file_name: log.invoice_file_name,
+          invoice_file_size: log.invoice_file_size
+        });
 
         // Determine display name based on what we found
         let displayName = 'System';
@@ -676,6 +688,7 @@ export default function InventoryHistory() {
                           </div>
                         </TableHead>
                         <TableHead className="w-[120px] text-center">Reference</TableHead>
+                        <TableHead className="w-[150px] text-center">Invoice</TableHead>
                         <TableHead className="w-[140px] text-center">Mover</TableHead>
                         <TableHead className="text-center">Notes</TableHead>
                       </TableRow>
@@ -743,6 +756,15 @@ export default function InventoryHistory() {
                             ) : (
                               <span className="text-muted-foreground">-</span>
                             )}
+                          </TableCell>
+
+                          <TableCell className="text-center border-r border-border/50">
+                            <InvoiceViewer
+                              invoiceUrl={movement.invoice_file_url}
+                              fileName={movement.invoice_file_name}
+                              fileSize={movement.invoice_file_size}
+                              compact={true}
+                            />
                           </TableCell>
 
                           <TableCell className="text-center border-r border-border/50">

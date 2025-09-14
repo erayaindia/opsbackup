@@ -25,6 +25,7 @@ import {
   Clock,
 } from "lucide-react";
 import { StockMovementWithDetails } from "@/hooks/useInventory";
+import InvoiceViewer from "./InvoiceViewer";
 
 interface StockMovementsDialogProps {
   open: boolean;
@@ -155,6 +156,7 @@ export default function StockMovementsDialog({
                   <TableHead>Quantity</TableHead>
                   <TableHead>Warehouse</TableHead>
                   <TableHead>Reference</TableHead>
+                  <TableHead>Invoice</TableHead>
                   <TableHead>Cost</TableHead>
                   <TableHead>Notes</TableHead>
                 </TableRow>
@@ -222,6 +224,15 @@ export default function StockMovementsDialog({
                       ) : (
                         <span className="text-muted-foreground text-sm">-</span>
                       )}
+                    </TableCell>
+
+                    <TableCell>
+                      <InvoiceViewer
+                        invoiceUrl={movement.invoice_file_url}
+                        fileName={movement.invoice_file_name}
+                        fileSize={movement.invoice_file_size}
+                        compact={true}
+                      />
                     </TableCell>
 
                     <TableCell>

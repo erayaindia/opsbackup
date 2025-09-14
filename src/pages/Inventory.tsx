@@ -55,6 +55,7 @@ import {
 import StockMovementsDialog from "@/components/inventory/StockMovementsDialog";
 import StockMovementForm from "@/components/inventory/StockMovementForm";
 import { InventoryProductModal } from "@/components/inventory/InventoryProductModal";
+import { testStorageUpload } from "@/utils/testStorageUpload";
 
 import {
   Package,

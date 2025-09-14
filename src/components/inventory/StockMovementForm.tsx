@@ -18,6 +18,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { FileUpload } from "@/components/ui/file-upload";
 import {
   Package,
   TrendingUp,
@@ -25,6 +26,9 @@ import {
   RefreshCw,
   ArrowRight,
   AlertTriangle,
+  Upload,
+  FileText,
+  X,
 } from "lucide-react";
 import { ProductVariantWithDetails } from "@/hooks/useInventory";
 
@@ -43,6 +47,7 @@ interface StockMovementFormProps {
     notes?: string;
     from_location_id?: string;
     to_location_id?: string;
+    invoice_file?: File;
   }) => Promise<void>;
   loading?: boolean;
 }
@@ -106,6 +111,8 @@ export default function StockMovementForm({
     notes: '',
   });
 
+  const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
+
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const validateForm = () => {
@@ -127,6 +134,18 @@ export default function StockMovementForm({
     // Make invoice number mandatory for Stock In movements
     if (formData.movement_type === 'IN' && !formData.reference_id?.trim()) {
       newErrors.reference_id = 'Invoice number is required for stock in movements';
+    }
+
+    // Invoice file is required for Stock In movements
+    if (formData.movement_type === 'IN' && !invoiceFile) {
+      newErrors.invoice_file = 'Invoice file upload is required for stock in movements';
+      console.log('❌ Validation failed: No invoice file for Stock In movement');
+    } else if (formData.movement_type === 'IN' && invoiceFile) {
+      console.log('✅ Invoice file validation passed:', {
+        fileName: invoiceFile.name,
+        fileSize: invoiceFile.size,
+        fileType: invoiceFile.type
+      });
     }
 
     // Make detailed reason mandatory for Stock Out, Adjustment, and Transfer movements (minimum 10 words)
@@ -151,11 +170,17 @@ export default function StockMovementForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    console.log('🚀 StockMovementForm - Form submitted');
+    console.log('🚀 Movement type:', formData.movement_type);
+    console.log('🚀 Invoice file:', invoiceFile);
+
     if (!validateForm()) {
+      console.log('❌ Form validation failed');
       return;
     }
 
     try {
+      console.log('✅ Form validation passed, submitting movement...');
       // Submit movement - product.id now refers to inventory_detail_id
       await onSubmit({
         product_variant_id: product.id, // This is actually inventory_detail_id now
@@ -166,6 +191,7 @@ export default function StockMovementForm({
         reference_type: formData.reference_type || undefined,
         reference_id: formData.reference_id || undefined,
         notes: formData.notes || undefined,
+        invoice_file: invoiceFile || undefined,
       });
 
       // Reset form on success
@@ -177,6 +203,7 @@ export default function StockMovementForm({
         reference_id: '',
         notes: '',
       });
+      setInvoiceFile(null);
       setErrors({});
     } catch (error) {
       console.error('Error submitting stock movement:', error);
@@ -188,15 +215,16 @@ export default function StockMovementForm({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="pb-4">
           <DialogTitle className="flex items-center gap-2">
             <Package className="h-5 w-5" />
             Record Stock Movement
           </DialogTitle>
         </DialogHeader>
 
-        {/* Product Info */}
+        <div className="flex-1 overflow-y-auto pr-2 -mr-2">
+          {/* Product Info */}
         <Card>
           <CardContent className="p-4">
             <div className="flex items-start gap-4">
@@ -247,11 +275,18 @@ export default function StockMovementForm({
                   // Clear invoice number when switching away from Stock In
                   reference_id: value === 'IN' ? prev.reference_id : ''
                 }));
+                // Clear invoice file when switching away from Stock In
+                if (value !== 'IN') {
+                  setInvoiceFile(null);
+                }
                 if (errors.movement_type) {
                   setErrors(prev => ({ ...prev, movement_type: '' }));
                 }
                 if (errors.reference_id) {
                   setErrors(prev => ({ ...prev, reference_id: '' }));
+                }
+                if (errors.invoice_file) {
+                  setErrors(prev => ({ ...prev, invoice_file: '' }));
                 }
               }}
             >
@@ -367,6 +402,69 @@ export default function StockMovementForm({
             )}
           </div>
 
+          {/* Invoice Upload - Only show for Stock In */}
+          {formData.movement_type === 'IN' && (
+            <div className="space-y-2">
+              <Label>Invoice Upload *</Label>
+              {!invoiceFile ? (
+                <div className="border border-dashed border-border rounded-md p-3 text-center">
+                  <div className="flex flex-col items-center gap-2">
+                    <Upload className="h-6 w-6 text-muted-foreground" />
+                    <div>
+                      <input
+                        type="file"
+                        id="invoice-upload"
+                        accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                        className="hidden"
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files[0]) {
+                            setInvoiceFile(e.target.files[0]);
+                            if (errors.invoice_file) {
+                              setErrors(prev => ({ ...prev, invoice_file: '' }));
+                            }
+                          }
+                        }}
+                      />
+                      <label
+                        htmlFor="invoice-upload"
+                        className="text-sm font-medium text-primary cursor-pointer hover:underline"
+                      >
+                        Choose file
+                      </label>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        PDF, JPG, PNG, DOC, DOCX (Max 10MB)
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-3 p-2 bg-muted rounded-md">
+                  <FileText className="h-4 w-4 text-blue-500" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{invoiceFile.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {(invoiceFile.size / 1024 / 1024).toFixed(2)} MB
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setInvoiceFile(null)}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              )}
+              {errors.invoice_file && (
+                <p className="text-sm text-destructive flex items-center gap-1">
+                  <AlertTriangle className="h-3 w-3" />
+                  {errors.invoice_file}
+                </p>
+              )}
+            </div>
+          )}
+
           {/* Reason/Notes */}
           <div className="space-y-2">
             <Label htmlFor="notes">
@@ -440,22 +538,33 @@ export default function StockMovementForm({
               {errors.submit}
             </div>
           )}
-
-          {/* Actions */}
-          <div className="flex justify-end gap-3">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={loading}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={loading}>
-              {loading ? "Recording..." : "Record Movement"}
-            </Button>
-          </div>
         </form>
+        </div>
+
+        {/* Actions - Fixed at bottom */}
+        <div className="flex justify-end gap-3 pt-4 border-t bg-background">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={loading}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            disabled={loading}
+            onClick={(e) => {
+              e.preventDefault();
+              const form = document.querySelector('form') as HTMLFormElement;
+              if (form) {
+                form.requestSubmit();
+              }
+            }}
+          >
+            {loading ? "Recording..." : "Record Movement"}
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { uploadInvoiceFile, FileUploadResult } from '@/lib/fileUpload';
 
 // Simplified types for our inventory system (completely independent)
 export interface InventoryDetail {
@@ -85,6 +86,9 @@ export interface InventoryLog {
   reason?: string;
   performed_by?: string;
   notes?: string;
+  invoice_file_url?: string;
+  invoice_file_name?: string;
+  invoice_file_size?: number;
   occurred_at: string;
   created_at: string;
   inventory_detail?: {
@@ -108,6 +112,9 @@ export interface StockMovementWithDetails {
   user_id?: string;
   notes?: string;
   occurred_at: string;
+  invoice_file_url?: string;
+  invoice_file_name?: string;
+  invoice_file_size?: number;
   product_variant: {
     sku: string;
     product: {
@@ -403,6 +410,9 @@ export const useInventory = () => {
           reference_id,
           reason,
           performed_by,
+          invoice_file_url,
+          invoice_file_name,
+          invoice_file_size,
           notes,
           occurred_at,
           created_at
@@ -753,9 +763,19 @@ export const useInventory = () => {
     reference_id?: string;
     reason?: string;
     notes?: string;
+    invoice_file?: File;
   }) => {
+    console.log('🚀 recordInventoryMovement called');
+    console.log('🚀 Movement type:', movement.movement_type);
+    console.log('🚀 Invoice file received:', movement.invoice_file);
+    console.log('🚀 File details:', {
+      name: movement.invoice_file?.name,
+      size: movement.invoice_file?.size,
+      type: movement.invoice_file?.type
+    });
+
     try {
-      // Insert movement log
+      // Insert movement log first to get the ID
       const { data, error } = await supabase
         .from('inventory_logs')
         .insert({
@@ -774,6 +794,44 @@ export const useInventory = () => {
         })
         .select()
         .single();
+
+      if (error) throw error;
+
+      // Handle file upload if provided (for Stock In movements)
+      if (movement.invoice_file && movement.movement_type === 'IN') {
+        console.log('🚀 Starting file upload process...');
+        try {
+          console.log('🚀 Calling uploadInvoiceFile...');
+          const uploadResult = await uploadInvoiceFile(movement.invoice_file, data.id);
+          console.log('✅ File upload successful:', uploadResult);
+
+          // Update the movement log with file information
+          console.log('🚀 Updating database with file info...');
+          const { error: updateError } = await supabase
+            .from('inventory_logs')
+            .update({
+              invoice_file_url: uploadResult.url,
+              invoice_file_name: uploadResult.name,
+              invoice_file_size: uploadResult.size
+            })
+            .eq('id', data.id);
+
+          if (updateError) {
+            console.error('❌ Error updating movement with file info:', updateError);
+            // Continue anyway, don't fail the entire operation
+          } else {
+            console.log('✅ Database updated with file info successfully');
+          }
+        } catch (fileError) {
+          console.error('❌ Error uploading invoice file:', fileError);
+          // Don't fail the entire movement, just log the error
+        }
+      } else {
+        console.log('⚠️ No file upload needed:', {
+          hasFile: !!movement.invoice_file,
+          isStockIn: movement.movement_type === 'IN'
+        });
+      }
 
       if (error) throw error;
 
@@ -838,6 +896,7 @@ export const useInventory = () => {
       reference_id: movement.reference_id,
       reason: movement.reason,
       notes: movement.notes,
+      invoice_file: movement.invoice_file,
     });
   };
 
