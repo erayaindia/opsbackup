@@ -10,6 +10,7 @@ import Dashboard from "./pages/Dashboard";
 import Orders from "./pages/Orders";
 import AbandonedCart from "./pages/orders/AbandonedCart";
 import Inventory from "./pages/Inventory";
+import InventoryHistory from "./pages/InventoryHistory";
 import NewInventory from "./pages/NewInventory";
 import Tasks from "./pages/Tasks";
 import TeamManagement from "./pages/TeamManagement";
@@ -122,6 +123,11 @@ const App = () => (
                 <Route path="product/inventory" element={
                   <PermissionGuard requiredModule="products">
                     <NewInventory />
+                  </PermissionGuard>
+                } />
+                <Route path="inventory-history" element={
+                  <PermissionGuard requiredModule="products">
+                    <InventoryHistory />
                   </PermissionGuard>
                 } />
                 <Route path="products/suppliers" element={

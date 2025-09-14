@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import Fuse from 'fuse.js';
 import {
   BarChart,
@@ -122,6 +123,8 @@ import {
 // Types are imported from @/types/inventory
 
 export default function Inventory() {
+  const navigate = useNavigate();
+
   // Use the inventory hook for real data
   const { products: inventoryProducts, stockMovements, loading: inventoryLoading, error: inventoryError, actions } = useInventory();
 
@@ -137,7 +140,6 @@ export default function Inventory() {
   const [movementsDialogOpen, setMovementsDialogOpen] = useState(false);
   const [movementFormOpen, setMovementFormOpen] = useState(false);
   const [productModalOpen, setProductModalOpen] = useState(false);
-  const [globalHistoryOpen, setGlobalHistoryOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [recordingMovement, setRecordingMovement] = useState(false);
   const [editingProduct, setEditingProduct] = useState<any>(null);
@@ -324,8 +326,7 @@ export default function Inventory() {
 
   // Handle global history view
   const handleGlobalHistory = () => {
-    setSelectedProduct(null); // Clear selected product to show all movements
-    setGlobalHistoryOpen(true);
+    navigate('/inventory-history');
   };
 
   // Handle edit product
@@ -890,13 +891,6 @@ export default function Inventory() {
         />
       )}
 
-      {/* Global History Dialog */}
-      <StockMovementsDialog
-        open={globalHistoryOpen}
-        onOpenChange={setGlobalHistoryOpen}
-        movements={filteredMovements}
-        productName="All Products"
-      />
 
       {/* Stock Movement Form Dialog */}
       {selectedProduct && (

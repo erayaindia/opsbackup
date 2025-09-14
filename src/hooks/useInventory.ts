@@ -387,6 +387,7 @@ export const useInventory = () => {
 
   // Fetch inventory logs (simplified movement tracking)
   const fetchInventoryLogs = async (limit = 50) => {
+    console.log('🚀🚀🚀 fetchInventoryLogs CALLED 🚀🚀🚀');
     try {
       const { data, error } = await supabase
         .from('inventory_logs')
@@ -404,12 +405,7 @@ export const useInventory = () => {
           performed_by,
           notes,
           occurred_at,
-          created_at,
-          inventory_detail:inventory_details (
-            sku,
-            product_name,
-            warehouse_location
-          )
+          created_at
         `)
         .order('occurred_at', { ascending: false })
         .limit(limit);
@@ -446,37 +442,69 @@ export const useInventory = () => {
 
       setInventoryLogs(logs);
 
-      // Transform to legacy format for backward compatibility
-      const transformedMovements: StockMovementWithDetails[] = logs.map(item => ({
-        id: item.id,
-        product_variant_id: item.inventory_detail_id,
-        warehouse_id: 'warehouse-1',
-        movement_type: item.movement_type,
-        qty: item.quantity,
-        unit_cost: item.unit_cost,
-        reference_type: item.reference_type,
-        reference_id: item.reference_id,
-        user_id: item.performed_by,
-        notes: item.notes,
-        occurred_at: item.occurred_at,
-        product_variant: {
-          sku: item.inventory_detail?.sku || 'UNKNOWN',
-          product: {
-            name: item.inventory_detail?.product_name || 'Unknown Product'
-          }
-        },
-        warehouse: {
-          name: item.inventory_detail?.warehouse_location || item.from_location || item.to_location || 'Main Warehouse',
-          code: 'MW001'
-        },
-        movement_type_detail: {
-          code: item.movement_type,
-          description: item.reason || 'Inventory movement'
-        }
-      }));
+      // Fetch inventory details manually since join doesn't work reliably
+      const inventoryDetailIds = [...new Set(logs.map(item => item.inventory_detail_id))];
 
-      console.log('Raw inventory logs data:', data);
-      console.log('Transformed movements:', transformedMovements);
+      const { data: inventoryDetailsData, error: detailsError } = await supabase
+        .from('inventory_details')
+        .select('id, sku, product_name, warehouse_location')
+        .in('id', inventoryDetailIds);
+
+      if (detailsError) {
+        console.error('Error fetching inventory details:', detailsError);
+      }
+
+      // Create a map for quick lookup
+      const inventoryDetailsMap = new Map();
+      inventoryDetailsData?.forEach(detail => {
+        inventoryDetailsMap.set(detail.id, detail);
+      });
+
+      console.log('=== DEBUG INVENTORY LOGS ===');
+      console.log('inventoryDetailsData:', JSON.stringify(inventoryDetailsData, null, 2));
+      console.log('inventoryDetailIds from logs:', JSON.stringify(inventoryDetailIds, null, 2));
+      console.log('Map has entries:', inventoryDetailsMap.size);
+
+      // Transform to legacy format for backward compatibility
+      const transformedMovements: StockMovementWithDetails[] = logs.map(item => {
+        const inventoryDetail = inventoryDetailsMap.get(item.inventory_detail_id);
+        console.log(`=== MOVEMENT ${item.id?.substring(0, 8)} ===`);
+        console.log(`Looking for ID: "${item.inventory_detail_id}"`);
+        console.log(`Found detail:`, inventoryDetail);
+        console.log(`Product name will be: "${inventoryDetail?.product_name || 'Unknown Product'}"`);
+        console.log('=== END MOVEMENT ===');
+
+        return {
+          id: item.id,
+          product_variant_id: item.inventory_detail_id,
+          warehouse_id: 'warehouse-1',
+          movement_type: item.movement_type,
+          qty: item.quantity,
+          unit_cost: item.unit_cost,
+          reference_type: item.reference_type,
+          reference_id: item.reference_id,
+          user_id: item.performed_by,
+          notes: item.notes,
+          occurred_at: item.occurred_at,
+          product_variant: {
+            sku: inventoryDetail?.sku || `LEGACY-${item.inventory_detail_id?.substring(0, 8)}`,
+            product: {
+              name: inventoryDetail?.product_name || `Legacy Product (${item.inventory_detail_id?.substring(0, 8)})`
+            }
+          },
+          warehouse: {
+            name: inventoryDetail?.warehouse_location || item.from_location || item.to_location || 'Legacy Warehouse',
+            code: 'LW001'
+          },
+          movement_type_detail: {
+            code: item.movement_type,
+            description: item.reason || 'Legacy inventory movement'
+          }
+        };
+      });
+
+      console.log('🔥🔥🔥 FINAL RESULT - transformedMovements:', transformedMovements);
+      console.log('🔥🔥🔥 First movement product name:', transformedMovements[0]?.product_variant?.product?.name);
       setStockMovements(transformedMovements);
     } catch (err) {
       console.error('Error fetching inventory logs:', err);
