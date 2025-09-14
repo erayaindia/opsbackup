@@ -28,6 +28,7 @@ import { useInventory } from "@/hooks/useInventory";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -118,7 +119,11 @@ import {
   Tag,
   Image,
   FileImage,
-  X
+  X,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight
 } from "lucide-react";
 
 // Types are imported from @/types/inventory
@@ -136,6 +141,14 @@ export default function Inventory() {
   const [selectedSuppliers, setSelectedSuppliers] = useState<string[]>(['all']);
   const [sortField, setSortField] = useState<string>('');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(25);
+
+  // Bulk selection states
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [bulkActionOpen, setBulkActionOpen] = useState(false);
 
   // Dialog states
   const [movementsDialogOpen, setMovementsDialogOpen] = useState(false);
@@ -264,6 +277,50 @@ export default function Inventory() {
     return filtered;
   }, [inventoryData, searchTerm, selectedCategories, selectedStatuses, selectedSuppliers, sortField, sortDirection]);
 
+  // Paginated data
+  const paginatedData = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredData.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredData, currentPage, itemsPerPage]);
+
+  // Pagination info
+  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage + 1;
+  const endIndex = Math.min(startIndex + itemsPerPage - 1, filteredData.length);
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedCategories, selectedStatuses, selectedSuppliers]);
+
+  // Clear selected items when filters change
+  useEffect(() => {
+    setSelectedItems(new Set());
+  }, [searchTerm, selectedCategories, selectedStatuses, selectedSuppliers, currentPage]);
+
+  // Bulk selection functions
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      const currentPageIds = paginatedData.map(item => item.id);
+      setSelectedItems(new Set(currentPageIds));
+    } else {
+      setSelectedItems(new Set());
+    }
+  };
+
+  const handleSelectItem = (id: string, checked: boolean) => {
+    const newSelected = new Set(selectedItems);
+    if (checked) {
+      newSelected.add(id);
+    } else {
+      newSelected.delete(id);
+    }
+    setSelectedItems(newSelected);
+  };
+
+  const isAllSelected = paginatedData.length > 0 && paginatedData.every(item => selectedItems.has(item.id));
+  const isIndeterminate = selectedItems.size > 0 && !isAllSelected;
+
   // Get unique values for filters
   const categories = ['all', ...Array.from(new Set(inventoryData.map(item => item.category)))];
   const suppliers = ['all', ...Array.from(new Set(inventoryData.map(item => item.supplier_name)))];
@@ -274,13 +331,15 @@ export default function Inventory() {
     const lowStock = inventoryData.filter(item => item.status === 'low_stock').length;
     const outOfStock = inventoryData.filter(item => item.status === 'out_of_stock').length;
     const totalValue = inventoryData.reduce((sum, item) => sum + (item.current_stock * item.cost_per_unit), 0);
+    const totalUnits = inventoryData.reduce((sum, item) => sum + item.current_stock, 0);
 
     return {
       total: inventoryData.length,
       inStock,
       lowStock,
       outOfStock,
-      totalValue
+      totalValue,
+      totalUnits
     };
   };
 
@@ -328,6 +387,66 @@ export default function Inventory() {
   // Handle global history view
   const handleGlobalHistory = () => {
     navigate('/inventory-history');
+  };
+
+  // Export to CSV function
+  const exportToCSV = (dataToExport = filteredData) => {
+    const headers = [
+      'Product Name',
+      'SKU',
+      'Category',
+      'Current Stock',
+      'Available Stock',
+      'Reserved Stock',
+      'Status',
+      'Cost Per Unit (₹)',
+      'Total Value (₹)',
+      'Supplier',
+      'Location',
+      'Min Stock Level',
+      'Description'
+    ];
+
+    const csvData = dataToExport.map(item => [
+      item.product_name,
+      item.sku,
+      item.category,
+      item.current_stock,
+      item.available_stock,
+      item.reserved_stock,
+      item.status === 'in_stock' ? 'In Stock' : item.status === 'low_stock' ? 'Low Stock' : 'Out of Stock',
+      item.cost_per_unit,
+      item.total_value,
+      item.supplier_name,
+      item.location,
+      item.threshold,
+      item.description || ''
+    ]);
+
+    const csvContent = [headers, ...csvData]
+      .map(row => row.map(field => `"${field}"`).join(','))
+      .join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+
+    link.setAttribute('href', url);
+
+    // Generate filename with current date and filters
+    const now = new Date();
+    const dateStr = now.toISOString().split('T')[0];
+    let filename = `inventory_export_${dateStr}`;
+
+    if (searchTerm) filename += `_search_${searchTerm.replace(/[^a-zA-Z0-9]/g, '_')}`;
+    if (!selectedCategories.includes('all')) filename += `_cat_${selectedCategories.join('_')}`;
+    if (!selectedStatuses.includes('all')) filename += `_status_${selectedStatuses.join('_')}`;
+
+    link.setAttribute('download', `${filename}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   // Handle edit product
@@ -391,7 +510,12 @@ export default function Inventory() {
       <div className="mb-6 flex justify-between items-start">
         <div>
           <h1 className="text-3xl font-bold">Inventory Management</h1>
-          <p className="text-muted-foreground">Manage your product inventory and stock levels</p>
+          <p className="text-muted-foreground">
+            Manage your product inventory and stock levels
+            <span className="ml-4 text-xs">
+              Last updated: {new Date().toLocaleString()}
+            </span>
+          </p>
         </div>
 
         {/* Top Right Controls */}
@@ -440,6 +564,16 @@ export default function Inventory() {
             History
           </Button>
 
+          <Button
+            onClick={exportToCSV}
+            variant="outline"
+            className="rounded-none"
+            disabled={filteredData.length === 0}
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Export CSV
+          </Button>
+
           <Button onClick={handleAddProduct} className="rounded-none">
             <Plus className="h-4 w-4 mr-2" />
             Add Product
@@ -448,13 +582,22 @@ export default function Inventory() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 mb-6">
         <Card className="rounded-none">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Total Products</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.total}</div>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-none">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Total Units</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">{stats.totalUnits.toLocaleString()}</div>
           </CardContent>
         </Card>
 
@@ -495,6 +638,58 @@ export default function Inventory() {
         </Card>
       </div>
 
+      {/* Bulk Actions Bar */}
+      {selectedItems.size > 0 && (
+        <Card className="mb-4 rounded-none border-blue-200 bg-blue-50">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <span className="text-sm font-medium text-blue-900">
+                  {selectedItems.size} item{selectedItems.size !== 1 ? 's' : ''} selected
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSelectedItems(new Set())}
+                  className="rounded-none text-blue-700 border-blue-300"
+                >
+                  Clear Selection
+                </Button>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-none text-red-700 border-red-300"
+                  onClick={() => {
+                    // TODO: Implement bulk delete
+                    alert('Bulk delete functionality would be implemented here');
+                  }}
+                >
+                  <Trash2 className="h-4 w-4 mr-1" />
+                  Delete Selected
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-none"
+                  onClick={() => {
+                    // Export only selected items
+                    const selectedData = filteredData.filter(item => selectedItems.has(item.id));
+                    if (selectedData.length > 0) {
+                      exportToCSV(selectedData);
+                    }
+                  }}
+                >
+                  <Download className="h-4 w-4 mr-1" />
+                  Export Selected
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Filters */}
       <Card className="mb-6 rounded-none">
         <CardContent className="p-4">
@@ -515,7 +710,7 @@ export default function Inventory() {
               <SelectTrigger className="w-[180px] rounded-none h-10">
                 <SelectValue placeholder="Category" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="rounded-none">
                 {categories.map((category) => (
                   <SelectItem key={category} value={category}>
                     {category === 'all' ? 'All Categories' : category}
@@ -531,7 +726,7 @@ export default function Inventory() {
               <SelectTrigger className="w-[150px] rounded-none h-10">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="rounded-none">
                 <SelectItem value="all">All Statuses</SelectItem>
                 <SelectItem value="in_stock">In Stock</SelectItem>
                 <SelectItem value="low_stock">Low Stock</SelectItem>
@@ -546,7 +741,7 @@ export default function Inventory() {
               <SelectTrigger className="w-[180px] rounded-none h-10">
                 <SelectValue placeholder="Supplier" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="rounded-none">
                 {suppliers.map((supplier) => (
                   <SelectItem key={supplier} value={supplier}>
                     {supplier === 'all' ? 'All Suppliers' : supplier}
@@ -590,6 +785,16 @@ export default function Inventory() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-12 border-r border-border/50">
+                      <Checkbox
+                        checked={isAllSelected}
+                        onCheckedChange={handleSelectAll}
+                        className="rounded-none"
+                        ref={(el) => {
+                          if (el) el.indeterminate = isIndeterminate;
+                        }}
+                      />
+                    </TableHead>
                     <TableHead
                       className="cursor-pointer hover:bg-muted/50 border-r border-border/50 text-left"
                       onClick={() => handleSort('product_name')}
@@ -653,12 +858,28 @@ export default function Inventory() {
                         {getSortIcon('total_value')}
                       </div>
                     </TableHead>
+                    <TableHead
+                      className="cursor-pointer hover:bg-muted/50 border-r border-border/50 text-center"
+                      onClick={() => handleSort('supplier_name')}
+                    >
+                      <div className="flex items-center justify-center gap-1">
+                        <span>Supplier</span>
+                        {getSortIcon('supplier_name')}
+                      </div>
+                    </TableHead>
                     <TableHead className="text-center">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredData.map((item) => (
+                  {paginatedData.map((item) => (
                     <TableRow key={item.id}>
+                      <TableCell className="border-r border-border/50">
+                        <Checkbox
+                          checked={selectedItems.has(item.id)}
+                          onCheckedChange={(checked) => handleSelectItem(item.id, !!checked)}
+                          className="rounded-none"
+                        />
+                      </TableCell>
                       <TableCell className="border-r border-border/50 text-left">
                         <div className="flex items-center justify-start gap-3">
                           <div
@@ -733,6 +954,16 @@ export default function Inventory() {
                           </div>
                         </div>
                       </TableCell>
+                      <TableCell className="border-r border-border/50 text-center">
+                        <div className="text-sm">
+                          <div className="font-medium truncate max-w-[120px]" title={item.supplier_name}>
+                            {item.supplier_name}
+                          </div>
+                          <div className="text-muted-foreground text-xs">
+                            {item.location}
+                          </div>
+                        </div>
+                      </TableCell>
                       <TableCell className="text-center">
                         <div className="flex items-center justify-center gap-1">
                           <Button
@@ -762,7 +993,7 @@ export default function Inventory() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {filteredData.map((item) => (
+              {paginatedData.map((item) => (
                 <Card key={item.id} className="hover:shadow-lg transition-shadow rounded-none">
                   <CardContent className="p-4">
                     <div
@@ -863,6 +1094,96 @@ export default function Inventory() {
           )}
         </CardContent>
       </Card>
+
+      {/* Pagination Controls */}
+      {filteredData.length > 0 && (
+        <Card className="mt-4 rounded-none">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              {/* Items per page selector and info */}
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Show</span>
+                  <Select
+                    value={itemsPerPage.toString()}
+                    onValueChange={(value) => {
+                      setItemsPerPage(parseInt(value));
+                      setCurrentPage(1);
+                    }}
+                  >
+                    <SelectTrigger className="w-20 h-8 rounded-none">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-none">
+                      <SelectItem value="10">10</SelectItem>
+                      <SelectItem value="25">25</SelectItem>
+                      <SelectItem value="50">50</SelectItem>
+                      <SelectItem value="100">100</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <span className="text-sm text-muted-foreground">per page</span>
+                </div>
+
+                <div className="text-sm text-muted-foreground">
+                  Showing {filteredData.length > 0 ? startIndex : 0} to {endIndex} of {filteredData.length} entries
+                  {filteredData.length !== inventoryData.length && (
+                    <span className="ml-1">(filtered from {inventoryData.length} total)</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Pagination buttons */}
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(1)}
+                  disabled={currentPage === 1}
+                  className="rounded-none"
+                >
+                  <ChevronsLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="rounded-none"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+
+                <div className="flex items-center gap-1">
+                  {/* Show current page and total pages */}
+                  <span className="text-sm px-3 py-1 bg-muted rounded-none font-medium">
+                    {currentPage}
+                  </span>
+                  <span className="text-sm text-muted-foreground">of {totalPages}</span>
+                </div>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                  className="rounded-none"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(totalPages)}
+                  disabled={currentPage === totalPages}
+                  className="rounded-none"
+                >
+                  <ChevronsRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Stock Movements Dialog */}
       {selectedProduct && (
