@@ -540,8 +540,6 @@ export const BillsTable: React.FC<BillsTableProps> = ({
               </React.Fragment>
             );
           })}
-          
-          )}
         </TableBody>
       </BaseTable>
 
