@@ -1,13 +1,11 @@
 import { SidebarProvider, useSidebar } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { AppHeader } from "@/components/AppHeader";
-import { FloatingChatButton, useChatStatus } from "@/components/FloatingChatButton";
 import { Outlet } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 function LayoutContent() {
   const isMobile = useIsMobile();
-  const { unreadCount, isOnline } = useChatStatus();
   const { state } = useSidebar();
   const isCollapsed = state === "collapsed";
   
@@ -22,8 +20,6 @@ function LayoutContent() {
         </main>
       </div>
       
-      {/* Floating Chat Button */}
-      <FloatingChatButton unreadCount={unreadCount} isOnline={isOnline} />
     </div>
   );
 }
