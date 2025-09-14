@@ -590,10 +590,10 @@ export default function Inventory() {
                 <TableHeader>
                   <TableRow>
                     <TableHead
-                      className="cursor-pointer hover:bg-muted/50 border-r border-border/50 text-center"
+                      className="cursor-pointer hover:bg-muted/50 border-r border-border/50 text-left"
                       onClick={() => handleSort('product_name')}
                     >
-                      <div className="flex items-center justify-center gap-1">
+                      <div className="flex items-center justify-start gap-1">
                         <span>Product</span>
                         {getSortIcon('product_name')}
                       </div>
@@ -658,8 +658,8 @@ export default function Inventory() {
                 <TableBody>
                   {filteredData.map((item) => (
                     <TableRow key={item.id}>
-                      <TableCell className="border-r border-border/50 text-center">
-                        <div className="flex items-center justify-center gap-3">
+                      <TableCell className="border-r border-border/50 text-left">
+                        <div className="flex items-center justify-start gap-3">
                           <div
                             className="relative h-12 w-12 overflow-hidden border bg-muted cursor-pointer hover:ring-2 hover:ring-primary transition-all"
                             onClick={() => handleImagePreview(item.image_url, item.product_name)}

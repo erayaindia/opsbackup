@@ -124,6 +124,26 @@ export default function StockMovementForm({
       newErrors.qty = 'Cannot remove more stock than available';
     }
 
+    // Make invoice number mandatory for Stock In movements
+    if (formData.movement_type === 'IN' && !formData.reference_id?.trim()) {
+      newErrors.reference_id = 'Invoice number is required for stock in movements';
+    }
+
+    // Make detailed reason mandatory for Stock Out, Adjustment, and Transfer movements (minimum 10 words)
+    if (formData.movement_type === 'OUT' || formData.movement_type === 'ADJUST' || formData.movement_type === 'TRANSFER') {
+      const notes = formData.notes?.trim();
+      if (!notes) {
+        const movementTypeText = formData.movement_type === 'OUT' ? 'stock removal' :
+                               formData.movement_type === 'ADJUST' ? 'inventory adjustment' : 'stock transfer';
+        newErrors.notes = `Detailed reason is required for ${movementTypeText}`;
+      } else {
+        const wordCount = notes.split(/\s+/).filter(word => word.length > 0).length;
+        if (wordCount < 10) {
+          newErrors.notes = `Please provide more details. Current: ${wordCount} words, required: 10 words minimum`;
+        }
+      }
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -180,10 +200,11 @@ export default function StockMovementForm({
         <Card>
           <CardContent className="p-4">
             <div className="flex items-start gap-4">
-              {product.product?.image_url ? (
+              {(product.product?.image_url || product.product_image_url || product.image_url) &&
+               (product.product?.image_url || product.product_image_url || product.image_url) !== '/api/placeholder/60/60' ? (
                 <img
-                  src={product.product.image_url}
-                  alt={product.product?.name || 'Product'}
+                  src={product.product?.image_url || product.product_image_url || product.image_url}
+                  alt={product.product?.name || product.product_name || 'Product'}
                   className="h-16 w-16 rounded-lg object-cover bg-muted"
                 />
               ) : (
@@ -192,15 +213,21 @@ export default function StockMovementForm({
                 </div>
               )}
               <div className="flex-1">
-                <h3 className="font-semibold text-lg">{product.product?.name || 'Unknown Product'}</h3>
+                <h3 className="font-semibold text-lg">
+                  {product.product?.name || product.product_name || 'Unknown Product'}
+                </h3>
                 <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
                   <span>SKU: {product.sku}</span>
-                  <span>Current Stock: {product.current_stock}</span>
-                  <span>Available: {product.available_stock}</span>
+                  <span>Current Stock: {product.current_stock || 0}</span>
+                  <span>Available: {product.available_stock || 0}</span>
                 </div>
                 <div className="flex items-center gap-2 mt-2">
-                  <Badge variant="outline">{product.product?.category?.name || 'Uncategorized'}</Badge>
-                  <span className="text-sm text-muted-foreground">{product.warehouse?.name || 'Main Warehouse'}</span>
+                  <Badge variant="outline">
+                    {product.product?.category?.name || product.category || 'Uncategorized'}
+                  </Badge>
+                  <span className="text-sm text-muted-foreground">
+                    {product.warehouse?.name || product.warehouse_location || 'Main Warehouse'}
+                  </span>
                 </div>
               </div>
             </div>
@@ -214,9 +241,17 @@ export default function StockMovementForm({
             <Select
               value={formData.movement_type}
               onValueChange={(value) => {
-                setFormData(prev => ({ ...prev, movement_type: value }));
+                setFormData(prev => ({
+                  ...prev,
+                  movement_type: value,
+                  // Clear invoice number when switching away from Stock In
+                  reference_id: value === 'IN' ? prev.reference_id : ''
+                }));
                 if (errors.movement_type) {
                   setErrors(prev => ({ ...prev, movement_type: '' }));
+                }
+                if (errors.reference_id) {
+                  setErrors(prev => ({ ...prev, reference_id: '' }));
                 }
               }}
             >
@@ -228,9 +263,9 @@ export default function StockMovementForm({
                   <SelectItem key={type.value} value={type.value}>
                     <div className="flex items-center gap-3">
                       {type.icon}
-                      <div>
-                        <div className="font-medium">{type.label}</div>
-                        <div className="text-xs text-muted-foreground">{type.description}</div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{type.label}</span>
+                        <span className="text-xs text-muted-foreground">({type.description})</span>
                       </div>
                     </div>
                   </SelectItem>
@@ -306,28 +341,70 @@ export default function StockMovementForm({
               </Select>
             </div>
 
-            {/* Reference ID */}
-            <div className="space-y-2">
-              <Label htmlFor="reference_id">Reference ID</Label>
-              <Input
-                id="reference_id"
-                value={formData.reference_id}
-                onChange={(e) => setFormData(prev => ({ ...prev, reference_id: e.target.value }))}
-                placeholder="e.g., PO-001, SO-123"
-              />
-            </div>
+            {/* Invoice No. (Supplier) - Only show for Stock In */}
+            {formData.movement_type === 'IN' && (
+              <div className="space-y-2">
+                <Label htmlFor="reference_id">Invoice No. (Supplier) *</Label>
+                <Input
+                  id="reference_id"
+                  value={formData.reference_id}
+                  onChange={(e) => {
+                    setFormData(prev => ({ ...prev, reference_id: e.target.value }));
+                    if (errors.reference_id) {
+                      setErrors(prev => ({ ...prev, reference_id: '' }));
+                    }
+                  }}
+                  placeholder="e.g., INV-001, SUP-123"
+                  className={errors.reference_id ? 'border-destructive' : ''}
+                />
+                {errors.reference_id && (
+                  <p className="text-sm text-destructive flex items-center gap-1">
+                    <AlertTriangle className="h-3 w-3" />
+                    {errors.reference_id}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
-          {/* Notes */}
+          {/* Reason/Notes */}
           <div className="space-y-2">
-            <Label htmlFor="notes">Notes</Label>
+            <Label htmlFor="notes">
+              Reason/Notes {(formData.movement_type === 'OUT' || formData.movement_type === 'ADJUST' || formData.movement_type === 'TRANSFER') && '*'}
+            </Label>
             <Textarea
               id="notes"
               value={formData.notes}
-              onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-              placeholder="Optional notes about this movement"
+              onChange={(e) => {
+                setFormData(prev => ({ ...prev, notes: e.target.value }));
+                if (errors.notes) {
+                  setErrors(prev => ({ ...prev, notes: '' }));
+                }
+              }}
+              placeholder={
+                formData.movement_type === 'OUT'
+                  ? "Required: Provide detailed reason for stock removal (minimum 10 words)"
+                  : formData.movement_type === 'ADJUST'
+                  ? "Required: Explain why this inventory adjustment is needed (minimum 10 words)"
+                  : formData.movement_type === 'TRANSFER'
+                  ? "Required: Provide detailed reason for this stock transfer (minimum 10 words)"
+                  : "Enter reason for this movement or additional notes"
+              }
               rows={3}
+              className={errors.notes ? 'border-destructive' : ''}
             />
+            {errors.notes && (
+              <p className="text-sm text-destructive flex items-center gap-1">
+                <AlertTriangle className="h-3 w-3" />
+                {errors.notes}
+              </p>
+            )}
+            {(formData.movement_type === 'OUT' || formData.movement_type === 'ADJUST' || formData.movement_type === 'TRANSFER') && formData.notes && (
+              <p className="text-sm text-muted-foreground">
+                Word count: {formData.notes.trim().split(/\s+/).filter(word => word.length > 0).length}
+                {formData.notes.trim().split(/\s+/).filter(word => word.length > 0).length < 10 ? ' (minimum 10 required)' : ' ✓'}
+              </p>
+            )}
           </div>
 
           {/* Preview */}

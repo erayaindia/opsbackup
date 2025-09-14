@@ -70,16 +70,16 @@ export function InventoryProductModal({
     product_category: 'Uncategorized',
     sku: '',
     barcode: '',
-    cost: 0,
-    price: 0,
+    cost: '' as any,
+    price: '' as any,
     supplier_name: '',
     supplier_contact: '',
     warehouse_location: 'Main Warehouse',
-    on_hand_qty: 0,
-    allocated_qty: 0,
-    min_stock_level: 10,
-    reorder_point: 5,
-    reorder_quantity: 20,
+    on_hand_qty: '' as any,
+    allocated_qty: '' as any,
+    min_stock_level: '' as any,
+    reorder_point: '' as any,
+    reorder_quantity: '' as any,
     attributes: {},
     notes: ''
   });
@@ -118,16 +118,16 @@ export function InventoryProductModal({
           product_category: 'Uncategorized',
           sku: '',
           barcode: '',
-          cost: 0,
-          price: 0,
+          cost: '' as any,
+          price: '' as any,
           supplier_name: '',
           supplier_contact: '',
           warehouse_location: 'Main Warehouse',
-          on_hand_qty: 0,
-          allocated_qty: 0,
-          min_stock_level: 10,
-          reorder_point: 5,
-          reorder_quantity: 20,
+          on_hand_qty: '' as any,
+          allocated_qty: '' as any,
+          min_stock_level: '' as any,
+          reorder_point: '' as any,
+          reorder_quantity: '' as any,
           attributes: {},
           notes: ''
         });
@@ -230,7 +230,19 @@ export function InventoryProductModal({
     }
 
     try {
-      await onSubmit(formData);
+      // Convert string values to numbers before submitting
+      const submissionData = {
+        ...formData,
+        cost: parseFloat(formData.cost as string) || 0,
+        price: parseFloat(formData.price as string) || 0,
+        on_hand_qty: parseInt(formData.on_hand_qty as string) || 0,
+        allocated_qty: parseInt(formData.allocated_qty as string) || 0,
+        min_stock_level: parseInt(formData.min_stock_level as string) || 0,
+        reorder_point: parseInt(formData.reorder_point as string) || 0,
+        reorder_quantity: parseInt(formData.reorder_quantity as string) || 0,
+      };
+
+      await onSubmit(submissionData);
       onOpenChange(false);
     } catch (error) {
       console.error('Error submitting form:', error);
@@ -350,10 +362,13 @@ export function InventoryProductModal({
                   id="product_name"
                   value={formData.product_name}
                   onChange={(e) => {
-                    handleInputChange('product_name', e.target.value);
+                    if (!isEditing) {
+                      handleInputChange('product_name', e.target.value);
+                    }
                   }}
                   placeholder="Enter product name"
-                  className="rounded-none"
+                  className={`rounded-none ${isEditing ? 'bg-muted cursor-not-allowed' : ''}`}
+                  disabled={isEditing}
                   required
                 />
               </div>
@@ -392,9 +407,14 @@ export function InventoryProductModal({
                   <Input
                     id="sku"
                     value={formData.sku}
-                    onChange={(e) => handleInputChange('sku', e.target.value)}
+                    onChange={(e) => {
+                      if (!isEditing) {
+                        handleInputChange('sku', e.target.value);
+                      }
+                    }}
                     placeholder="e.g., ERPR-0001000"
-                    className="rounded-none"
+                    className={`rounded-none ${isEditing ? 'bg-muted cursor-not-allowed' : ''}`}
+                    disabled={isEditing}
                     required
                   />
                   {!isEditing && (
@@ -426,15 +446,15 @@ export function InventoryProductModal({
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="cost">Cost Price (₹) *</Label>
+                <Label htmlFor="cost">Cost Per Unit (₹) *</Label>
                 <Input
                   id="cost"
                   type="number"
                   min="0"
                   step="0.01"
                   value={formData.cost}
-                  onChange={(e) => handleInputChange('cost', parseFloat(e.target.value) || 0)}
-                  className="rounded-none"
+                  onChange={(e) => handleInputChange('cost', e.target.value)}
+                  className="rounded-none [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   required
                 />
               </div>
@@ -447,8 +467,8 @@ export function InventoryProductModal({
                   min="0"
                   step="0.01"
                   value={formData.price}
-                  onChange={(e) => handleInputChange('price', parseFloat(e.target.value) || 0)}
-                  className="rounded-none"
+                  onChange={(e) => handleInputChange('price', e.target.value)}
+                  className="rounded-none [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
               </div>
             </div>
@@ -482,21 +502,41 @@ export function InventoryProductModal({
 
               <div>
                 <Label htmlFor="warehouse_location">Warehouse Location</Label>
-                <Select
-                  value={formData.warehouse_location}
-                  onValueChange={(value) => handleInputChange('warehouse_location', value)}
-                >
-                  <SelectTrigger className="rounded-none">
-                    <SelectValue placeholder="Select warehouse" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {warehouses.map((warehouse) => (
-                      <SelectItem key={warehouse.id} value={warehouse.name}>
-                        {warehouse.name} ({warehouse.code})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {isEditing ? (
+                  <Input
+                    value={(() => {
+                      const warehouse = warehouses.find(w => w.name === formData.warehouse_location);
+                      return warehouse ? `${warehouse.name} (${warehouse.code})` : formData.warehouse_location;
+                    })()}
+                    disabled
+                    className="bg-muted cursor-not-allowed rounded-none"
+                  />
+                ) : (
+                  <Select
+                    value={formData.warehouse_location}
+                    onValueChange={(value) => {
+                      // Find the selected warehouse to get the full display format
+                      const selectedWarehouse = warehouses.find(w => w.name === value);
+                      handleInputChange('warehouse_location', value);
+                    }}
+                  >
+                    <SelectTrigger className="rounded-none">
+                      <SelectValue placeholder="Select warehouse">
+                        {formData.warehouse_location && (() => {
+                          const warehouse = warehouses.find(w => w.name === formData.warehouse_location);
+                          return warehouse ? `${warehouse.name} (${warehouse.code})` : formData.warehouse_location;
+                        })()}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {warehouses.map((warehouse) => (
+                        <SelectItem key={warehouse.id} value={warehouse.name}>
+                          {warehouse.name} ({warehouse.code})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
             </div>
 
@@ -516,8 +556,8 @@ export function InventoryProductModal({
                   type="number"
                   min="0"
                   value={formData.on_hand_qty}
-                  onChange={(e) => handleInputChange('on_hand_qty', parseInt(e.target.value) || 0)}
-                  className="rounded-none"
+                  onChange={(e) => handleInputChange('on_hand_qty', e.target.value)}
+                  className="rounded-none [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
               </div>
 
@@ -528,15 +568,15 @@ export function InventoryProductModal({
                   type="number"
                   min="0"
                   value={formData.allocated_qty}
-                  onChange={(e) => handleInputChange('allocated_qty', parseInt(e.target.value) || 0)}
-                  className="rounded-none"
+                  onChange={(e) => handleInputChange('allocated_qty', e.target.value)}
+                  className="rounded-none [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
               </div>
 
               <div>
                 <Label>Available Quantity</Label>
                 <Input
-                  value={Math.max(0, formData.on_hand_qty - formData.allocated_qty)}
+                  value={Math.max(0, (parseInt(formData.on_hand_qty as string) || 0) - (parseInt(formData.allocated_qty as string) || 0))}
                   disabled
                   className="bg-muted rounded-none"
                 />
@@ -551,8 +591,8 @@ export function InventoryProductModal({
                   type="number"
                   min="0"
                   value={formData.min_stock_level}
-                  onChange={(e) => handleInputChange('min_stock_level', parseInt(e.target.value) || 0)}
-                  className="rounded-none"
+                  onChange={(e) => handleInputChange('min_stock_level', e.target.value)}
+                  className="rounded-none [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
               </div>
 
@@ -563,8 +603,8 @@ export function InventoryProductModal({
                   type="number"
                   min="0"
                   value={formData.reorder_point}
-                  onChange={(e) => handleInputChange('reorder_point', parseInt(e.target.value) || 0)}
-                  className="rounded-none"
+                  onChange={(e) => handleInputChange('reorder_point', e.target.value)}
+                  className="rounded-none [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
               </div>
 
@@ -575,8 +615,8 @@ export function InventoryProductModal({
                   type="number"
                   min="0"
                   value={formData.reorder_quantity}
-                  onChange={(e) => handleInputChange('reorder_quantity', parseInt(e.target.value) || 0)}
-                  className="rounded-none"
+                  onChange={(e) => handleInputChange('reorder_quantity', e.target.value)}
+                  className="rounded-none [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
               </div>
             </div>
