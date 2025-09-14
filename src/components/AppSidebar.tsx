@@ -288,11 +288,11 @@ export function AppSidebar() {
               
               const menuButton = (
                 <SidebarMenuItem key={item.title} style={{ animationDelay: `${index * 50}ms` }}>
-                  <RippleEffect className="rounded-lg">
+                  <RippleEffect className="rounded-none">
                     <SidebarMenuButton 
                       asChild 
                       className={`
-                        h-9 rounded-lg transition-all duration-400 ease-in-out group relative
+                        h-9 rounded-none transition-all duration-400 ease-in-out group relative
                         hover:scale-105 active:scale-95 animate-spring-in
                         ${active 
                           ? 'bg-sidebar-primary text-sidebar-primary-foreground shadow-sm shadow-sidebar-primary/20' 
@@ -375,11 +375,11 @@ export function AppSidebar() {
         <SidebarGroupContent>
           <SidebarMenu className="space-y-0.5">
             <SidebarMenuItem>
-              <RippleEffect className="rounded-lg">
+              <RippleEffect className="rounded-none">
                 <SidebarMenuButton
                   onClick={hasAccess ? () => setIsOpen(!isOpen) : undefined}
                   className={`
-                    h-9 rounded-lg transition-all duration-400 ease-in-out group relative
+                    h-9 rounded-none transition-all duration-400 ease-in-out group relative
                     hover:scale-105 active:scale-95 animate-spring-in
                     ${isActive 
                       ? 'bg-sidebar-primary text-sidebar-primary-foreground shadow-sm shadow-sidebar-primary/20' 
@@ -425,11 +425,11 @@ export function AppSidebar() {
                          const active = currentPath === item.url;
                         return (
                           <SidebarMenuSubItem key={item.title} className="animate-stagger-in" style={{ animationDelay: `${(sectionIndex * section.items.length + itemIndex) * 30}ms` }}>
-                            <RippleEffect className="rounded-md">
+                            <RippleEffect className="rounded-none">
                               <SidebarMenuSubButton
                                 asChild
                                 className={`
-                                  h-8 rounded-md transition-all duration-200 ml-2 group
+                                  h-8 rounded-none transition-all duration-200 ml-2 group
                                   hover:scale-105 active:scale-95
                                   ${active 
                                     ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium shadow-sm' 
@@ -534,7 +534,7 @@ export function AppSidebar() {
               {/* Logo and Title - Show when expanded */}
               {shouldShowLabels && (
                 <div className="flex items-center gap-3 flex-1 ml-3">
-                  <div className="h-8 w-8 rounded-lg bg-sidebar-primary flex items-center justify-center flex-shrink-0 transition-transform duration-300 hover:scale-110 animate-spring-in">
+                  <div className="h-8 w-8 rounded-none bg-sidebar-primary flex items-center justify-center flex-shrink-0 transition-transform duration-300 hover:scale-110 animate-spring-in">
                     <BarChart3 className="h-4 w-4 text-sidebar-primary-foreground transition-transform duration-200" />
                   </div>
                   <div className="transition-all duration-500 ease-in-out animate-fade-in">
@@ -595,11 +595,11 @@ export function AppSidebar() {
                       const hasItemAccess = canAccessModule("support");
                       return (
                         <SidebarMenuItem key={item.title} className="animate-stagger-in" style={{ animationDelay: `${index * 50}ms` }}>
-                          <RippleEffect className="rounded-md">
+                          <RippleEffect className="rounded-none">
                             <SidebarMenuButton 
                               asChild 
                               className={`
-                                h-8 rounded-md transition-all duration-400 ease-in-out ml-6 group
+                                h-8 rounded-none transition-all duration-400 ease-in-out ml-6 group
                                 hover:scale-105 active:scale-95
                                 ${active 
                                   ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium shadow-sm' 
@@ -645,11 +645,11 @@ export function AppSidebar() {
                       const active = isActive(item.url);
                       return (
                         <SidebarMenuItem key={item.title} className="animate-stagger-in" style={{ animationDelay: `${index * 50}ms` }}>
-                          <RippleEffect className="rounded-md">
+                          <RippleEffect className="rounded-none">
                             <SidebarMenuButton 
                               asChild 
                               className={`
-                                h-8 rounded-md transition-all duration-400 ease-in-out ml-6 group
+                                h-8 rounded-none transition-all duration-400 ease-in-out ml-6 group
                                 hover:scale-105 active:scale-95
                                 ${active 
                                   ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium shadow-sm' 
@@ -688,11 +688,11 @@ export function AppSidebar() {
                       const active = isActive(item.url);
                       return (
                         <SidebarMenuItem key={item.title} className="animate-stagger-in" style={{ animationDelay: `${index * 50}ms` }}>
-                          <RippleEffect className="rounded-md">
+                          <RippleEffect className="rounded-none">
                             <SidebarMenuButton 
                               asChild 
                               className={`
-                                h-8 rounded-md transition-all duration-400 ease-in-out ml-6 group
+                                h-8 rounded-none transition-all duration-400 ease-in-out ml-6 group
                                 hover:scale-105 active:scale-95
                                 ${active 
                                   ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium shadow-sm' 
@@ -731,11 +731,11 @@ export function AppSidebar() {
                       const active = isActive(item.url);
                       return (
                         <SidebarMenuItem key={item.title} className="animate-stagger-in" style={{ animationDelay: `${index * 50}ms` }}>
-                          <RippleEffect className="rounded-md">
+                          <RippleEffect className="rounded-none">
                             <SidebarMenuButton 
                               asChild 
                               className={`
-                                h-8 rounded-md transition-all duration-400 ease-in-out ml-6 group
+                                h-8 rounded-none transition-all duration-400 ease-in-out ml-6 group
                                 hover:scale-105 active:scale-95
                                 ${active 
                                   ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium shadow-sm' 
@@ -774,11 +774,11 @@ export function AppSidebar() {
                       const active = isActive(item.url);
                       return (
                         <SidebarMenuItem key={item.title} className="animate-stagger-in" style={{ animationDelay: `${index * 50}ms` }}>
-                          <RippleEffect className="rounded-md">
+                          <RippleEffect className="rounded-none">
                             <SidebarMenuButton 
                               asChild 
                               className={`
-                                h-8 rounded-md transition-all duration-400 ease-in-out ml-6 group
+                                h-8 rounded-none transition-all duration-400 ease-in-out ml-6 group
                                 hover:scale-105 active:scale-95
                                 ${active 
                                   ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium shadow-sm' 
@@ -817,11 +817,11 @@ export function AppSidebar() {
                       const active = isActive(item.url);
                       return (
                         <SidebarMenuItem key={item.title} className="animate-stagger-in" style={{ animationDelay: `${index * 50}ms` }}>
-                          <RippleEffect className="rounded-md">
+                          <RippleEffect className="rounded-none">
                             <SidebarMenuButton 
                               asChild 
                               className={`
-                                h-8 rounded-md transition-all duration-400 ease-in-out ml-6 group
+                                h-8 rounded-none transition-all duration-400 ease-in-out ml-6 group
                                 hover:scale-105 active:scale-95
                                 ${active 
                                   ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium shadow-sm' 
@@ -860,11 +860,11 @@ export function AppSidebar() {
                       const active = isActive(item.url);
                       return (
                         <SidebarMenuItem key={item.title} className="animate-stagger-in" style={{ animationDelay: `${index * 50}ms` }}>
-                          <RippleEffect className="rounded-md">
+                          <RippleEffect className="rounded-none">
                             <SidebarMenuButton 
                               asChild 
                               className={`
-                                h-8 rounded-md transition-all duration-400 ease-in-out ml-6 group
+                                h-8 rounded-none transition-all duration-400 ease-in-out ml-6 group
                                 hover:scale-105 active:scale-95
                                 ${active 
                                   ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium shadow-sm' 
@@ -903,11 +903,11 @@ export function AppSidebar() {
                       const active = isActive(item.url);
                       return (
                         <SidebarMenuItem key={item.title} className="animate-stagger-in" style={{ animationDelay: `${index * 50}ms` }}>
-                          <RippleEffect className="rounded-md">
+                          <RippleEffect className="rounded-none">
                             <SidebarMenuButton 
                               asChild 
                               className={`
-                                h-8 rounded-md transition-all duration-400 ease-in-out ml-6 group
+                                h-8 rounded-none transition-all duration-400 ease-in-out ml-6 group
                                 hover:scale-105 active:scale-95
                                 ${active 
                                   ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium shadow-sm' 
@@ -946,11 +946,11 @@ export function AppSidebar() {
                       const active = isActive(item.url);
                       return (
                         <SidebarMenuItem key={item.title} className="animate-stagger-in" style={{ animationDelay: `${index * 50}ms` }}>
-                          <RippleEffect className="rounded-md">
+                          <RippleEffect className="rounded-none">
                             <SidebarMenuButton 
                               asChild 
                               className={`
-                                h-8 rounded-md transition-all duration-400 ease-in-out ml-6 group
+                                h-8 rounded-none transition-all duration-400 ease-in-out ml-6 group
                                 hover:scale-105 active:scale-95
                                 ${active 
                                   ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium shadow-sm' 
@@ -989,11 +989,11 @@ export function AppSidebar() {
                       const active = isActive(item.url);
                       return (
                         <SidebarMenuItem key={item.title} className="animate-stagger-in" style={{ animationDelay: `${index * 50}ms` }}>
-                          <RippleEffect className="rounded-md">
+                          <RippleEffect className="rounded-none">
                             <SidebarMenuButton 
                               asChild 
                               className={`
-                                h-8 rounded-md transition-all duration-400 ease-in-out ml-6 group
+                                h-8 rounded-none transition-all duration-400 ease-in-out ml-6 group
                                 hover:scale-105 active:scale-95
                                 ${active 
                                   ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium shadow-sm' 
