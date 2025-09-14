@@ -746,15 +746,6 @@ export default function Inventory() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleViewMovements(item)}
-                            className="text-xs rounded-none"
-                          >
-                            <Activity className="h-3 w-3 mr-1" />
-                            History
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
                             onClick={() => handleRecordMovement(item)}
                             className="text-xs rounded-none"
                           >
@@ -853,15 +844,6 @@ export default function Inventory() {
                       >
                         <Edit className="h-3 w-3 mr-1" />
                         Edit
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleViewMovements(item)}
-                        className="text-xs flex-1 rounded-none"
-                      >
-                        <Activity className="h-3 w-3 mr-1" />
-                        History
                       </Button>
                       <Button
                         variant="outline"

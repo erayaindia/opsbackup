@@ -20,6 +20,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   TrendingUp,
@@ -34,7 +40,9 @@ import {
   ArrowUp,
   ArrowDown,
   Search,
-  Filter
+  Filter,
+  CalendarIcon,
+  X
 } from "lucide-react";
 import { supabase } from '@/integrations/supabase/client';
 
@@ -76,6 +84,8 @@ export default function InventoryHistory() {
 
   // Search and filter states like inventory page
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const [selectedProduct, setSelectedProduct] = useState<string>('all');
   const [selectedTypes, setSelectedTypes] = useState<string[]>(['all']);
   const [selectedWarehouses, setSelectedWarehouses] = useState<string[]>(['all']);
   const [sortField, setSortField] = useState<string>('');
@@ -252,9 +262,23 @@ export default function InventoryHistory() {
   const filteredData = useMemo(() => {
     let filtered = movements;
 
+    // Date filtering
+    if (selectedDate) {
+      const selectedDateString = format(selectedDate, 'yyyy-MM-dd');
+      filtered = filtered.filter(item => {
+        const itemDate = format(new Date(item.occurred_at), 'yyyy-MM-dd');
+        return itemDate === selectedDateString;
+      });
+    }
+
+    // Product filtering
+    if (selectedProduct !== 'all') {
+      filtered = filtered.filter(item => item.product_name === selectedProduct);
+    }
+
     // Search functionality
     if (searchTerm) {
-      const fuse = new Fuse(movements, {
+      const fuse = new Fuse(filtered, {
         keys: [
           { name: 'product_name', weight: 0.4 },
           { name: 'sku', weight: 0.3 },
@@ -317,7 +341,7 @@ export default function InventoryHistory() {
     }
 
     return filtered;
-  }, [movements, searchTerm, selectedTypes, selectedWarehouses, sortField, sortDirection]);
+  }, [movements, searchTerm, selectedDate, selectedProduct, selectedTypes, selectedWarehouses, sortField, sortDirection]);
 
   // Sorting functions like inventory page
   const handleSort = (field: string) => {
@@ -339,6 +363,7 @@ export default function InventoryHistory() {
   };
 
   // Get unique values for filters
+  const uniqueProducts = [...new Set(movements.map(m => m.product_name).filter(Boolean))].sort();
   const uniqueTypes = [...new Set(movements.map(m => m.movement_type))];
   const uniqueWarehouses = [...new Set(movements.map(m => m.warehouse_location).filter(Boolean))];
 
@@ -362,7 +387,17 @@ export default function InventoryHistory() {
     <div className="p-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
+        <div>
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <Activity className="h-6 w-6" />
+            Inventory Movement History
+          </h1>
+          <p className="text-muted-foreground">
+            Complete history of all inventory movements ({filteredData.length} of {movements.length} movements)
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3">
           <Button
             variant="outline"
             onClick={() => navigate('/inventory')}
@@ -371,30 +406,21 @@ export default function InventoryHistory() {
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Inventory
           </Button>
-          <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              <Activity className="h-6 w-6" />
-              Inventory Movement History
-            </h1>
-            <p className="text-muted-foreground">
-              Complete history of all inventory movements ({filteredData.length} of {movements.length} movements)
-            </p>
-          </div>
-        </div>
 
-        <Button
-          onClick={fetchMovements}
-          variant="outline"
-          className="rounded-none"
-          disabled={loading}
-        >
-          {loading ? (
-            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-          ) : (
-            <RefreshCw className="h-4 w-4 mr-2" />
-          )}
-          Refresh
-        </Button>
+          <Button
+            onClick={fetchMovements}
+            variant="outline"
+            className="rounded-none"
+            disabled={loading}
+          >
+            {loading ? (
+              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4 mr-2" />
+            )}
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {loading ? (
@@ -473,6 +499,57 @@ export default function InventoryHistory() {
                   />
                 </div>
 
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-[240px] justify-start text-left font-normal rounded-none h-10"
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {selectedDate ? format(selectedDate, "PPP") : "Filter by date"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0 rounded-none" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={selectedDate}
+                      onSelect={setSelectedDate}
+                      initialFocus
+                      className="rounded-none"
+                    />
+                    {selectedDate && (
+                      <div className="p-3 border-t">
+                        <Button
+                          variant="outline"
+                          onClick={() => setSelectedDate(undefined)}
+                          className="w-full rounded-none"
+                          size="sm"
+                        >
+                          <X className="mr-2 h-4 w-4" />
+                          Clear Date
+                        </Button>
+                      </div>
+                    )}
+                  </PopoverContent>
+                </Popover>
+
+                <Select
+                  value={selectedProduct}
+                  onValueChange={(value) => setSelectedProduct(value)}
+                >
+                  <SelectTrigger className="w-[220px] rounded-none h-10">
+                    <SelectValue placeholder="Select Product" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-none max-h-[200px] overflow-y-auto">
+                    <SelectItem value="all">All Products</SelectItem>
+                    {uniqueProducts.map(product => (
+                      <SelectItem key={product} value={product}>
+                        {product}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
                 <Select
                   value={selectedTypes.includes('all') ? 'all' : selectedTypes[0]}
                   onValueChange={(value) => setSelectedTypes(value === 'all' ? ['all'] : [value])}
@@ -511,6 +588,8 @@ export default function InventoryHistory() {
                   variant="outline"
                   onClick={() => {
                     setSearchTerm('');
+                    setSelectedDate(undefined);
+                    setSelectedProduct('all');
                     setSelectedTypes(['all']);
                     setSelectedWarehouses(['all']);
                     setSortField('');
