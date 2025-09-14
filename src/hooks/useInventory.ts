@@ -407,9 +407,8 @@ export const useInventory = () => {
           created_at,
           inventory_detail:inventory_details (
             sku,
-            product:products (
-              name
-            )
+            product_name,
+            warehouse_location
           )
         `)
         .order('occurred_at', { ascending: false })
@@ -463,11 +462,11 @@ export const useInventory = () => {
         product_variant: {
           sku: item.inventory_detail?.sku || 'UNKNOWN',
           product: {
-            name: item.inventory_detail?.product?.name || 'Unknown Product'
+            name: item.inventory_detail?.product_name || 'Unknown Product'
           }
         },
         warehouse: {
-          name: item.from_location || item.to_location || 'Main Warehouse',
+          name: item.inventory_detail?.warehouse_location || item.from_location || item.to_location || 'Main Warehouse',
           code: 'MW001'
         },
         movement_type_detail: {
@@ -476,6 +475,8 @@ export const useInventory = () => {
         }
       }));
 
+      console.log('Raw inventory logs data:', data);
+      console.log('Transformed movements:', transformedMovements);
       setStockMovements(transformedMovements);
     } catch (err) {
       console.error('Error fetching inventory logs:', err);

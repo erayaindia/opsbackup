@@ -137,6 +137,7 @@ export default function Inventory() {
   const [movementsDialogOpen, setMovementsDialogOpen] = useState(false);
   const [movementFormOpen, setMovementFormOpen] = useState(false);
   const [productModalOpen, setProductModalOpen] = useState(false);
+  const [globalHistoryOpen, setGlobalHistoryOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [recordingMovement, setRecordingMovement] = useState(false);
   const [editingProduct, setEditingProduct] = useState<any>(null);
@@ -321,6 +322,12 @@ export default function Inventory() {
     setProductModalOpen(true);
   };
 
+  // Handle global history view
+  const handleGlobalHistory = () => {
+    setSelectedProduct(null); // Clear selected product to show all movements
+    setGlobalHistoryOpen(true);
+  };
+
   // Handle edit product
   const handleEditProduct = (product: any) => {
     setEditingProduct(product);
@@ -343,10 +350,10 @@ export default function Inventory() {
     }
   };
 
-  // Filter stock movements for selected product
+  // Filter stock movements for selected product or show all for global history
   const filteredMovements = selectedProduct
     ? stockMovements.filter(movement => movement.product_variant_id === selectedProduct.id)
-    : [];
+    : stockMovements; // Show all movements for global history
 
   if (inventoryLoading) {
     return (
@@ -421,6 +428,15 @@ export default function Inventory() {
               Grid
             </Button>
           </div>
+
+          <Button
+            onClick={handleGlobalHistory}
+            variant="outline"
+            className="rounded-none"
+          >
+            <Activity className="h-4 w-4 mr-2" />
+            History
+          </Button>
 
           <Button onClick={handleAddProduct} className="rounded-none">
             <Plus className="h-4 w-4 mr-2" />
@@ -873,6 +889,14 @@ export default function Inventory() {
           productName={selectedProduct.product_name}
         />
       )}
+
+      {/* Global History Dialog */}
+      <StockMovementsDialog
+        open={globalHistoryOpen}
+        onOpenChange={setGlobalHistoryOpen}
+        movements={filteredMovements}
+        productName="All Products"
+      />
 
       {/* Stock Movement Form Dialog */}
       {selectedProduct && (
