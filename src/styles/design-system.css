@@ -1,0 +1,380 @@
+/**
+ * Design System CSS Variables
+ * These CSS custom properties are dynamically updated by the Design System Provider
+ * and provide the foundation for all theming and styling across the application
+ */
+
+/* Root variables - automatically updated by Design System */
+:root {
+  /* Color Variables - Light Theme */
+  --ds-color-primary: hsl(221.2 83.2% 53.3%);
+  --ds-color-primaryHover: hsl(221.2 83.2% 45%);
+  --ds-color-secondary: hsl(210 40% 96%);
+  --ds-color-secondaryHover: hsl(210 40% 90%);
+  --ds-color-accent: hsl(210 40% 96%);
+  --ds-color-accentHover: hsl(210 40% 90%);
+  --ds-color-background: hsl(0 0% 100%);
+  --ds-color-foreground: hsl(222.2 84% 4.9%);
+  --ds-color-card: hsl(0 0% 100%);
+  --ds-color-cardForeground: hsl(222.2 84% 4.9%);
+  --ds-color-popover: hsl(0 0% 100%);
+  --ds-color-popoverForeground: hsl(222.2 84% 4.9%);
+  --ds-color-muted: hsl(210 40% 96%);
+  --ds-color-mutedForeground: hsl(215.4 16.3% 46.9%);
+  --ds-color-border: hsl(214.3 31.8% 91.4%);
+  --ds-color-input: hsl(214.3 31.8% 91.4%);
+  --ds-color-ring: hsl(221.2 83.2% 53.3%);
+  --ds-color-destructive: hsl(0 72.2% 50.6%);
+  --ds-color-destructiveHover: hsl(0 72.2% 45%);
+  --ds-color-success: hsl(142.1 76.2% 36.3%);
+  --ds-color-successHover: hsl(142.1 76.2% 30%);
+  --ds-color-warning: hsl(47.9 95.8% 53.1%);
+  --ds-color-warningHover: hsl(47.9 95.8% 45%);
+  --ds-color-info: hsl(199.3 89.5% 48.4%);
+  --ds-color-infoHover: hsl(199.3 89.5% 40%);
+
+  /* Spacing Variables */
+  --ds-spacing-0: 0rem;
+  --ds-spacing-1: 0.25rem;
+  --ds-spacing-2: 0.5rem;
+  --ds-spacing-3: 0.75rem;
+  --ds-spacing-4: 1rem;
+  --ds-spacing-5: 1.25rem;
+  --ds-spacing-6: 1.5rem;
+  --ds-spacing-8: 2rem;
+  --ds-spacing-10: 2.5rem;
+  --ds-spacing-12: 3rem;
+  --ds-spacing-16: 4rem;
+  --ds-spacing-20: 5rem;
+  --ds-spacing-24: 6rem;
+  --ds-spacing-32: 8rem;
+  --ds-spacing-40: 10rem;
+  --ds-spacing-48: 12rem;
+  --ds-spacing-56: 14rem;
+  --ds-spacing-64: 16rem;
+
+  /* Border Radius Variables - Default to sharp corners */
+  --ds-radius-none: 0px;
+  --ds-radius-sm: 0px;
+  --ds-radius-md: 0px;
+  --ds-radius-lg: 0px;
+  --ds-radius-xl: 0px;
+  --ds-radius-2xl: 0px;
+  --ds-radius-3xl: 0px;
+  --ds-radius-full: 0px;
+
+  /* Shadow Variables */
+  --ds-shadow-none: none;
+  --ds-shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --ds-shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --ds-shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --ds-shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+  --ds-shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+  --ds-shadow-inner: inset 0 2px 4px 0 rgb(0 0 0 / 0.05);
+
+  /* Typography Variables */
+  --ds-font-sans: 'Inter', system-ui, sans-serif;
+  --ds-font-mono: 'JetBrains Mono', 'Consolas', 'Monaco', monospace;
+
+  --ds-text-xs: 0.75rem;
+  --ds-text-sm: 0.875rem;
+  --ds-text-base: 1rem;
+  --ds-text-lg: 1.125rem;
+  --ds-text-xl: 1.25rem;
+  --ds-text-2xl: 1.5rem;
+  --ds-text-3xl: 1.875rem;
+  --ds-text-4xl: 2.25rem;
+  --ds-text-5xl: 3rem;
+  --ds-text-6xl: 3.75rem;
+
+  /* Animation Variables */
+  --ds-duration-75: 75ms;
+  --ds-duration-100: 100ms;
+  --ds-duration-150: 150ms;
+  --ds-duration-200: 200ms;
+  --ds-duration-300: 300ms;
+  --ds-duration-500: 500ms;
+  --ds-duration-700: 700ms;
+  --ds-duration-1000: 1000ms;
+
+  --ds-ease-linear: linear;
+  --ds-ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ds-ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ds-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Dark theme variables */
+:root.dark,
+[data-theme="dark"] {
+  --ds-color-primary: hsl(217.2 91.2% 59.8%);
+  --ds-color-primaryHover: hsl(217.2 91.2% 65%);
+  --ds-color-secondary: hsl(217.2 32.6% 17.5%);
+  --ds-color-secondaryHover: hsl(217.2 32.6% 22%);
+  --ds-color-accent: hsl(217.2 32.6% 17.5%);
+  --ds-color-accentHover: hsl(217.2 32.6% 22%);
+  --ds-color-background: hsl(222.2 84% 4.9%);
+  --ds-color-foreground: hsl(210 40% 98%);
+  --ds-color-card: hsl(222.2 84% 4.9%);
+  --ds-color-cardForeground: hsl(210 40% 98%);
+  --ds-color-popover: hsl(222.2 84% 4.9%);
+  --ds-color-popoverForeground: hsl(210 40% 98%);
+  --ds-color-muted: hsl(217.2 32.6% 17.5%);
+  --ds-color-mutedForeground: hsl(215 20.2% 65.1%);
+  --ds-color-border: hsl(217.2 32.6% 17.5%);
+  --ds-color-input: hsl(217.2 32.6% 17.5%);
+  --ds-color-ring: hsl(224.3 76.3% 94.1%);
+  --ds-color-destructive: hsl(0 62.8% 30.6%);
+  --ds-color-destructiveHover: hsl(0 62.8% 35%);
+  --ds-color-success: hsl(142.1 70.6% 45.3%);
+  --ds-color-successHover: hsl(142.1 70.6% 50%);
+  --ds-color-warning: hsl(47.9 95.8% 53.1%);
+  --ds-color-warningHover: hsl(47.9 95.8% 58%);
+  --ds-color-info: hsl(199.3 89.5% 48.4%);
+  --ds-color-infoHover: hsl(199.3 89.5% 55%);
+}
+
+/* Design System Utility Classes */
+.ds-primary {
+  background-color: var(--ds-color-primary);
+  color: var(--ds-color-background);
+}
+
+.ds-primary:hover {
+  background-color: var(--ds-color-primaryHover);
+}
+
+.ds-secondary {
+  background-color: var(--ds-color-secondary);
+  color: var(--ds-color-foreground);
+}
+
+.ds-secondary:hover {
+  background-color: var(--ds-color-secondaryHover);
+}
+
+.ds-success {
+  background-color: var(--ds-color-success);
+  color: var(--ds-color-background);
+}
+
+.ds-success:hover {
+  background-color: var(--ds-color-successHover);
+}
+
+.ds-warning {
+  background-color: var(--ds-color-warning);
+  color: var(--ds-color-foreground);
+}
+
+.ds-warning:hover {
+  background-color: var(--ds-color-warningHover);
+}
+
+.ds-destructive {
+  background-color: var(--ds-color-destructive);
+  color: var(--ds-color-background);
+}
+
+.ds-destructive:hover {
+  background-color: var(--ds-color-destructiveHover);
+}
+
+.ds-info {
+  background-color: var(--ds-color-info);
+  color: var(--ds-color-background);
+}
+
+.ds-info:hover {
+  background-color: var(--ds-color-infoHover);
+}
+
+/* Corner utility classes controlled by design system */
+.ds-corners {
+  border-radius: var(--ds-radius-md);
+}
+
+.ds-corners-none {
+  border-radius: var(--ds-radius-none);
+}
+
+.ds-corners-sm {
+  border-radius: var(--ds-radius-sm);
+}
+
+.ds-corners-lg {
+  border-radius: var(--ds-radius-lg);
+}
+
+.ds-corners-xl {
+  border-radius: var(--ds-radius-xl);
+}
+
+.ds-corners-full {
+  border-radius: var(--ds-radius-full);
+}
+
+/* Spacing utilities */
+.ds-spacing-sm {
+  padding: var(--ds-spacing-2);
+}
+
+.ds-spacing-md {
+  padding: var(--ds-spacing-4);
+}
+
+.ds-spacing-lg {
+  padding: var(--ds-spacing-6);
+}
+
+.ds-spacing-xl {
+  padding: var(--ds-spacing-8);
+}
+
+/* Shadow utilities */
+.ds-shadow-sm {
+  box-shadow: var(--ds-shadow-sm);
+}
+
+.ds-shadow-md {
+  box-shadow: var(--ds-shadow-md);
+}
+
+.ds-shadow-lg {
+  box-shadow: var(--ds-shadow-lg);
+}
+
+.ds-shadow-xl {
+  box-shadow: var(--ds-shadow-xl);
+}
+
+/* Typography utilities */
+.ds-font-sans {
+  font-family: var(--ds-font-sans);
+}
+
+.ds-font-mono {
+  font-family: var(--ds-font-mono);
+}
+
+.ds-text-sm {
+  font-size: var(--ds-text-sm);
+}
+
+.ds-text-base {
+  font-size: var(--ds-text-base);
+}
+
+.ds-text-lg {
+  font-size: var(--ds-text-lg);
+}
+
+.ds-text-xl {
+  font-size: var(--ds-text-xl);
+}
+
+/* Animation utilities */
+.ds-transition {
+  transition-duration: var(--ds-duration-200);
+  transition-timing-function: var(--ds-ease-in-out);
+}
+
+.ds-transition-fast {
+  transition-duration: var(--ds-duration-150);
+  transition-timing-function: var(--ds-ease-out);
+}
+
+.ds-transition-slow {
+  transition-duration: var(--ds-duration-300);
+  transition-timing-function: var(--ds-ease-in-out);
+}
+
+/* Component-specific design system integration */
+.ds-button {
+  border-radius: var(--ds-radius-md);
+  transition-duration: var(--ds-duration-200);
+  transition-timing-function: var(--ds-ease-in-out);
+}
+
+.ds-input {
+  border-radius: var(--ds-radius-md);
+  border-color: var(--ds-color-border);
+  background-color: var(--ds-color-background);
+  color: var(--ds-color-foreground);
+}
+
+.ds-card {
+  border-radius: var(--ds-radius-lg);
+  border-color: var(--ds-color-border);
+  background-color: var(--ds-color-card);
+  color: var(--ds-color-cardForeground);
+  box-shadow: var(--ds-shadow-sm);
+}
+
+.ds-table {
+  border-radius: var(--ds-radius-md);
+  background-color: var(--ds-color-card);
+  color: var(--ds-color-cardForeground);
+}
+
+.ds-modal {
+  border-radius: var(--ds-radius-lg);
+  background-color: var(--ds-color-background);
+  color: var(--ds-color-foreground);
+  box-shadow: var(--ds-shadow-xl);
+}
+
+/* Global overrides for sharp corners when design system is set to sharp */
+:root[data-corners="sharp"] * {
+  --ds-radius-none: 0px !important;
+  --ds-radius-sm: 0px !important;
+  --ds-radius-md: 0px !important;
+  --ds-radius-lg: 0px !important;
+  --ds-radius-xl: 0px !important;
+  --ds-radius-2xl: 0px !important;
+  --ds-radius-3xl: 0px !important;
+  --ds-radius-full: 0px !important;
+}
+
+/* Animation keyframes for design system */
+@keyframes ds-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes ds-slide-in {
+  from {
+    transform: translateY(-10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes ds-scale-in {
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.ds-animate-fade-in {
+  animation: ds-fade-in var(--ds-duration-200) var(--ds-ease-out);
+}
+
+.ds-animate-slide-in {
+  animation: ds-slide-in var(--ds-duration-200) var(--ds-ease-out);
+}
+
+.ds-animate-scale-in {
+  animation: ds-scale-in var(--ds-duration-200) var(--ds-ease-out);
+}
