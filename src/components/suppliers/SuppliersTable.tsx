@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Supplier } from '@/hooks/useSuppliers';
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -12,7 +11,17 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { 
+import {
+  BaseTable,
+  TableHeader as SharedTableHeader,
+  TablePagination,
+  TableFilters,
+  TableExport,
+  useTableState,
+  type FilterOption,
+  type ExportColumn
+} from '@/components/shared/tables';
+import {
   Package,
   Edit,
   Star,
@@ -44,6 +53,63 @@ export const SuppliersTable: React.FC<SuppliersTableProps> = ({
 }) => {
   const [selectedSuppliers, setSelectedSuppliers] = useState<Set<string>>(new Set());
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+
+  // Define filter options for the table
+  const filterOptions: FilterOption[] = [
+    {
+      key: 'status',
+      label: 'Status',
+      options: [
+        { value: 'active', label: 'Active' },
+        { value: 'inactive', label: 'Inactive' },
+        { value: 'pending', label: 'Pending' },
+        { value: 'blocked', label: 'Blocked' }
+      ],
+      placeholder: 'Filter by status'
+    },
+    {
+      key: 'rating',
+      label: 'Rating',
+      options: [
+        { value: '5', label: '5 Stars' },
+        { value: '4', label: '4+ Stars' },
+        { value: '3', label: '3+ Stars' },
+        { value: '2', label: '2+ Stars' },
+        { value: '1', label: '1+ Stars' }
+      ],
+      placeholder: 'Filter by rating'
+    }
+  ];
+
+  // Define export columns
+  const exportColumns: ExportColumn[] = [
+    { key: 'name', header: 'Supplier Name' },
+    { key: 'code', header: 'Code' },
+    { key: 'contact_person', header: 'Contact Person' },
+    { key: 'email', header: 'Email' },
+    { key: 'phone', header: 'Phone' },
+    { key: 'status', header: 'Status' },
+    { key: 'lead_time_days', header: 'Lead Time (days)' },
+    { key: 'minimum_order_value', header: 'Min Order Value', transform: (value) => value ? `₹${value}` : 'N/A' },
+    { key: 'rating', header: 'Rating' },
+    { key: 'payment_terms', header: 'Payment Terms' },
+    { key: 'created_at', header: 'Created Date', transform: (value) => format(new Date(value), 'MMM d, yyyy') }
+  ];
+
+  // Initialize table state
+  const tableState = useTableState({
+    data: suppliers,
+    defaultSortField: 'name',
+    defaultSortDirection: 'asc',
+    searchFields: ['name', 'code', 'contact_person', 'email', 'phone'],
+    filterConfig: {
+      status: { field: 'status' },
+      rating: {
+        field: 'rating',
+        transform: (value, filterValue) => value && value >= parseInt(filterValue)
+      }
+    }
+  });
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
@@ -102,7 +168,7 @@ export const SuppliersTable: React.FC<SuppliersTableProps> = ({
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedSuppliers(new Set(suppliers.map(supplier => supplier.id)));
+      setSelectedSuppliers(new Set(tableState.paginatedData.map(supplier => supplier.id)));
     } else {
       setSelectedSuppliers(new Set());
     }
@@ -130,57 +196,128 @@ export const SuppliersTable: React.FC<SuppliersTableProps> = ({
     });
   };
 
-  const isAllSelected = suppliers.length > 0 && selectedSuppliers.size === suppliers.length;
-  const isIndeterminate = selectedSuppliers.size > 0 && selectedSuppliers.size < suppliers.length;
+  const isAllSelected = tableState.paginatedData.length > 0 && selectedSuppliers.size === tableState.paginatedData.length;
+  const isIndeterminate = selectedSuppliers.size > 0 && selectedSuppliers.size < tableState.paginatedData.length;
 
   if (loading) {
     return (
-      <div className="rounded-xl border border-border/50 bg-gradient-to-br from-card to-card/80 shadow-lg overflow-hidden">
-        <div className="h-96 flex items-center justify-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-        </div>
+      <div className="space-y-0">
+        <BaseTable loading={loading} className="rounded-none" />
       </div>
     );
   }
 
   return (
-    <div className="rounded-xl border border-border/50 bg-gradient-to-br from-card to-card/80 shadow-lg overflow-hidden">
-      <div className="max-h-[70vh] overflow-auto">
-        <Table>
-          <TableHeader className="sticky top-0 bg-background/95 backdrop-blur-sm z-10 border-b border-border/50">
-            <TableRow className="hover:bg-transparent border-none">
-              <TableHead className="w-12 border-r border-border/50 bg-muted/30 whitespace-nowrap">
-                <Checkbox
-                  checked={isAllSelected || isIndeterminate}
-                  onCheckedChange={handleSelectAll}
-                  className="mx-auto"
-                />
-              </TableHead>
-              <TableHead className="w-10 border-r border-border/50 bg-muted/30 whitespace-nowrap"></TableHead>
-              <TableHead className="border-r border-border/50 bg-muted/30 whitespace-nowrap">Supplier Name</TableHead>
-              <TableHead className="border-r border-border/50 bg-muted/30 whitespace-nowrap">Code</TableHead>
-              <TableHead className="border-r border-border/50 bg-muted/30 whitespace-nowrap">Contact Person</TableHead>
-              <TableHead className="border-r border-border/50 bg-muted/30 whitespace-nowrap">Email</TableHead>
-              <TableHead className="border-r border-border/50 bg-muted/30 whitespace-nowrap">Phone</TableHead>
-              <TableHead className="border-r border-border/50 bg-muted/30 whitespace-nowrap">Status</TableHead>
-              <TableHead className="border-r border-border/50 bg-muted/30 whitespace-nowrap">Lead Time</TableHead>
-              <TableHead className="border-r border-border/50 bg-muted/30 whitespace-nowrap">Min Order</TableHead>
-              <TableHead className="border-r border-border/50 bg-muted/30 whitespace-nowrap">Rating</TableHead>
-              <TableHead className="bg-muted/30 whitespace-nowrap">Actions</TableHead>
+    <div className="space-y-0">
+      {/* Table Filters */}
+      <TableFilters
+        searchTerm={tableState.searchTerm}
+        onSearchChange={tableState.setSearchTerm}
+        searchPlaceholder="Search suppliers by name, code, contact, email or phone..."
+        filterOptions={filterOptions}
+        filters={tableState.filters}
+        onFilterChange={tableState.setFilter}
+        onClearFilters={tableState.clearFilters}
+        className="rounded-none"
+      />
+
+      {/* Export and Stats Bar */}
+      <div className="flex items-center justify-between p-4 bg-muted/20 border-b border-border/50">
+        <div className="flex items-center gap-4">
+          <TableExport
+            data={tableState.filteredData}
+            columns={exportColumns}
+            filename={`suppliers_export_${new Date().toISOString().split('T')[0]}.csv`}
+            className="rounded-none"
+          />
+        </div>
+        <div className="text-sm text-muted-foreground">
+          Showing {tableState.startIndex}-{tableState.endIndex} of {tableState.filteredData.length} suppliers
+          {tableState.filteredData.length !== suppliers.length && ` (filtered from ${suppliers.length} total)`}
+        </div>
+      </div>
+
+      {/* Table */}
+      <BaseTable className="rounded-none border-t-0">
+        <TableHeader className="sticky top-0 bg-background/95 backdrop-blur-sm z-10 border-b border-border/50">
+          <TableRow className="hover:bg-transparent border-none">
+            <TableHead className="w-12 border-r border-border/50 bg-muted/30 whitespace-nowrap">
+              <Checkbox
+                checked={isAllSelected || isIndeterminate}
+                onCheckedChange={handleSelectAll}
+                className="mx-auto"
+              />
+            </TableHead>
+            <TableHead className="w-10 border-r border-border/50 bg-muted/30 whitespace-nowrap"></TableHead>
+            <SharedTableHeader
+              field="name"
+              sortable={true}
+              onSort={tableState.handleSort}
+              sortField={tableState.sortField}
+              sortDirection={tableState.sortDirection}
+              className="border-r border-border/50 bg-muted/30 whitespace-nowrap"
+            >
+              Supplier Name
+            </SharedTableHeader>
+            <SharedTableHeader
+              field="code"
+              sortable={true}
+              onSort={tableState.handleSort}
+              sortField={tableState.sortField}
+              sortDirection={tableState.sortDirection}
+              className="border-r border-border/50 bg-muted/30 whitespace-nowrap"
+            >
+              Code
+            </SharedTableHeader>
+            <TableHead className="border-r border-border/50 bg-muted/30 whitespace-nowrap">Contact Person</TableHead>
+            <TableHead className="border-r border-border/50 bg-muted/30 whitespace-nowrap">Email</TableHead>
+            <TableHead className="border-r border-border/50 bg-muted/30 whitespace-nowrap">Phone</TableHead>
+            <TableHead className="border-r border-border/50 bg-muted/30 whitespace-nowrap">Status</TableHead>
+            <SharedTableHeader
+              field="lead_time_days"
+              sortable={true}
+              onSort={tableState.handleSort}
+              sortField={tableState.sortField}
+              sortDirection={tableState.sortDirection}
+              className="border-r border-border/50 bg-muted/30 whitespace-nowrap"
+            >
+              Lead Time
+            </SharedTableHeader>
+            <SharedTableHeader
+              field="minimum_order_value"
+              sortable={true}
+              onSort={tableState.handleSort}
+              sortField={tableState.sortField}
+              sortDirection={tableState.sortDirection}
+              className="border-r border-border/50 bg-muted/30 whitespace-nowrap"
+            >
+              Min Order
+            </SharedTableHeader>
+            <SharedTableHeader
+              field="rating"
+              sortable={true}
+              onSort={tableState.handleSort}
+              sortField={tableState.sortField}
+              sortDirection={tableState.sortDirection}
+              className="border-r border-border/50 bg-muted/30 whitespace-nowrap"
+            >
+              Rating
+            </SharedTableHeader>
+            <TableHead className="bg-muted/30 whitespace-nowrap">Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {tableState.paginatedData.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={12} className="text-center py-12 text-muted-foreground">
+                <div className="flex flex-col items-center gap-2">
+                  <Building className="h-8 w-8 text-muted-foreground/50" />
+                  <p>No suppliers found matching your criteria</p>
+                </div>
+              </TableCell>
             </TableRow>
-          </TableHeader>
-          <TableBody>
-            {suppliers.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={12} className="text-center py-12 text-muted-foreground">
-                  <div className="flex flex-col items-center gap-2">
-                    <Building className="h-8 w-8 text-muted-foreground/50" />
-                    <p>No suppliers found</p>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ) : (
-              suppliers.map((supplier) => {
+          ) : (
+            tableState.paginatedData.map((supplier) => {
                 const isExpanded = expandedRows.has(supplier.id);
                 return (
                   <React.Fragment key={supplier.id}>
@@ -356,11 +493,23 @@ export const SuppliersTable: React.FC<SuppliersTableProps> = ({
                     )}
                   </React.Fragment>
                 );
-              })
-            )}
-          </TableBody>
-        </Table>
-      </div>
+            })
+          )}
+        </TableBody>
+      </BaseTable>
+
+      {/* Pagination */}
+      <TablePagination
+        currentPage={tableState.currentPage}
+        totalPages={tableState.totalPages}
+        itemsPerPage={tableState.itemsPerPage}
+        totalItems={tableState.filteredData.length}
+        onPageChange={tableState.setCurrentPage}
+        onItemsPerPageChange={tableState.setItemsPerPage}
+        startIndex={tableState.startIndex}
+        endIndex={tableState.endIndex}
+        className="rounded-none border-t-0"
+      />
     </div>
   );
 };

@@ -2,7 +2,17 @@ import { OnboardingApplicant } from '@/types/onboarding.types'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Eye, UserCheck, Calendar, MapPin, Briefcase } from 'lucide-react'
+import {
+  BaseTable,
+  TableHeader as SharedTableHeader,
+  TablePagination,
+  TableFilters,
+  TableExport,
+  useTableState,
+  type FilterOption,
+  type ExportColumn
+} from '@/components/shared/tables'
+import { Eye, UserCheck, Calendar, MapPin, Briefcase, FileText } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 
 interface ApplicationsTableProps {
@@ -16,6 +26,39 @@ export function ApplicationsTable({
   onViewApplication,
   onApproveApplication
 }: ApplicationsTableProps) {
+  // Define filter options and export columns
+  const filterOptions: FilterOption[] = [
+    {
+      key: 'status',
+      label: 'Status',
+      options: [
+        { value: 'submitted', label: 'Submitted' },
+        { value: 'approved', label: 'Approved' },
+        { value: 'rejected', label: 'Rejected' },
+        { value: 'withdrawn', label: 'Withdrawn' }
+      ],
+      placeholder: 'Filter by status'
+    }
+  ];
+
+  const exportColumns: ExportColumn[] = [
+    { key: 'full_name', header: 'Full Name' },
+    { key: 'personal_email', header: 'Email' },
+    { key: 'designation', header: 'Position' },
+    { key: 'work_location', header: 'Location' },
+    { key: 'status', header: 'Status' },
+    { key: 'created_at', header: 'Submitted', transform: (value) => formatDistanceToNow(new Date(value), { addSuffix: true }) }
+  ];
+
+  const tableState = useTableState({
+    data: applications,
+    defaultSortField: 'created_at',
+    defaultSortDirection: 'desc',
+    searchFields: ['full_name', 'personal_email', 'designation', 'work_location'],
+    filterConfig: {
+      status: { field: 'status' }
+    }
+  });
   const getStatusBadge = (status: OnboardingApplicant['status']) => {
     const variants = {
       submitted: { variant: 'secondary' as const, color: 'bg-orange-100 text-orange-800' },
@@ -27,7 +70,7 @@ export function ApplicationsTable({
     const config = variants[status] || variants.submitted
 
     return (
-      <Badge variant={config.variant} className={config.color}>
+      <Badge variant={config.variant} className={`${config.color} rounded-none`}>
         {status.charAt(0).toUpperCase() + status.slice(1)}
       </Badge>
     )
@@ -42,8 +85,31 @@ export function ApplicationsTable({
   }
 
   return (
-    <div className="overflow-x-auto">
-      <Table>
+    <div className="space-y-0">
+      <TableFilters
+        searchTerm={tableState.searchTerm}
+        onSearchChange={tableState.setSearchTerm}
+        searchPlaceholder="Search applications by name, email, position..."
+        filterOptions={filterOptions}
+        filters={tableState.filters}
+        onFilterChange={tableState.setFilter}
+        onClearFilters={tableState.clearFilters}
+        className="rounded-none"
+      />
+
+      <div className="flex items-center justify-between p-4 bg-muted/20 border-b border-border/50">
+        <TableExport
+          data={tableState.filteredData}
+          columns={exportColumns}
+          filename={`applications_${new Date().toISOString().split('T')[0]}.csv`}
+          className="rounded-none"
+        />
+        <div className="text-sm text-muted-foreground">
+          Showing {tableState.startIndex}-{tableState.endIndex} of {tableState.filteredData.length} applications
+        </div>
+      </div>
+
+      <BaseTable className="rounded-none border-t-0">
         <TableHeader>
           <TableRow>
             <TableHead>Applicant</TableHead>
@@ -56,7 +122,17 @@ export function ApplicationsTable({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {applications.map((application) => (
+          {tableState.paginatedData.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={7} className="text-center py-12 text-muted-foreground">
+                <div className="flex flex-col items-center gap-2">
+                  <FileText className="h-8 w-8 text-muted-foreground/50" />
+                  <p>No applications found matching your criteria</p>
+                </div>
+              </TableCell>
+            </TableRow>
+          ) : (
+            tableState.paginatedData.map((application) => (
             <TableRow key={application.id}>
               <TableCell>
                 <div className="space-y-1">
@@ -113,7 +189,7 @@ export function ApplicationsTable({
                     variant="outline"
                     size="sm"
                     onClick={() => onViewApplication(application)}
-                    className="flex items-center gap-1"
+                    className="flex items-center gap-1 rounded-none"
                   >
                     <Eye className="w-3 h-3" />
                     View
@@ -124,7 +200,7 @@ export function ApplicationsTable({
                       variant="default"
                       size="sm"
                       onClick={() => onApproveApplication(application)}
-                      className="flex items-center gap-1 bg-green-600 hover:bg-green-700"
+                      className="flex items-center gap-1 bg-green-600 hover:bg-green-700 rounded-none"
                     >
                       <UserCheck className="w-3 h-3" />
                       Approve
@@ -133,9 +209,22 @@ export function ApplicationsTable({
                 </div>
               </TableCell>
             </TableRow>
-          ))}
+          ))
+          )}
         </TableBody>
-      </Table>
+      </BaseTable>
+
+      <TablePagination
+        currentPage={tableState.currentPage}
+        totalPages={tableState.totalPages}
+        itemsPerPage={tableState.itemsPerPage}
+        totalItems={tableState.filteredData.length}
+        onPageChange={tableState.setCurrentPage}
+        onItemsPerPageChange={tableState.setItemsPerPage}
+        startIndex={tableState.startIndex}
+        endIndex={tableState.endIndex}
+        className="rounded-none border-t-0"
+      />
     </div>
   )
 }

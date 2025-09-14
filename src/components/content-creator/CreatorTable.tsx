@@ -20,6 +20,14 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  BaseTable,
+  TableHeader as SharedTableHeader,
+  TablePagination,
+  TableExport,
+  useTableState,
+  type ExportColumn
+} from '@/components/shared/tables';
 import { Search, Star, Filter, Plus, Users, Zap, DollarSign } from 'lucide-react';
 import { ContentCreator, CreatorFilters, CreatorView, CreatorRole, CreatorStatus, CreatorAvailability } from '@/types/contentCreator';
 
@@ -128,6 +136,31 @@ export const CreatorTable: React.FC<CreatorTableProps> = ({
     return a.name.localeCompare(b.name);
   });
 
+  // Define export columns for CSV export
+  const exportColumns: ExportColumn[] = [
+    { key: 'name', header: 'Name' },
+    { key: 'email', header: 'Email' },
+    { key: 'role', header: 'Role' },
+    { key: 'status', header: 'Status' },
+    { key: 'availability', header: 'Availability' },
+    { key: 'rating', header: 'Rating' },
+    { key: 'location', header: 'Location' },
+    {
+      key: 'rateCard',
+      header: 'Base Rate',
+      transform: (rateCard) => `${rateCard.currency} ${rateCard.baseRate} per ${rateCard.unit}`
+    }
+  ];
+
+  // Initialize table state for pagination
+  const tableState = useTableState({
+    data: sortedCreators,
+    defaultSortField: 'name',
+    defaultSortDirection: 'asc',
+    searchFields: ['name', 'email', 'role', 'location'],
+    filterConfig: {}
+  });
+
   const handleFilterChange = (key: keyof CreatorFilters, value: any) => {
     setFilters(prev => ({ ...prev, [key]: value }));
   };
@@ -158,7 +191,7 @@ export const CreatorTable: React.FC<CreatorTableProps> = ({
             Manage your content creator network and assignments
           </p>
         </div>
-        <Button onClick={onAddCreator} className="flex items-center gap-2">
+        <Button onClick={onAddCreator} className="flex items-center gap-2 rounded-none">
           <Plus className="h-4 w-4" />
           Add Creator
         </Button>
@@ -166,12 +199,12 @@ export const CreatorTable: React.FC<CreatorTableProps> = ({
 
       {/* Views Tabs */}
       <Tabs value={currentView} onValueChange={(value) => setCurrentView(value as CreatorView)}>
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-5 rounded-none">
           {CREATOR_VIEWS.map((view) => (
             <TabsTrigger
               key={view.value}
               value={view.value}
-              className="text-xs sm:text-sm"
+              className="text-xs sm:text-sm rounded-none"
               title={view.description}
             >
               <view.icon className="h-4 w-4 mr-1 sm:mr-2" />
@@ -182,15 +215,21 @@ export const CreatorTable: React.FC<CreatorTableProps> = ({
       </Tabs>
 
       {/* Filters */}
-      <Card>
+      <Card className="rounded-none">
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg">Filters</CardTitle>
             {activeFiltersCount > 0 && (
-              <Button variant="ghost" size="sm" onClick={clearFilters}>
+              <Button variant="ghost" size="sm" onClick={clearFilters} className="rounded-none">
                 Clear All ({activeFiltersCount})
               </Button>
             )}
+            <TableExport
+              data={sortedCreators}
+              columns={exportColumns}
+              filename={`creators_export_${new Date().toISOString().split('T')[0]}.csv`}
+              className="rounded-none"
+            />
           </div>
         </CardHeader>
         <CardContent>
@@ -203,7 +242,7 @@ export const CreatorTable: React.FC<CreatorTableProps> = ({
                 placeholder="Search by name, role, email..."
                 value={filters.searchQuery}
                 onChange={(e) => handleFilterChange('searchQuery', e.target.value)}
-                className="pl-10"
+                className="pl-10 rounded-none"
               />
             </div>
           </div>
@@ -217,10 +256,10 @@ export const CreatorTable: React.FC<CreatorTableProps> = ({
                 value={filters.role}
                 onValueChange={(value) => handleFilterChange('role', value)}
               >
-                <SelectTrigger>
+                <SelectTrigger className="rounded-none">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="rounded-none">
                   <SelectItem value="All">All Roles</SelectItem>
                   {CREATOR_ROLES.map((role) => (
                     <SelectItem key={role} value={role}>{role}</SelectItem>
@@ -236,10 +275,10 @@ export const CreatorTable: React.FC<CreatorTableProps> = ({
                 value={filters.status}
                 onValueChange={(value) => handleFilterChange('status', value)}
               >
-                <SelectTrigger>
+                <SelectTrigger className="rounded-none">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="rounded-none">
                   <SelectItem value="All">All Statuses</SelectItem>
                   <SelectItem value="Active">Active</SelectItem>
                   <SelectItem value="Onboarding">Onboarding</SelectItem>
@@ -256,10 +295,10 @@ export const CreatorTable: React.FC<CreatorTableProps> = ({
                 value={filters.availability}
                 onValueChange={(value) => handleFilterChange('availability', value)}
               >
-                <SelectTrigger>
+                <SelectTrigger className="rounded-none">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="rounded-none">
                   <SelectItem value="All">All Availability</SelectItem>
                   <SelectItem value="Free">Free</SelectItem>
                   <SelectItem value="Limited">Limited</SelectItem>
@@ -275,10 +314,10 @@ export const CreatorTable: React.FC<CreatorTableProps> = ({
                 value={filters.minRating.toString()}
                 onValueChange={(value) => handleFilterChange('minRating', parseInt(value))}
               >
-                <SelectTrigger>
+                <SelectTrigger className="rounded-none">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="rounded-none">
                   <SelectItem value="0">Any Rating</SelectItem>
                   <SelectItem value="7">7+ Stars</SelectItem>
                   <SelectItem value="8">8+ Stars</SelectItem>
@@ -293,9 +332,9 @@ export const CreatorTable: React.FC<CreatorTableProps> = ({
       {/* Results Summary */}
       <div className="flex items-center justify-between text-sm text-muted-foreground">
         <span>
-          Showing {sortedCreators.length} of {creators.length} creators
+          Showing {tableState.startIndex}-{tableState.endIndex} of {tableState.filteredData.length} creators
           {currentView !== 'All Creators' && (
-            <Badge variant="outline" className="ml-2">
+            <Badge variant="outline" className="ml-2 rounded-none">
               {currentView}
             </Badge>
           )}
@@ -303,8 +342,7 @@ export const CreatorTable: React.FC<CreatorTableProps> = ({
       </div>
 
       {/* Table */}
-      <Card>
-        <Table>
+      <BaseTable className="rounded-none">
           <TableHeader>
             <TableRow>
               <TableHead>Creator</TableHead>
@@ -317,7 +355,7 @@ export const CreatorTable: React.FC<CreatorTableProps> = ({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {sortedCreators.length === 0 ? (
+            {tableState.paginatedData.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="text-center py-8">
                   <div className="flex flex-col items-center gap-3">
@@ -331,7 +369,7 @@ export const CreatorTable: React.FC<CreatorTableProps> = ({
                         }
                       </p>
                     </div>
-                    <Button onClick={onAddCreator} size="sm">
+                    <Button onClick={onAddCreator} size="sm" className="rounded-none">
                       <Plus className="h-4 w-4 mr-2" />
                       Add Creator
                     </Button>
@@ -339,7 +377,7 @@ export const CreatorTable: React.FC<CreatorTableProps> = ({
                 </TableCell>
               </TableRow>
             ) : (
-              sortedCreators.map((creator) => (
+              tableState.paginatedData.map((creator) => (
                 <TableRow
                   key={creator.id}
                   className="cursor-pointer hover:bg-muted/50 transition-colors"
@@ -360,10 +398,10 @@ export const CreatorTable: React.FC<CreatorTableProps> = ({
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline">{creator.role}</Badge>
+                    <Badge variant="outline" className="rounded-none">{creator.role}</Badge>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline" className={getStatusColor(creator.status)}>
+                    <Badge variant="outline" className={`${getStatusColor(creator.status)} rounded-none`}>
                       {creator.status}
                     </Badge>
                   </TableCell>
@@ -378,7 +416,7 @@ export const CreatorTable: React.FC<CreatorTableProps> = ({
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline" className={getAvailabilityColor(creator.availability)}>
+                    <Badge variant="outline" className={`${getAvailabilityColor(creator.availability)} rounded-none`}>
                       {creator.availability}
                     </Badge>
                   </TableCell>
@@ -395,8 +433,20 @@ export const CreatorTable: React.FC<CreatorTableProps> = ({
               ))
             )}
           </TableBody>
-        </Table>
-      </Card>
+      </BaseTable>
+
+      {/* Pagination */}
+      <TablePagination
+        currentPage={tableState.currentPage}
+        totalPages={tableState.totalPages}
+        itemsPerPage={tableState.itemsPerPage}
+        totalItems={tableState.filteredData.length}
+        onPageChange={tableState.setCurrentPage}
+        onItemsPerPageChange={tableState.setItemsPerPage}
+        startIndex={tableState.startIndex}
+        endIndex={tableState.endIndex}
+        className="rounded-none"
+      />
     </div>
   );
 };

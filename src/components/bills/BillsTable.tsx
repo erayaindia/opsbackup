@@ -10,7 +10,17 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { 
+import {
+  BaseTable,
+  TableHeader as SharedTableHeader,
+  TablePagination,
+  TableFilters,
+  TableExport,
+  useTableState,
+  type FilterOption,
+  type ExportColumn
+} from '@/components/shared/tables';
+import {
   Edit,
   FileText,
   AlertTriangle,
@@ -24,7 +34,8 @@ import {
   MapPin,
   BarChart3,
   User,
-  CreditCard
+  CreditCard,
+  Receipt
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -42,6 +53,59 @@ export const BillsTable: React.FC<BillsTableProps> = ({
   loading = false
 }) => {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+
+  // Define filter options for the table
+  const filterOptions: FilterOption[] = [
+    {
+      key: 'type',
+      label: 'Type',
+      options: [
+        { value: 'stock', label: 'Stock' },
+        { value: 'expense', label: 'Expense' }
+      ],
+      placeholder: 'Filter by type'
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      options: [
+        { value: 'pending', label: 'Pending' },
+        { value: 'paid', label: 'Paid' },
+        { value: 'overdue', label: 'Overdue' },
+        { value: 'due_soon', label: 'Due Soon' }
+      ],
+      placeholder: 'Filter by status'
+    }
+  ];
+
+  // Define export columns
+  const exportColumns: ExportColumn[] = [
+    { key: 'bill_number', header: 'Bill Number' },
+    { key: 'type', header: 'Type' },
+    { key: 'vendor_name', header: 'Vendor' },
+    { key: 'subtotal', header: 'Amount', transform: (value) => `₹${value.toLocaleString()}` },
+    { key: 'bill_date', header: 'Bill Date', transform: (value) => new Date(value).toLocaleDateString('en-IN') },
+    { key: 'due_date', header: 'Due Date', transform: (value) => value ? new Date(value).toLocaleDateString('en-IN') : 'N/A' },
+    { key: 'status', header: 'Status' },
+    { key: 'tracking_id', header: 'Tracking ID' }
+  ];
+
+  // Initialize table state with custom status logic
+  const billsWithComputedStatus = bills.map(bill => {
+    const statusInfo = getStatusInfo(bill);
+    return { ...bill, computed_status: statusInfo.status };
+  });
+
+  const tableState = useTableState({
+    data: billsWithComputedStatus,
+    defaultSortField: 'bill_date',
+    defaultSortDirection: 'desc',
+    searchFields: ['bill_number', 'vendor_name', 'tracking_id'],
+    filterConfig: {
+      type: { field: 'type' },
+      status: { field: 'computed_status' }
+    }
+  });
 
   const getStatusInfo = (bill: Bill) => {
     const now = new Date();
@@ -95,31 +159,115 @@ export const BillsTable: React.FC<BillsTableProps> = ({
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center p-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      <div className="space-y-0">
+        <BaseTable loading={loading} className="rounded-none" />
       </div>
     );
   }
 
   return (
-    <div className="rounded-md border">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-8 border-r border-border/50"></TableHead>
-            <TableHead className="border-r border-border/50 whitespace-nowrap">Bill Info</TableHead>
-            <TableHead className="w-24 border-r border-border/50 whitespace-nowrap">Type</TableHead>
-            <TableHead className="w-28 border-r border-border/50 whitespace-nowrap">Status</TableHead>
-            <TableHead className="w-40 border-r border-border/50 whitespace-nowrap">Vendor</TableHead>
-            <TableHead className="w-32 border-r border-border/50 whitespace-nowrap">Invoice No.</TableHead>
-            <TableHead className="w-24 border-r border-border/50 whitespace-nowrap">Date</TableHead>
-            <TableHead className="w-24 border-r border-border/50 whitespace-nowrap">Due Date</TableHead>
-            <TableHead className="w-28 border-r border-border/50 whitespace-nowrap">Subtotal</TableHead>
-            <TableHead className="w-48 whitespace-nowrap">Actions</TableHead>
+    <div className="space-y-0">
+      {/* Table Filters */}
+      <TableFilters
+        searchTerm={tableState.searchTerm}
+        onSearchChange={tableState.setSearchTerm}
+        searchPlaceholder="Search bills by number, vendor, or tracking ID..."
+        filterOptions={filterOptions}
+        filters={tableState.filters}
+        onFilterChange={tableState.setFilter}
+        onClearFilters={tableState.clearFilters}
+        className="rounded-none"
+      />
+
+      {/* Export and Stats Bar */}
+      <div className="flex items-center justify-between p-4 bg-muted/20 border-b border-border/50">
+        <div className="flex items-center gap-4">
+          <TableExport
+            data={tableState.filteredData}
+            columns={exportColumns}
+            filename={`bills_export_${new Date().toISOString().split('T')[0]}.csv`}
+            className="rounded-none"
+          />
+        </div>
+        <div className="text-sm text-muted-foreground">
+          Showing {tableState.startIndex}-{tableState.endIndex} of {tableState.filteredData.length} bills
+          {tableState.filteredData.length !== bills.length && ` (filtered from ${bills.length} total)`}
+        </div>
+      </div>
+
+      {/* Table */}
+      <BaseTable className="rounded-none border-t-0">
+        <TableHeader className="sticky top-0 bg-background/95 backdrop-blur-sm z-10 border-b border-border/50">
+          <TableRow className="hover:bg-transparent border-none">
+            <TableHead className="w-8 border-r border-border/50 bg-muted/30 whitespace-nowrap"></TableHead>
+            <SharedTableHeader
+              field="bill_number"
+              sortable={true}
+              onSort={tableState.handleSort}
+              sortField={tableState.sortField}
+              sortDirection={tableState.sortDirection}
+              className="border-r border-border/50 bg-muted/30 whitespace-nowrap"
+            >
+              Bill Info
+            </SharedTableHeader>
+            <TableHead className="w-24 border-r border-border/50 bg-muted/30 whitespace-nowrap">Type</TableHead>
+            <TableHead className="w-28 border-r border-border/50 bg-muted/30 whitespace-nowrap">Status</TableHead>
+            <SharedTableHeader
+              field="vendor_name"
+              sortable={true}
+              onSort={tableState.handleSort}
+              sortField={tableState.sortField}
+              sortDirection={tableState.sortDirection}
+              className="w-40 border-r border-border/50 bg-muted/30 whitespace-nowrap"
+            >
+              Vendor
+            </SharedTableHeader>
+            <TableHead className="w-32 border-r border-border/50 bg-muted/30 whitespace-nowrap">Invoice No.</TableHead>
+            <SharedTableHeader
+              field="bill_date"
+              sortable={true}
+              onSort={tableState.handleSort}
+              sortField={tableState.sortField}
+              sortDirection={tableState.sortDirection}
+              className="w-24 border-r border-border/50 bg-muted/30 whitespace-nowrap"
+            >
+              Date
+            </SharedTableHeader>
+            <SharedTableHeader
+              field="due_date"
+              sortable={true}
+              onSort={tableState.handleSort}
+              sortField={tableState.sortField}
+              sortDirection={tableState.sortDirection}
+              className="w-24 border-r border-border/50 bg-muted/30 whitespace-nowrap"
+            >
+              Due Date
+            </SharedTableHeader>
+            <SharedTableHeader
+              field="subtotal"
+              sortable={true}
+              onSort={tableState.handleSort}
+              sortField={tableState.sortField}
+              sortDirection={tableState.sortDirection}
+              className="w-28 border-r border-border/50 bg-muted/30 whitespace-nowrap"
+            >
+              Subtotal
+            </SharedTableHeader>
+            <TableHead className="w-48 bg-muted/30 whitespace-nowrap">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {bills.map((bill) => {
+          {tableState.paginatedData.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={10} className="text-center py-12 text-muted-foreground">
+                <div className="flex flex-col items-center gap-2">
+                  <Receipt className="h-8 w-8 text-muted-foreground/50" />
+                  <p>No bills found matching your criteria</p>
+                </div>
+              </TableCell>
+            </TableRow>
+          ) : (
+            tableState.paginatedData.map((bill) => {
             const statusInfo = getStatusInfo(bill);
             const typeInfo = getTypeInfo(bill.type);
             const StatusIcon = statusInfo.icon;
@@ -135,7 +283,7 @@ export const BillsTable: React.FC<BillsTableProps> = ({
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-5 w-5 p-0"
+                      className="h-5 w-5 p-0 rounded-none"
                       onClick={(e) => {
                         e.stopPropagation();
                         toggleRowExpansion(bill.id);
@@ -151,7 +299,7 @@ export const BillsTable: React.FC<BillsTableProps> = ({
                   
                   <TableCell className="border-r border-border/50 py-2" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center space-x-2">
-                      <div className="w-8 h-8 bg-muted rounded flex items-center justify-center flex-shrink-0">
+                      <div className="w-8 h-8 bg-muted rounded-none flex items-center justify-center flex-shrink-0">
                         <FileText className="w-4 h-4 text-muted-foreground" />
                       </div>
                       <div className="min-w-0">
@@ -164,7 +312,7 @@ export const BillsTable: React.FC<BillsTableProps> = ({
                   </TableCell>
                 
                   <TableCell className="border-r border-border/50 py-2 text-sm">
-                    <Badge className={`${typeInfo.bgColor} text-xs px-2 py-0.5`}>
+                    <Badge className={`${typeInfo.bgColor} text-xs px-2 py-0.5 rounded-none`}>
                       {typeInfo.label}
                     </Badge>
                   </TableCell>
@@ -172,9 +320,9 @@ export const BillsTable: React.FC<BillsTableProps> = ({
                   <TableCell className="border-r border-border/50 py-2">
                     <div className="flex items-center space-x-1">
                       <StatusIcon className="w-3 h-3" />
-                      <Badge 
+                      <Badge
                         variant={statusInfo.color as any}
-                        className="whitespace-nowrap text-xs px-2 py-0.5"
+                        className="whitespace-nowrap text-xs px-2 py-0.5 rounded-none"
                       >
                         {statusInfo.label}
                       </Badge>
@@ -221,17 +369,18 @@ export const BillsTable: React.FC<BillsTableProps> = ({
                           variant="outline"
                           size="sm"
                           onClick={() => onEdit(bill)}
+                          className="rounded-none"
                         >
                           <Edit className="w-4 h-4" />
                         </Button>
                       )}
-                      
+
                       {bill.status === 'pending' && onMarkAsPaid && (
                         <Button
                           size="sm"
                           variant="outline"
                           onClick={() => onMarkAsPaid(bill)}
-                          className="px-3"
+                          className="px-3 rounded-none"
                         >
                           <CheckCircle className="w-4 h-4 mr-1" />
                           Mark Paid
@@ -392,15 +541,22 @@ export const BillsTable: React.FC<BillsTableProps> = ({
             );
           })}
           
-          {bills.length === 0 && (
-            <TableRow>
-              <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
-                No bills found
-              </TableCell>
-            </TableRow>
           )}
         </TableBody>
-      </Table>
+      </BaseTable>
+
+      {/* Pagination */}
+      <TablePagination
+        currentPage={tableState.currentPage}
+        totalPages={tableState.totalPages}
+        itemsPerPage={tableState.itemsPerPage}
+        totalItems={tableState.filteredData.length}
+        onPageChange={tableState.setCurrentPage}
+        onItemsPerPageChange={tableState.setItemsPerPage}
+        startIndex={tableState.startIndex}
+        endIndex={tableState.endIndex}
+        className="rounded-none border-t-0"
+      />
     </div>
   );
 };

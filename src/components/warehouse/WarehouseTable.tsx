@@ -10,7 +10,12 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { 
+import {
+  BaseTable,
+  TableExport,
+  type ExportColumn
+} from '@/components/shared/tables';
+import {
   Edit,
   Building,
   MapPin,
@@ -35,6 +40,16 @@ export const WarehouseTable: React.FC<WarehouseTableProps> = ({
   loading = false
 }) => {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+
+  // Define export columns
+  const exportColumns: ExportColumn[] = [
+    { key: 'name', header: 'Warehouse Name' },
+    { key: 'code', header: 'Code' },
+    { key: 'address', header: 'Address', transform: (address) => formatAddress(address) },
+    { key: 'capacity', header: 'Capacity', transform: (cap) => cap ? cap.toLocaleString() : 'N/A' },
+    { key: 'active', header: 'Status', transform: (active) => active ? 'Active' : 'Inactive' },
+    { key: 'created_at', header: 'Created Date' }
+  ];
 
   const toggleRowExpansion = (warehouseId: string) => {
     setExpandedRows(prev => {
@@ -72,11 +87,7 @@ export const WarehouseTable: React.FC<WarehouseTableProps> = ({
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-48">
-        <div className="text-muted-foreground">Loading warehouses...</div>
-      </div>
-    );
+    return <BaseTable loading={loading} className="rounded-none" />;
   }
 
   if (warehouses.length === 0) {
@@ -91,8 +102,21 @@ export const WarehouseTable: React.FC<WarehouseTableProps> = ({
   }
 
   return (
-    <div className="overflow-x-auto">
-      <Table>
+    <div className="space-y-0">
+      {/* Export Bar */}
+      <div className="flex items-center justify-between p-4 bg-muted/20 border-b border-border/50">
+        <TableExport
+          data={warehouses}
+          columns={exportColumns}
+          filename={`warehouses_export_${new Date().toISOString().split('T')[0]}.csv`}
+          className="rounded-none"
+        />
+        <div className="text-sm text-muted-foreground">
+          Showing {warehouses.length} warehouses
+        </div>
+      </div>
+
+      <BaseTable className="rounded-none border-t-0">
         <TableHeader>
           <TableRow className="hover:bg-transparent border-border/50">
             <TableHead className="border-r border-border/50 w-10"></TableHead>
@@ -116,7 +140,7 @@ export const WarehouseTable: React.FC<WarehouseTableProps> = ({
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-6 w-6 p-0"
+                    className="h-6 w-6 p-0 rounded-none"
                     onClick={(e) => {
                       e.stopPropagation();
                       toggleRowExpansion(warehouse.id);
@@ -142,7 +166,7 @@ export const WarehouseTable: React.FC<WarehouseTableProps> = ({
                 </TableCell>
 
                 <TableCell className="border-r border-border/50 py-2">
-                  <code className="bg-muted px-2 py-1 rounded text-sm">
+                  <code className="bg-muted px-2 py-1 rounded-none text-sm">
                     {warehouse.code}
                   </code>
                 </TableCell>
@@ -166,7 +190,7 @@ export const WarehouseTable: React.FC<WarehouseTableProps> = ({
                 </TableCell>
 
                 <TableCell className="border-r border-border/50 py-2">
-                  <Badge variant={warehouse.active ? "default" : "secondary"}>
+                  <Badge variant={warehouse.active ? "default" : "secondary"} className="rounded-none">
                     {warehouse.active ? 'Active' : 'Inactive'}
                   </Badge>
                 </TableCell>
@@ -185,7 +209,7 @@ export const WarehouseTable: React.FC<WarehouseTableProps> = ({
                     variant="ghost"
                     size="sm"
                     onClick={() => onEdit(warehouse)}
-                    className="h-8 px-2"
+                    className="h-8 px-2 rounded-none"
                   >
                     <Edit className="w-3 h-3" />
                   </Button>
@@ -269,7 +293,7 @@ export const WarehouseTable: React.FC<WarehouseTableProps> = ({
             </React.Fragment>
           ))}
         </TableBody>
-      </Table>
+      </BaseTable>
     </div>
   );
 };

@@ -181,7 +181,7 @@ export function PackingTable({
   
   if (orders.length === 0) {
     return (
-      <Card>
+      <Card className="rounded-none">
         <CardContent className="p-8 text-center">
           <p className="text-muted-foreground">No orders to display</p>
         </CardContent>

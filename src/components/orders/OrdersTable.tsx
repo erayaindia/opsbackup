@@ -29,6 +29,16 @@ import {
   AlertTriangle,
   CheckCircle
 } from 'lucide-react';
+import {
+  BaseTable,
+  TableHeader as SharedTableHeader,
+  TablePagination,
+  TableFilters,
+  TableExport,
+  useTableState,
+  type FilterOption,
+  type ExportColumn
+} from '@/components/shared/tables';
 import { ShopifyOrder, OrderStatus } from '@/hooks/useShopifyOrders';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -38,24 +48,24 @@ import { BulkActionsBar } from './BulkActionsBar';
 interface OrdersTableProps {
   orders: ShopifyOrder[];
   loading: boolean;
-  loadingMore: boolean;
-  hasMore: boolean;
-  totalCount: number;
-  sortBy: 'order_id' | 'Order Time' | 'total_price';
-  sortOrder: 'asc' | 'desc';
-  onSort: (field: 'order_id' | 'Order Time' | 'total_price') => void;
+  loadingMore?: boolean;
+  hasMore?: boolean;
+  totalCount?: number;
+  sortBy?: string;
+  sortOrder?: string;
+  onSort?: (field: string) => void;
   onStatusUpdate: (orderId: string, status: OrderStatus) => Promise<{ success: boolean; error?: string }>;
-  onLoadMore: () => void;
+  onLoadMore?: () => void;
 }
 
-export function OrdersTable({ 
-  orders, 
-  loading, 
+export function OrdersTable({
+  orders,
+  loading,
   loadingMore,
   hasMore,
   totalCount,
-  sortBy, 
-  sortOrder, 
+  sortBy,
+  sortOrder,
   onSort,
   onStatusUpdate,
   onLoadMore
@@ -65,11 +75,62 @@ export function OrdersTable({
   const [selectedOrder, setSelectedOrder] = useState<ShopifyOrder | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
-  const getSortIcon = (field: 'order_id' | 'Order Time' | 'total_price') => {
-    if (sortBy !== field) {
+  // Define filter options for the table
+  const filterOptions: FilterOption[] = [
+    {
+      key: 'status',
+      label: 'Order Status',
+      options: [
+        { value: 'Packed', label: 'Packed' },
+        { value: 'Shipped', label: 'Shipped' },
+        { value: 'Unfulfilled', label: 'Unfulfilled' },
+        { value: 'Dispute', label: 'Dispute' }
+      ],
+      placeholder: 'Filter by status'
+    },
+    {
+      key: 'financial_status',
+      label: 'Financial Status',
+      options: [
+        { value: 'paid', label: 'Paid' },
+        { value: 'pending', label: 'Pending' },
+        { value: 'refunded', label: 'Refunded' },
+        { value: 'cancelled', label: 'Cancelled' }
+      ],
+      placeholder: 'Filter by payment'
+    }
+  ];
+
+  // Define export columns
+  const exportColumns: ExportColumn[] = [
+    { key: 'order_id', header: 'Order ID' },
+    { key: 'name', header: 'Customer Name' },
+    { key: 'email', header: 'Email' },
+    { key: 'phone', header: 'Phone' },
+    { key: 'total_price', header: 'Total Price', transform: (value) => value ? `₹${value}` : '₹0' },
+    { key: 'Order Status', header: 'Order Status' },
+    { key: 'financial_status', header: 'Financial Status' },
+    { key: 'Order Time', header: 'Order Time', transform: (value) => value ? format(new Date(value), 'MMM d, yyyy HH:mm') : '-' }
+  ];
+
+  // Initialize table state
+  const tableState = useTableState({
+    data: orders,
+    defaultSortField: 'Order Time',
+    defaultSortDirection: 'desc',
+    searchFields: ['order_id', 'name', 'email', 'phone'],
+    filterConfig: {
+      status: { field: 'Order Status' },
+      financial_status: { field: 'financial_status', transform: (value) => value?.toLowerCase() }
+    }
+  });
+
+  const getSortIcon = (field: string) => {
+    const sortDirection = tableState.getSortIcon(field);
+    if (!sortDirection) {
       return <ArrowUpDown className="h-4 w-4" />;
     }
-    return sortOrder === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />;
+    return sortDirection === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />;
   };
 
   const getStatusBadge = (status: string | null) => {
@@ -151,7 +212,7 @@ export function OrdersTable({
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedOrders(new Set(orders.map(order => order.order_id)));
+      setSelectedOrders(new Set(tableState.paginatedData.map(order => order.order_id)));
     } else {
       setSelectedOrders(new Set());
     }
@@ -189,106 +250,126 @@ export function OrdersTable({
     setIsDrawerOpen(true);
   };
 
-  const isAllSelected = orders.length > 0 && selectedOrders.size === orders.length;
-  const isIndeterminate = selectedOrders.size > 0 && selectedOrders.size < orders.length;
+  const isAllSelected = tableState.paginatedData.length > 0 && selectedOrders.size === tableState.paginatedData.length;
+  const isIndeterminate = selectedOrders.size > 0 && selectedOrders.size < tableState.paginatedData.length;
 
   if (loading) {
     return (
-      <div className="rounded-md border">
-        <div className="h-96 flex items-center justify-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-        </div>
+      <div className="space-y-0">
+        <BaseTable loading={loading} className="rounded-none" />
       </div>
     );
   }
 
   return (
     <div className="space-y-0">
-      {/* Bulk Actions Bar */}
-      <BulkActionsBar
-        selectedCount={selectedOrders.size}
-        onBulkStatusUpdate={handleBulkStatusUpdate}
-        onClearSelection={() => setSelectedOrders(new Set())}
+      {/* Table Filters */}
+      <TableFilters
+        searchTerm={tableState.searchTerm}
+        onSearchChange={tableState.setSearchTerm}
+        searchPlaceholder="Search orders by ID, name, email or phone..."
+        filterOptions={filterOptions}
+        filters={tableState.filters}
+        onFilterChange={tableState.setFilter}
+        onClearFilters={tableState.clearFilters}
+        className="rounded-none"
       />
 
-      {/* Stats Bar */}
-      <div className="flex items-center justify-between text-sm text-muted-foreground p-4 bg-muted/20">
-        <span>Showing {orders.length} of {(totalCount || 0).toLocaleString()} orders</span>
-        {loadingMore && (
-          <div className="flex items-center gap-2">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-            Loading more...
-          </div>
-        )}
+      {/* Export and Actions Bar */}
+      <div className="flex items-center justify-between p-4 bg-muted/20 border-b border-border/50">
+        <div className="flex items-center gap-4">
+          <TableExport
+            data={tableState.filteredData}
+            columns={exportColumns}
+            filename={`orders_export_${new Date().toISOString().split('T')[0]}.csv`}
+            className="rounded-none"
+          />
+          {selectedOrders.size > 0 && (
+            <BulkActionsBar
+              selectedCount={selectedOrders.size}
+              onBulkStatusUpdate={handleBulkStatusUpdate}
+              onClearSelection={() => setSelectedOrders(new Set())}
+            />
+          )}
+        </div>
+        <div className="text-sm text-muted-foreground">
+          Showing {tableState.startIndex}-{tableState.endIndex} of {tableState.filteredData.length} orders
+          {tableState.filteredData.length !== orders.length && ` (filtered from ${orders.length} total)`}
+        </div>
       </div>
 
       {/* Table */}
-      <div className="rounded-xl border border-border/50 bg-gradient-to-br from-card to-card/80 shadow-lg overflow-hidden">
-        <div className="max-h-[70vh] overflow-auto">
-          <Table>
-            <TableHeader className="sticky top-0 bg-background/95 backdrop-blur-sm z-10 border-b border-border/50">
-              <TableRow className="hover:bg-transparent border-none">
-                <TableHead className="w-12 border-r border-border/50 bg-muted/30 whitespace-nowrap">
-                  <Checkbox
-                    checked={isAllSelected || isIndeterminate}
-                    onCheckedChange={handleSelectAll}
-                    className="mx-auto"
-                  />
-                </TableHead>
-                <TableHead 
-                  className="cursor-pointer hover:bg-muted/50 transition-colors min-w-32 border-r border-border/50 bg-muted/30 whitespace-nowrap"
-                  onClick={() => onSort('order_id')}
-                >
-                  <div className="flex items-center gap-2">
-                    Order ID
-                    {getSortIcon('order_id')}
-                  </div>
-                </TableHead>
-                <TableHead className="min-w-32 border-r border-border/50 bg-muted/30 whitespace-nowrap">Name</TableHead>
-                <TableHead className="min-w-32 border-r border-border/50 bg-muted/30 whitespace-nowrap">Financial Status</TableHead>
-                <TableHead className="min-w-36 border-r border-border/50 bg-muted/30 whitespace-nowrap">Order Status</TableHead>
-                <TableHead 
-                  className="cursor-pointer hover:bg-muted/50 transition-colors min-w-28 border-r border-border/50 bg-muted/30 whitespace-nowrap"
-                  onClick={() => onSort('total_price')}
-                >
-                  <div className="flex items-center gap-2">
-                    <IndianRupee className="h-4 w-4" />
-                    Total Price
-                    {getSortIcon('total_price')}
-                  </div>
-                </TableHead>
-                <TableHead className="min-w-48 border-r border-border/50 bg-muted/30 whitespace-nowrap">Email</TableHead>
-                <TableHead className="min-w-32 border-r border-border/50 bg-muted/30 whitespace-nowrap">Phone</TableHead>
-                <TableHead 
-                  className="cursor-pointer hover:bg-muted/50 transition-colors min-w-40 border-r border-border/50 bg-muted/30 whitespace-nowrap"
-                  onClick={() => onSort('Order Time')}
-                >
-                  <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4" />
-                    Order Time
-                    {getSortIcon('Order Time')}
-                  </div>
-                </TableHead>
-                <TableHead className="min-w-24 bg-muted/30 whitespace-nowrap">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {orders.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={10} className="text-center py-12 text-muted-foreground">
-                    <div className="flex flex-col items-center gap-2">
-                      <Package className="h-8 w-8 text-muted-foreground/50" />
-                      <p>No orders found matching your criteria</p>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                orders.map((order) => (
-                  <TableRow 
-                    key={order.order_id} 
-                    className="hover:bg-muted/20 transition-all duration-200 cursor-pointer h-12 border-b border-border/30"
-                    onClick={(e) => handleRowClick(order, e)}
-                  >
+      <BaseTable className="rounded-none border-t-0">
+        <TableHeader className="sticky top-0 bg-background/95 backdrop-blur-sm z-10 border-b border-border/50">
+          <TableRow className="hover:bg-transparent border-none">
+            <TableHead className="w-12 border-r border-border/50 bg-muted/30 whitespace-nowrap">
+              <Checkbox
+                checked={isAllSelected || isIndeterminate}
+                onCheckedChange={handleSelectAll}
+                className="mx-auto"
+              />
+            </TableHead>
+            <SharedTableHeader
+              field="order_id"
+              sortable={true}
+              onSort={tableState.handleSort}
+              sortField={tableState.sortField}
+              sortDirection={tableState.sortDirection}
+              className="min-w-32 border-r border-border/50 bg-muted/30 whitespace-nowrap"
+            >
+              Order ID
+            </SharedTableHeader>
+            <TableHead className="min-w-32 border-r border-border/50 bg-muted/30 whitespace-nowrap">Name</TableHead>
+            <TableHead className="min-w-32 border-r border-border/50 bg-muted/30 whitespace-nowrap">Financial Status</TableHead>
+            <TableHead className="min-w-36 border-r border-border/50 bg-muted/30 whitespace-nowrap">Order Status</TableHead>
+            <SharedTableHeader
+              field="total_price"
+              sortable={true}
+              onSort={tableState.handleSort}
+              sortField={tableState.sortField}
+              sortDirection={tableState.sortDirection}
+              className="min-w-28 border-r border-border/50 bg-muted/30 whitespace-nowrap"
+            >
+              <div className="flex items-center gap-2">
+                <IndianRupee className="h-4 w-4" />
+                Total Price
+              </div>
+            </SharedTableHeader>
+            <TableHead className="min-w-48 border-r border-border/50 bg-muted/30 whitespace-nowrap">Email</TableHead>
+            <TableHead className="min-w-32 border-r border-border/50 bg-muted/30 whitespace-nowrap">Phone</TableHead>
+            <SharedTableHeader
+              field="Order Time"
+              sortable={true}
+              onSort={tableState.handleSort}
+              sortField={tableState.sortField}
+              sortDirection={tableState.sortDirection}
+              className="min-w-40 border-r border-border/50 bg-muted/30 whitespace-nowrap"
+            >
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4" />
+                Order Time
+              </div>
+            </SharedTableHeader>
+            <TableHead className="min-w-24 bg-muted/30 whitespace-nowrap">Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {tableState.paginatedData.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={10} className="text-center py-12 text-muted-foreground">
+                <div className="flex flex-col items-center gap-2">
+                  <Package className="h-8 w-8 text-muted-foreground/50" />
+                  <p>No orders found matching your criteria</p>
+                </div>
+              </TableCell>
+            </TableRow>
+          ) : (
+            tableState.paginatedData.map((order) => (
+              <TableRow
+                key={order.order_id}
+                className="hover:bg-muted/20 transition-all duration-200 cursor-pointer h-12 border-b border-border/30"
+                onClick={(e) => handleRowClick(order, e)}
+              >
                     <TableCell onClick={(e) => e.stopPropagation()} className="border-r border-border/50">
                       <Checkbox
                         checked={selectedOrders.has(order.order_id)}
@@ -368,34 +449,24 @@ export function OrdersTable({
                         )}
                       </div>
                     </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      </div>
+              </TableRow>
+            ))
+          )}
+        </TableBody>
+      </BaseTable>
 
-      {/* Load More Button */}
-      {hasMore && (
-        <div className="flex justify-center pt-6">
-          <Button 
-            variant="outline" 
-            onClick={onLoadMore}
-            disabled={loadingMore}
-            className="min-w-40"
-          >
-            {loadingMore ? (
-              <div className="flex items-center gap-2">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-                Loading...
-              </div>
-            ) : (
-              'Load More Orders'
-            )}
-          </Button>
-        </div>
-      )}
+      {/* Pagination */}
+      <TablePagination
+        currentPage={tableState.currentPage}
+        totalPages={tableState.totalPages}
+        itemsPerPage={tableState.itemsPerPage}
+        totalItems={tableState.filteredData.length}
+        onPageChange={tableState.setCurrentPage}
+        onItemsPerPageChange={tableState.setItemsPerPage}
+        startIndex={tableState.startIndex}
+        endIndex={tableState.endIndex}
+        className="rounded-none border-t-0"
+      />
 
       {/* Order Detail Drawer */}
       <OrderDetailDrawer

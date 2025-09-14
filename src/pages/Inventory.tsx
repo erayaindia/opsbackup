@@ -28,7 +28,6 @@ import { useInventory } from "@/hooks/useInventory";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -146,9 +145,6 @@ export default function Inventory() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
 
-  // Bulk selection states
-  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
-  const [bulkActionOpen, setBulkActionOpen] = useState(false);
 
   // Dialog states
   const [movementsDialogOpen, setMovementsDialogOpen] = useState(false);
@@ -293,33 +289,6 @@ export default function Inventory() {
     setCurrentPage(1);
   }, [searchTerm, selectedCategories, selectedStatuses, selectedSuppliers]);
 
-  // Clear selected items when filters change
-  useEffect(() => {
-    setSelectedItems(new Set());
-  }, [searchTerm, selectedCategories, selectedStatuses, selectedSuppliers, currentPage]);
-
-  // Bulk selection functions
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      const currentPageIds = paginatedData.map(item => item.id);
-      setSelectedItems(new Set(currentPageIds));
-    } else {
-      setSelectedItems(new Set());
-    }
-  };
-
-  const handleSelectItem = (id: string, checked: boolean) => {
-    const newSelected = new Set(selectedItems);
-    if (checked) {
-      newSelected.add(id);
-    } else {
-      newSelected.delete(id);
-    }
-    setSelectedItems(newSelected);
-  };
-
-  const isAllSelected = paginatedData.length > 0 && paginatedData.every(item => selectedItems.has(item.id));
-  const isIndeterminate = selectedItems.size > 0 && !isAllSelected;
 
   // Get unique values for filters
   const categories = ['all', ...Array.from(new Set(inventoryData.map(item => item.category)))];
@@ -390,7 +359,7 @@ export default function Inventory() {
   };
 
   // Export to CSV function
-  const exportToCSV = (dataToExport = filteredData) => {
+  const exportToCSV = () => {
     const headers = [
       'Product Name',
       'SKU',
@@ -407,7 +376,7 @@ export default function Inventory() {
       'Description'
     ];
 
-    const csvData = dataToExport.map(item => [
+    const csvData = filteredData.map(item => [
       item.product_name,
       item.sku,
       item.category,
@@ -638,57 +607,6 @@ export default function Inventory() {
         </Card>
       </div>
 
-      {/* Bulk Actions Bar */}
-      {selectedItems.size > 0 && (
-        <Card className="mb-4 rounded-none border-blue-200 bg-blue-50">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <span className="text-sm font-medium text-blue-900">
-                  {selectedItems.size} item{selectedItems.size !== 1 ? 's' : ''} selected
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setSelectedItems(new Set())}
-                  className="rounded-none text-blue-700 border-blue-300"
-                >
-                  Clear Selection
-                </Button>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="rounded-none text-red-700 border-red-300"
-                  onClick={() => {
-                    // TODO: Implement bulk delete
-                    alert('Bulk delete functionality would be implemented here');
-                  }}
-                >
-                  <Trash2 className="h-4 w-4 mr-1" />
-                  Delete Selected
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="rounded-none"
-                  onClick={() => {
-                    // Export only selected items
-                    const selectedData = filteredData.filter(item => selectedItems.has(item.id));
-                    if (selectedData.length > 0) {
-                      exportToCSV(selectedData);
-                    }
-                  }}
-                >
-                  <Download className="h-4 w-4 mr-1" />
-                  Export Selected
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Filters */}
       <Card className="mb-6 rounded-none">
@@ -785,16 +703,6 @@ export default function Inventory() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-12 border-r border-border/50">
-                      <Checkbox
-                        checked={isAllSelected}
-                        onCheckedChange={handleSelectAll}
-                        className="rounded-none"
-                        ref={(el) => {
-                          if (el) el.indeterminate = isIndeterminate;
-                        }}
-                      />
-                    </TableHead>
                     <TableHead
                       className="cursor-pointer hover:bg-muted/50 border-r border-border/50 text-left"
                       onClick={() => handleSort('product_name')}
@@ -873,13 +781,6 @@ export default function Inventory() {
                 <TableBody>
                   {paginatedData.map((item) => (
                     <TableRow key={item.id}>
-                      <TableCell className="border-r border-border/50">
-                        <Checkbox
-                          checked={selectedItems.has(item.id)}
-                          onCheckedChange={(checked) => handleSelectItem(item.id, !!checked)}
-                          className="rounded-none"
-                        />
-                      </TableCell>
                       <TableCell className="border-r border-border/50 text-left">
                         <div className="flex items-center justify-start gap-3">
                           <div

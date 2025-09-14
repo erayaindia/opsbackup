@@ -126,7 +126,7 @@ export function FeedbackTable({
     }
 
     return (
-      <Badge variant={variants[type]} className="text-xs font-medium">
+      <Badge variant={variants[type]} className="text-xs font-medium rounded-none">
         {labels[type]}
       </Badge>
     )
@@ -158,7 +158,7 @@ export function FeedbackTable({
     }
 
     return (
-      <Badge className={cn('border text-xs', colors[status])}>
+      <Badge className={cn('border text-xs rounded-none', colors[status])}>
         {labels[status]}
       </Badge>
     )
@@ -180,7 +180,7 @@ export function FeedbackTable({
     }
 
     return (
-      <Badge className={cn('border-0 text-xs font-medium', colors[priority])}>
+      <Badge className={cn('border-0 text-xs font-medium rounded-none', colors[priority])}>
         {labels[priority]}
       </Badge>
     )
@@ -245,19 +245,19 @@ export function FeedbackTable({
             {Array.from({ length: 5 }).map((_, index) => (
               <TableRow key={index} className="h-12">
                 <TableCell className="py-1 px-3 border-r border-border/30">
-                  <div className="h-4 w-4 bg-gray-200 rounded animate-pulse"></div>
+                  <div className="h-4 w-4 bg-gray-200 rounded-none animate-pulse"></div>
                 </TableCell>
                 <TableCell className="py-1 px-3 border-r border-border/30">
                   <div className="flex items-center gap-2">
                     <div className="w-8 h-8 bg-gray-200 rounded-lg animate-pulse"></div>
                     <div className="flex-1 space-y-1">
-                      <div className="h-4 w-48 bg-gray-200 rounded animate-pulse"></div>
-                      <div className="h-3 w-24 bg-gray-200 rounded animate-pulse"></div>
+                      <div className="h-4 w-48 bg-gray-200 rounded-none animate-pulse"></div>
+                      <div className="h-3 w-24 bg-gray-200 rounded-none animate-pulse"></div>
                     </div>
                   </div>
                 </TableCell>
                 <TableCell className="py-1 px-3 border-r border-border/30">
-                  <div className="h-4 w-32 bg-gray-200 rounded animate-pulse"></div>
+                  <div className="h-4 w-32 bg-gray-200 rounded-none animate-pulse"></div>
                 </TableCell>
                 <TableCell className="py-1 px-3 border-r border-border/30">
                   <div className="h-6 w-20 bg-gray-200 rounded animate-pulse"></div>
@@ -463,7 +463,7 @@ export function FeedbackTable({
 
                 <TableCell className="py-1 px-3">
                   {item.order_id ? (
-                    <Badge variant="outline" className="text-xs">
+                    <Badge variant="outline" className="text-xs rounded-none">
                       <Package className="h-3 w-3 mr-1" />
                       {item.order_id}
                     </Badge>
@@ -494,10 +494,10 @@ export function FeedbackTable({
 
                 <TableCell className="py-1 px-3" onClick={(e) => e.stopPropagation()}>
                   <div className="flex gap-1">
-                    <Button 
-                      size="sm" 
+                    <Button
+                      size="sm"
                       variant="ghost"
-                      className="h-6 w-6 p-0 hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/20"
+                      className="h-6 w-6 p-0 hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/20 rounded-none"
                       onClick={() => onViewFeedback?.(item)}
                     >
                       <Eye className="h-3 w-3" />
@@ -505,10 +505,10 @@ export function FeedbackTable({
                     {onUpdateStatus && (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button 
-                            size="sm" 
+                          <Button
+                            size="sm"
                             variant="ghost"
-                            className="h-6 w-6 p-0 hover:bg-gray-50 hover:text-gray-600 dark:hover:bg-gray-900/20"
+                            className="h-6 w-6 p-0 hover:bg-gray-50 hover:text-gray-600 dark:hover:bg-gray-900/20 rounded-none"
                           >
                             <MoreHorizontal className="h-3 w-3" />
                           </Button>
@@ -554,7 +554,7 @@ export function FeedbackTable({
                               <div className="flex items-center gap-1 flex-wrap">
                                 <span className="font-medium">Tags:</span>
                                 {item.tags.map((tag) => (
-                                  <Badge key={tag} variant="outline" className="text-xs">
+                                  <Badge key={tag} variant="outline" className="text-xs rounded-none">
                                     {tag}
                                   </Badge>
                                 ))}
