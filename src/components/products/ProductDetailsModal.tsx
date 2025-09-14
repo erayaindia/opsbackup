@@ -35,6 +35,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { Separator } from '@/components/ui/separator'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 import type { LifecycleProduct, CreateProductPayload } from '@/services/productLifecycleService'
 import { FormContent } from './FormContent'
@@ -70,6 +71,7 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
   const [isUpdating, setIsUpdating] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [activeTab, setActiveTab] = useState('idea')
 
   // Form state for editing
   const [editForm, setEditForm] = useState({
@@ -144,6 +146,7 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
       setUploadedVideos([])
       setUploadedProductImage(null)
       setIsEditMode(true) // Always start in edit mode
+      setActiveTab(product.stage || 'idea') // Set active tab based on product stage
     }
   }, [product, open])
 
@@ -433,45 +436,478 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
           </div>
         </DialogHeader>
 
-        {/* Content - Always show edit form */}
+        {/* Tabbed Content */}
         <div className="flex-1 overflow-hidden">
-          <div className="h-full overflow-y-auto space-y-6 p-6 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100">
-            <FormContent
-              newIdeaForm={editForm}
-              setNewIdeaForm={setEditForm}
-              selectedCategories={selectedCategories}
-              setSelectedCategories={setSelectedCategories}
-              availableCategories={[]}
-              tagInput={tagInput}
-              setTagInput={setTagInput}
-              tags={tags}
-              setTags={setTags}
-              referenceLinks={referenceLinks}
-              setReferenceLinks={setReferenceLinks}
-              uploadedImages={uploadedImages}
-              uploadedVideos={uploadedVideos}
-              handleImageUpload={handleImageUpload}
-              handleVideoUpload={handleVideoUpload}
-              removeImage={removeImage}
-              removeVideo={removeVideo}
-              handleDrop={handleDrop}
-              handleDragOver={handleDragOver}
-              handleDragEnter={handleDragEnter}
-              handleDragLeave={handleDragLeave}
-              dragActive={dragActive}
-              extractDomainFromUrl={extractDomainFromUrl}
-              autoResizeTextarea={autoResizeTextarea}
-              suppliers={suppliers}
-              suppliersLoading={suppliersLoading}
-              availableOwners={availableUsers}
-              // Product image props
-              currentProductImage={currentProductImage}
-              uploadedProductImage={uploadedProductImage}
-              onChangeProductImage={handleChangeCurrentImage}
-              onRemoveCurrentImage={handleRemoveCurrentImage}
-              onRemoveUploadedImage={removeProductImage}
-            />
-          </div>
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
+            {/* Tab Navigation */}
+            <div className="flex-shrink-0 px-6 pt-4 pb-2 border-b border-border/20">
+              <TabsList className="grid w-full grid-cols-4 bg-muted/30 rounded-none">
+                <TabsTrigger value="idea" className="flex items-center gap-2 rounded-none data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                  <Lightbulb className="h-4 w-4" />
+                  Idea
+                </TabsTrigger>
+                <TabsTrigger value="production" className="flex items-center gap-2 rounded-none data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                  <Factory className="h-4 w-4" />
+                  Production
+                </TabsTrigger>
+                <TabsTrigger value="content" className="flex items-center gap-2 rounded-none data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                  <Camera className="h-4 w-4" />
+                  Content
+                </TabsTrigger>
+                <TabsTrigger value="scaling" className="flex items-center gap-2 rounded-none data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                  <TrendingUp className="h-4 w-4" />
+                  Scaling
+                </TabsTrigger>
+              </TabsList>
+            </div>
+
+            {/* Tab Content */}
+            <div className="flex-1 overflow-hidden">
+              {/* Idea Tab - Current form content */}
+              <TabsContent value="idea" className="h-full mt-0 data-[state=inactive]:hidden">
+                <div className="h-full overflow-y-auto space-y-6 p-6 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100">
+                  <FormContent
+                    newIdeaForm={editForm}
+                    setNewIdeaForm={setEditForm}
+                    selectedCategories={selectedCategories}
+                    setSelectedCategories={setSelectedCategories}
+                    availableCategories={[]}
+                    tagInput={tagInput}
+                    setTagInput={setTagInput}
+                    tags={tags}
+                    setTags={setTags}
+                    referenceLinks={referenceLinks}
+                    setReferenceLinks={setReferenceLinks}
+                    uploadedImages={uploadedImages}
+                    uploadedVideos={uploadedVideos}
+                    handleImageUpload={handleImageUpload}
+                    handleVideoUpload={handleVideoUpload}
+                    removeImage={removeImage}
+                    removeVideo={removeVideo}
+                    handleDrop={handleDrop}
+                    handleDragOver={handleDragOver}
+                    handleDragEnter={handleDragEnter}
+                    handleDragLeave={handleDragLeave}
+                    dragActive={dragActive}
+                    extractDomainFromUrl={extractDomainFromUrl}
+                    autoResizeTextarea={autoResizeTextarea}
+                    suppliers={suppliers}
+                    suppliersLoading={suppliersLoading}
+                    availableOwners={availableUsers}
+                    // Product image props
+                    currentProductImage={currentProductImage}
+                    uploadedProductImage={uploadedProductImage}
+                    onChangeProductImage={handleChangeCurrentImage}
+                    onRemoveCurrentImage={handleRemoveCurrentImage}
+                    onRemoveUploadedImage={removeProductImage}
+                  />
+                </div>
+              </TabsContent>
+
+              {/* Production Tab */}
+              <TabsContent value="production" className="h-full mt-0 data-[state=inactive]:hidden">
+                <div className="h-full overflow-y-auto space-y-6 p-6 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100">
+                  <div className="space-y-6">
+                    <div className="flex items-center gap-3 pb-4">
+                      <div className="p-2 rounded-none bg-orange-50 dark:bg-orange-950">
+                        <Factory className="h-5 w-5 text-orange-600" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold">Production Management</h3>
+                        <p className="text-sm text-muted-foreground">Manage manufacturing, samples, and production timeline</p>
+                      </div>
+                    </div>
+
+                    {/* Materials & Specifications */}
+                    <div className="space-y-4">
+                      <Label className="text-sm font-medium text-foreground">Materials & Specifications</Label>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label className="text-xs font-medium text-muted-foreground mb-2 block">Dimensions</Label>
+                          <Input
+                            placeholder="L x W x H"
+                            className="rounded-none"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs font-medium text-muted-foreground mb-2 block">Weight</Label>
+                          <Input
+                            placeholder="kg"
+                            className="rounded-none"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-xs font-medium text-muted-foreground mb-2 block">Materials</Label>
+                        <Textarea
+                          placeholder="Describe materials used..."
+                          className="rounded-none min-h-[80px]"
+                        />
+                      </div>
+                    </div>
+
+                    <Separator className="my-6" />
+
+                    {/* Sample Management */}
+                    <div className="space-y-4">
+                      <Label className="text-sm font-medium text-foreground">Sample Management</Label>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label className="text-xs font-medium text-muted-foreground mb-2 block">Sample Request Date</Label>
+                          <Input
+                            type="date"
+                            className="rounded-none"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs font-medium text-muted-foreground mb-2 block">Sample Received Date</Label>
+                          <Input
+                            type="date"
+                            className="rounded-none"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-xs font-medium text-muted-foreground mb-2 block">Sample Status</Label>
+                        <Select>
+                          <SelectTrigger className="rounded-none">
+                            <SelectValue placeholder="Select status" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="pending">Pending</SelectItem>
+                            <SelectItem value="approved">Approved</SelectItem>
+                            <SelectItem value="rejected">Rejected</SelectItem>
+                            <SelectItem value="needs-revision">Needs Revision</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label className="text-xs font-medium text-muted-foreground mb-2 block">Sample Notes</Label>
+                        <Textarea
+                          placeholder="Notes about sample quality, feedback..."
+                          className="rounded-none min-h-[80px]"
+                        />
+                      </div>
+                    </div>
+
+                    <Separator className="my-6" />
+
+                    {/* Production Timeline */}
+                    <div className="space-y-4">
+                      <Label className="text-sm font-medium text-foreground">Production Timeline</Label>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label className="text-xs font-medium text-muted-foreground mb-2 block">Production Start</Label>
+                          <Input
+                            type="date"
+                            className="rounded-none"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs font-medium text-muted-foreground mb-2 block">Expected Completion</Label>
+                          <Input
+                            type="date"
+                            className="rounded-none"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-xs font-medium text-muted-foreground mb-2 block">Production Milestones</Label>
+                        <Textarea
+                          placeholder="Key milestones and deadlines..."
+                          className="rounded-none min-h-[100px]"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </TabsContent>
+
+              {/* Content Tab */}
+              <TabsContent value="content" className="h-full mt-0 data-[state=inactive]:hidden">
+                <div className="h-full overflow-y-auto space-y-6 p-6 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100">
+                  <div className="space-y-6">
+                    <div className="flex items-center gap-3 pb-4">
+                      <div className="p-2 rounded-none bg-blue-50 dark:bg-blue-950">
+                        <Camera className="h-5 w-5 text-blue-600" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold">Content Creation</h3>
+                        <p className="text-sm text-muted-foreground">Manage creative assets, scripts, and content production</p>
+                      </div>
+                    </div>
+
+                    {/* Creative Brief */}
+                    <div className="space-y-4">
+                      <Label className="text-sm font-medium text-foreground">Creative Brief</Label>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label className="text-xs font-medium text-muted-foreground mb-2 block">Moodboard Link</Label>
+                          <Input
+                            placeholder="https://..."
+                            className="rounded-none"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs font-medium text-muted-foreground mb-2 block">Brief Document</Label>
+                          <Input
+                            placeholder="https://..."
+                            className="rounded-none"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <Separator className="my-6" />
+
+                    {/* Video Scripts */}
+                    <div className="space-y-4">
+                      <Label className="text-sm font-medium text-foreground">Video Scripts</Label>
+                      <div>
+                        <Label className="text-xs font-medium text-muted-foreground mb-2 block">Hero Video Script</Label>
+                        <Textarea
+                          placeholder="Main hero video script..."
+                          className="rounded-none min-h-[100px]"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs font-medium text-muted-foreground mb-2 block">Lifestyle Script</Label>
+                        <Textarea
+                          placeholder="Lifestyle video script..."
+                          className="rounded-none min-h-[100px]"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs font-medium text-muted-foreground mb-2 block">Unboxing Script</Label>
+                        <Textarea
+                          placeholder="Unboxing video script..."
+                          className="rounded-none min-h-[100px]"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label className="text-xs font-medium text-muted-foreground mb-2 block">15s Script</Label>
+                          <Textarea
+                            placeholder="Short 15 second script..."
+                            className="rounded-none min-h-[80px]"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs font-medium text-muted-foreground mb-2 block">30s Script</Label>
+                          <Textarea
+                            placeholder="30 second script..."
+                            className="rounded-none min-h-[80px]"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <Separator className="my-6" />
+
+                    {/* Team Assignment */}
+                    <div className="space-y-4">
+                      <Label className="text-sm font-medium text-foreground">Team Assignment</Label>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label className="text-xs font-medium text-muted-foreground mb-2 block">Agency</Label>
+                          <Select>
+                            <SelectTrigger className="rounded-none">
+                              <SelectValue placeholder="Select agency" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="agency1">Creative Agency A</SelectItem>
+                              <SelectItem value="agency2">Creative Agency B</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label className="text-xs font-medium text-muted-foreground mb-2 block">Influencer</Label>
+                          <Select>
+                            <SelectTrigger className="rounded-none">
+                              <SelectValue placeholder="Select influencer" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="influencer1">Influencer 1</SelectItem>
+                              <SelectItem value="influencer2">Influencer 2</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </TabsContent>
+
+              {/* Scaling Tab */}
+              <TabsContent value="scaling" className="h-full mt-0 data-[state=inactive]:hidden">
+                <div className="h-full overflow-y-auto space-y-6 p-6 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100">
+                  <div className="space-y-6">
+                    <div className="flex items-center gap-3 pb-4">
+                      <div className="p-2 rounded-none bg-green-50 dark:bg-green-950">
+                        <TrendingUp className="h-5 w-5 text-green-600" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold">Scaling & Marketing</h3>
+                        <p className="text-sm text-muted-foreground">Manage launch, budget allocation, and performance metrics</p>
+                      </div>
+                    </div>
+
+                    {/* Launch Details */}
+                    <div className="space-y-4">
+                      <Label className="text-sm font-medium text-foreground">Launch Details</Label>
+                      <div>
+                        <Label className="text-xs font-medium text-muted-foreground mb-2 block">Launch Date</Label>
+                        <Input
+                          type="date"
+                          className="rounded-none"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs font-medium text-muted-foreground mb-2 block">Marketing Channels</Label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <label className="flex items-center space-x-2">
+                            <input type="checkbox" className="rounded" />
+                            <span className="text-sm">Facebook</span>
+                          </label>
+                          <label className="flex items-center space-x-2">
+                            <input type="checkbox" className="rounded" />
+                            <span className="text-sm">Instagram</span>
+                          </label>
+                          <label className="flex items-center space-x-2">
+                            <input type="checkbox" className="rounded" />
+                            <span className="text-sm">Google Ads</span>
+                          </label>
+                          <label className="flex items-center space-x-2">
+                            <input type="checkbox" className="rounded" />
+                            <span className="text-sm">YouTube</span>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+
+                    <Separator className="my-6" />
+
+                    {/* Budget Allocation */}
+                    <div className="space-y-4">
+                      <Label className="text-sm font-medium text-foreground">Budget Allocation</Label>
+                      <div>
+                        <Label className="text-xs font-medium text-muted-foreground mb-2 block">Total Budget</Label>
+                        <Input
+                          type="number"
+                          placeholder="0.00"
+                          className="rounded-none"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label className="text-xs font-medium text-muted-foreground mb-2 block">Facebook Budget</Label>
+                          <Input
+                            type="number"
+                            placeholder="0.00"
+                            className="rounded-none"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs font-medium text-muted-foreground mb-2 block">Instagram Budget</Label>
+                          <Input
+                            type="number"
+                            placeholder="0.00"
+                            className="rounded-none"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs font-medium text-muted-foreground mb-2 block">Google Budget</Label>
+                          <Input
+                            type="number"
+                            placeholder="0.00"
+                            className="rounded-none"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs font-medium text-muted-foreground mb-2 block">YouTube Budget</Label>
+                          <Input
+                            type="number"
+                            placeholder="0.00"
+                            className="rounded-none"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <Separator className="my-6" />
+
+                    {/* Performance Targets & Metrics */}
+                    <div className="space-y-4">
+                      <Label className="text-sm font-medium text-foreground">Performance Targets</Label>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label className="text-xs font-medium text-muted-foreground mb-2 block">Target Revenue</Label>
+                          <Input
+                            type="number"
+                            placeholder="0.00"
+                            className="rounded-none"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs font-medium text-muted-foreground mb-2 block">Actual Revenue</Label>
+                          <Input
+                            type="number"
+                            placeholder="0.00"
+                            className="rounded-none"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs font-medium text-muted-foreground mb-2 block">Target ROAS</Label>
+                          <Input
+                            type="number"
+                            placeholder="0.00"
+                            className="rounded-none"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs font-medium text-muted-foreground mb-2 block">Actual ROAS</Label>
+                          <Input
+                            type="number"
+                            placeholder="0.00"
+                            className="rounded-none"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs font-medium text-muted-foreground mb-2 block">Target Conversions</Label>
+                          <Input
+                            type="number"
+                            placeholder="0"
+                            className="rounded-none"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs font-medium text-muted-foreground mb-2 block">Actual Conversions</Label>
+                          <Input
+                            type="number"
+                            placeholder="0"
+                            className="rounded-none"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <Separator className="my-6" />
+
+                    {/* Learnings & Notes */}
+                    <div className="space-y-4">
+                      <Label className="text-sm font-medium text-foreground">Learnings & Insights</Label>
+                      <div>
+                        <Textarea
+                          placeholder="Key learnings, insights, and notes from this campaign..."
+                          className="rounded-none min-h-[120px]"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </TabsContent>
+            </div>
+          </Tabs>
         </div>
       </DialogContent>
 

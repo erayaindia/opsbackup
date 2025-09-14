@@ -63,6 +63,9 @@ import {
   TrendingUp,
   TrendingDown,
   AlertTriangle,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
   Users,
   Calendar,
   Clock,
@@ -127,6 +130,8 @@ export default function Inventory() {
   const [selectedCategories, setSelectedCategories] = useState<string[]>(['all']);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>(['all']);
   const [selectedSuppliers, setSelectedSuppliers] = useState<string[]>(['all']);
+  const [sortField, setSortField] = useState<string>('');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   // Dialog states
   const [movementsDialogOpen, setMovementsDialogOpen] = useState(false);
@@ -135,6 +140,9 @@ export default function Inventory() {
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [recordingMovement, setRecordingMovement] = useState(false);
   const [editingProduct, setEditingProduct] = useState<any>(null);
+  const [imagePreviewOpen, setImagePreviewOpen] = useState(false);
+  const [previewImageUrl, setPreviewImageUrl] = useState<string>('');
+  const [previewProductName, setPreviewProductName] = useState<string>('');
 
   // Transform database products to inventory format
   const inventoryData: InventoryItem[] = useMemo(() => {
@@ -155,11 +163,11 @@ export default function Inventory() {
 
       return {
         id: product.id,
-        product_name: product.product?.name || 'Unknown Product',
+        product_name: product.product_name || product.product?.name || 'Unknown Product',
         sku: product.sku || 'NO-SKU',
-        category: product.product?.category?.name || 'uncategorized',
+        category: product.product_category || product.product?.category?.name || 'uncategorized',
         supplier_id: product.supplier?.id || '',
-        supplier_name: product.supplier?.name || 'Unknown Supplier',
+        supplier_name: product.supplier_name || product.supplier?.name || 'Unknown Supplier',
         base_stock: currentStock,
         current_stock: currentStock,
         reserved_stock: product.allocated_stock || 0,
@@ -167,9 +175,10 @@ export default function Inventory() {
         threshold: threshold,
         status: status,
         cost_per_unit: product.cost || 0,
-        description: product.product?.description || '',
-        location: product.warehouse?.name || 'Unknown Location',
-        image_url: product.product?.image_url || '/api/placeholder/60/60',
+        total_value: (product.cost || 0) * currentStock,
+        description: product.product_description || product.product?.description || '',
+        location: product.warehouse_location || product.warehouse?.name || 'Unknown Location',
+        image_url: product.product_image_url || product.product?.image_url || '/api/placeholder/60/60',
         created_at: product.created_at || new Date().toISOString(),
         updated_at: product.updated_at || new Date().toISOString(),
         created_by: 'system',
@@ -178,7 +187,27 @@ export default function Inventory() {
     });
   }, [inventoryProducts]);
 
-  // Filter data based on user selections
+  // Handle sorting
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  // Get sort icon for header
+  const getSortIcon = (field: string) => {
+    if (sortField !== field) {
+      return <ArrowUpDown className="h-3 w-3 text-muted-foreground" />;
+    }
+    return sortDirection === 'asc' ?
+      <ArrowUp className="h-3 w-3" /> :
+      <ArrowDown className="h-3 w-3" />;
+  };
+
+  // Filter and sort data
   const filteredData = useMemo(() => {
     let filtered = inventoryData;
 
@@ -206,8 +235,30 @@ export default function Inventory() {
       filtered = filtered.filter(item => selectedSuppliers.includes(item.supplier_name));
     }
 
+    // Sort data
+    if (sortField) {
+      filtered.sort((a, b) => {
+        let aValue: any = a[sortField as keyof typeof a];
+        let bValue: any = b[sortField as keyof typeof b];
+
+        // Handle different data types
+        if (typeof aValue === 'string' && typeof bValue === 'string') {
+          aValue = aValue.toLowerCase();
+          bValue = bValue.toLowerCase();
+        }
+
+        if (aValue < bValue) {
+          return sortDirection === 'asc' ? -1 : 1;
+        }
+        if (aValue > bValue) {
+          return sortDirection === 'asc' ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+
     return filtered;
-  }, [inventoryData, searchTerm, selectedCategories, selectedStatuses, selectedSuppliers]);
+  }, [inventoryData, searchTerm, selectedCategories, selectedStatuses, selectedSuppliers, sortField, sortDirection]);
 
   // Get unique values for filters
   const categories = ['all', ...Array.from(new Set(inventoryData.map(item => item.category)))];
@@ -240,6 +291,14 @@ export default function Inventory() {
   const handleRecordMovement = (product: any) => {
     setSelectedProduct(product);
     setMovementFormOpen(true);
+  };
+
+  const handleImagePreview = (imageUrl: string, productName: string) => {
+    if (imageUrl && imageUrl !== '/api/placeholder/60/60') {
+      setPreviewImageUrl(imageUrl);
+      setPreviewProductName(productName);
+      setImagePreviewOpen(true);
+    }
   };
 
   const handleMovementSubmit = async (movementData: any) => {
@@ -320,14 +379,59 @@ export default function Inventory() {
   return (
     <div className="p-6">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold">Inventory Management</h1>
-        <p className="text-muted-foreground">Manage your product inventory and stock levels</p>
+      <div className="mb-6 flex justify-between items-start">
+        <div>
+          <h1 className="text-3xl font-bold">Inventory Management</h1>
+          <p className="text-muted-foreground">Manage your product inventory and stock levels</p>
+        </div>
+
+        {/* Top Right Controls */}
+        <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => actions.refreshData()}
+            disabled={inventoryLoading}
+            className="rounded-none"
+          >
+            {inventoryLoading ? (
+              <RefreshCw className="h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4" />
+            )}
+          </Button>
+
+          <div className="flex gap-2">
+            <Button
+              variant={viewMode === 'table' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setViewMode('table')}
+              className="rounded-none"
+            >
+              <List className="h-4 w-4 mr-2" />
+              Table
+            </Button>
+            <Button
+              variant={viewMode === 'grid' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setViewMode('grid')}
+              className="rounded-none"
+            >
+              <Grid className="h-4 w-4 mr-2" />
+              Grid
+            </Button>
+          </div>
+
+          <Button onClick={handleAddProduct} className="rounded-none">
+            <Plus className="h-4 w-4 mr-2" />
+            Add Product
+          </Button>
+        </div>
       </div>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-        <Card>
+        <Card className="rounded-none">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Total Products</CardTitle>
           </CardHeader>
@@ -336,7 +440,7 @@ export default function Inventory() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="rounded-none">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">In Stock</CardTitle>
           </CardHeader>
@@ -345,7 +449,7 @@ export default function Inventory() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="rounded-none">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Low Stock</CardTitle>
           </CardHeader>
@@ -354,7 +458,7 @@ export default function Inventory() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="rounded-none">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Out of Stock</CardTitle>
           </CardHeader>
@@ -363,7 +467,7 @@ export default function Inventory() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="rounded-none">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Total Value</CardTitle>
           </CardHeader>
@@ -374,26 +478,23 @@ export default function Inventory() {
       </div>
 
       {/* Filters */}
-      <Card className="mb-6">
+      <Card className="mb-6 rounded-none">
         <CardContent className="p-4">
           <div className="flex flex-wrap gap-4">
-            <div className="flex-1 min-w-[200px]">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search products..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
+            <div className="flex-1 min-w-[250px]">
+              <Input
+                placeholder="Search products..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="px-4 rounded-none h-10 w-full"
+              />
             </div>
 
             <Select
               value={selectedCategories.includes('all') ? 'all' : selectedCategories[0]}
               onValueChange={(value) => setSelectedCategories(value === 'all' ? ['all'] : [value])}
             >
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-[180px] rounded-none h-10">
                 <SelectValue placeholder="Category" />
               </SelectTrigger>
               <SelectContent>
@@ -409,7 +510,7 @@ export default function Inventory() {
               value={selectedStatuses.includes('all') ? 'all' : selectedStatuses[0]}
               onValueChange={(value) => setSelectedStatuses(value === 'all' ? ['all'] : [value])}
             >
-              <SelectTrigger className="w-[150px]">
+              <SelectTrigger className="w-[150px] rounded-none h-10">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
@@ -424,7 +525,7 @@ export default function Inventory() {
               value={selectedSuppliers.includes('all') ? 'all' : selectedSuppliers[0]}
               onValueChange={(value) => setSelectedSuppliers(value === 'all' ? ['all'] : [value])}
             >
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-[180px] rounded-none h-10">
                 <SelectValue placeholder="Supplier" />
               </SelectTrigger>
               <SelectContent>
@@ -444,6 +545,7 @@ export default function Inventory() {
                 setSelectedStatuses(['all']);
                 setSelectedSuppliers(['all']);
               }}
+              className="rounded-none"
             >
               Clear Filters
             </Button>
@@ -452,38 +554,8 @@ export default function Inventory() {
       </Card>
 
       {/* Results */}
-      <Card>
-        <CardHeader>
-          <div className="flex justify-between items-center">
-            <CardTitle>Products ({filteredData.length})</CardTitle>
-            <div className="flex gap-2">
-              <Button
-                onClick={handleAddProduct}
-                className="mr-4"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Add Product
-              </Button>
-              <Button
-                variant={viewMode === 'table' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setViewMode('table')}
-              >
-                <List className="h-4 w-4 mr-2" />
-                Table
-              </Button>
-              <Button
-                variant={viewMode === 'grid' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setViewMode('grid')}
-              >
-                <Grid className="h-4 w-4 mr-2" />
-                Grid
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
+      <Card className="rounded-none">
+        <CardContent className="p-0">
           {filteredData.length === 0 ? (
             <div className="text-center py-8">
               <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
@@ -500,23 +572,81 @@ export default function Inventory() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Product</TableHead>
-                    <TableHead>SKU</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Stock</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Supplier</TableHead>
-                    <TableHead>Location</TableHead>
-                    <TableHead>Cost</TableHead>
-                    <TableHead>Actions</TableHead>
+                    <TableHead
+                      className="cursor-pointer hover:bg-muted/50 border-r border-border/50 text-center"
+                      onClick={() => handleSort('product_name')}
+                    >
+                      <div className="flex items-center justify-center gap-1">
+                        <span>Product</span>
+                        {getSortIcon('product_name')}
+                      </div>
+                    </TableHead>
+                    <TableHead
+                      className="cursor-pointer hover:bg-muted/50 border-r border-border/50 text-center"
+                      onClick={() => handleSort('sku')}
+                    >
+                      <div className="flex items-center justify-center gap-1">
+                        <span>SKU</span>
+                        {getSortIcon('sku')}
+                      </div>
+                    </TableHead>
+                    <TableHead
+                      className="cursor-pointer hover:bg-muted/50 border-r border-border/50 text-center"
+                      onClick={() => handleSort('category')}
+                    >
+                      <div className="flex items-center justify-center gap-1">
+                        <span>Category</span>
+                        {getSortIcon('category')}
+                      </div>
+                    </TableHead>
+                    <TableHead
+                      className="cursor-pointer hover:bg-muted/50 border-r border-border/50 text-center"
+                      onClick={() => handleSort('current_stock')}
+                    >
+                      <div className="flex items-center justify-center gap-1">
+                        <span>Stock</span>
+                        {getSortIcon('current_stock')}
+                      </div>
+                    </TableHead>
+                    <TableHead
+                      className="cursor-pointer hover:bg-muted/50 border-r border-border/50 text-center"
+                      onClick={() => handleSort('status')}
+                    >
+                      <div className="flex items-center justify-center gap-1">
+                        <span>Status</span>
+                        {getSortIcon('status')}
+                      </div>
+                    </TableHead>
+                    <TableHead
+                      className="cursor-pointer hover:bg-muted/50 border-r border-border/50 text-center"
+                      onClick={() => handleSort('cost_per_unit')}
+                    >
+                      <div className="flex items-center justify-center gap-1">
+                        <span>Cost</span>
+                        {getSortIcon('cost_per_unit')}
+                      </div>
+                    </TableHead>
+                    <TableHead
+                      className="cursor-pointer hover:bg-muted/50 border-r border-border/50 text-center"
+                      onClick={() => handleSort('total_value')}
+                    >
+                      <div className="flex items-center justify-center gap-1">
+                        <span>Value</span>
+                        {getSortIcon('total_value')}
+                      </div>
+                    </TableHead>
+                    <TableHead className="text-center">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredData.map((item) => (
                     <TableRow key={item.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <div className="relative h-12 w-12 rounded-lg overflow-hidden border bg-muted">
+                      <TableCell className="border-r border-border/50 text-center">
+                        <div className="flex items-center justify-center gap-3">
+                          <div
+                            className="relative h-12 w-12 overflow-hidden border bg-muted cursor-pointer hover:ring-2 hover:ring-primary transition-all"
+                            onClick={() => handleImagePreview(item.image_url, item.product_name)}
+                          >
                             {item.image_url && item.image_url !== '/api/placeholder/60/60' ? (
                               <img
                                 src={item.image_url}
@@ -542,45 +672,56 @@ export default function Inventory() {
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell className="font-mono">{item.sku}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{item.category}</Badge>
+                      <TableCell className="font-mono border-r border-border/50 text-center">{item.sku}</TableCell>
+                      <TableCell className="border-r border-border/50 text-center">
+                        <div className="flex justify-center">
+                          <Badge variant="outline" className="rounded-none">{item.category}</Badge>
+                        </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="border-r border-border/50 text-center">
                         <div className="text-sm">
                           <div className="font-medium">{item.current_stock}</div>
-                          <div className="text-muted-foreground">
-                            Available: {item.available_stock}
+                          <div className="text-muted-foreground text-xs">
+                            Avail: {item.available_stock}
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={
-                            item.status === 'in_stock'
-                              ? 'default'
+                      <TableCell className="border-r border-border/50 text-center">
+                        <div className="flex justify-center">
+                          <Badge
+                            variant={
+                              item.status === 'in_stock'
+                                ? 'default'
+                                : item.status === 'low_stock'
+                                ? 'secondary'
+                                : 'destructive'
+                            }
+                            className="rounded-none"
+                          >
+                            {item.status === 'in_stock'
+                              ? 'In Stock'
                               : item.status === 'low_stock'
-                              ? 'secondary'
-                              : 'destructive'
-                          }
-                        >
-                          {item.status === 'in_stock'
-                            ? 'In Stock'
-                            : item.status === 'low_stock'
-                            ? 'Low Stock'
-                            : 'Out of Stock'}
-                        </Badge>
+                              ? 'Low Stock'
+                              : 'Out of Stock'}
+                          </Badge>
+                        </div>
                       </TableCell>
-                      <TableCell>{item.supplier_name}</TableCell>
-                      <TableCell>{item.location}</TableCell>
-                      <TableCell>₹{item.cost_per_unit.toLocaleString()}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
+                      <TableCell className="border-r border-border/50 text-center">₹{item.cost_per_unit.toLocaleString()}</TableCell>
+                      <TableCell className="border-r border-border/50 text-center">
+                        <div className="text-sm">
+                          <div className="font-medium">₹{item.total_value.toLocaleString()}</div>
+                          <div className="text-muted-foreground text-xs">
+                            {item.cost_per_unit} × {item.current_stock}
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex items-center justify-center gap-1">
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() => handleEditProduct(item)}
-                            className="text-xs"
+                            className="text-xs rounded-none"
                           >
                             <Edit className="h-3 w-3 mr-1" />
                             Edit
@@ -589,7 +730,7 @@ export default function Inventory() {
                             variant="outline"
                             size="sm"
                             onClick={() => handleViewMovements(item)}
-                            className="text-xs"
+                            className="text-xs rounded-none"
                           >
                             <Activity className="h-3 w-3 mr-1" />
                             History
@@ -598,7 +739,7 @@ export default function Inventory() {
                             variant="outline"
                             size="sm"
                             onClick={() => handleRecordMovement(item)}
-                            className="text-xs"
+                            className="text-xs rounded-none"
                           >
                             <PlusCircle className="h-3 w-3 mr-1" />
                             Move
@@ -613,9 +754,12 @@ export default function Inventory() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {filteredData.map((item) => (
-                <Card key={item.id} className="hover:shadow-lg transition-shadow">
+                <Card key={item.id} className="hover:shadow-lg transition-shadow rounded-none">
                   <CardContent className="p-4">
-                    <div className="aspect-square mb-3 relative overflow-hidden rounded-lg bg-gradient-to-br from-gray-50 to-gray-100 border">
+                    <div
+                      className="aspect-square mb-3 relative overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100 border cursor-pointer hover:ring-2 hover:ring-primary transition-all"
+                      onClick={() => handleImagePreview(item.image_url, item.product_name)}
+                    >
                       {item.image_url && item.image_url !== '/api/placeholder/60/60' ? (
                         <img
                           src={item.image_url}
@@ -636,7 +780,7 @@ export default function Inventory() {
                         <Package className="h-12 w-12 text-gray-300" />
                       </div>
                       <Badge
-                        className="absolute top-2 right-2 shadow-sm"
+                        className="absolute top-2 right-2 shadow-sm rounded-none"
                         variant={
                           item.status === 'in_stock'
                             ? 'default'
@@ -663,15 +807,22 @@ export default function Inventory() {
 
                     <div className="flex justify-between items-center text-sm mb-2">
                       <span>Stock: {item.current_stock}</span>
-                      <Badge variant="outline" className="text-xs">
+                      <Badge variant="outline" className="text-xs rounded-none">
                         {item.category}
                       </Badge>
                     </div>
 
-                    <div className="flex justify-between items-center text-sm mb-3">
-                      <span className="font-medium">₹{item.cost_per_unit.toLocaleString()}</span>
+                    <div className="flex justify-between items-center text-sm mb-2">
+                      <span>Cost: <span className="font-medium">₹{item.cost_per_unit.toLocaleString()}</span></span>
                       <span className="text-muted-foreground text-xs">
                         {item.location}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-center text-sm mb-3">
+                      <span>Value: <span className="font-medium text-green-600">₹{item.total_value.toLocaleString()}</span></span>
+                      <span className="text-muted-foreground text-xs">
+                        {item.cost_per_unit} × {item.current_stock}
                       </span>
                     </div>
 
@@ -681,7 +832,7 @@ export default function Inventory() {
                         variant="outline"
                         size="sm"
                         onClick={() => handleEditProduct(item)}
-                        className="text-xs flex-1"
+                        className="text-xs flex-1 rounded-none"
                       >
                         <Edit className="h-3 w-3 mr-1" />
                         Edit
@@ -690,7 +841,7 @@ export default function Inventory() {
                         variant="outline"
                         size="sm"
                         onClick={() => handleViewMovements(item)}
-                        className="text-xs flex-1"
+                        className="text-xs flex-1 rounded-none"
                       >
                         <Activity className="h-3 w-3 mr-1" />
                         History
@@ -699,7 +850,7 @@ export default function Inventory() {
                         variant="outline"
                         size="sm"
                         onClick={() => handleRecordMovement(item)}
-                        className="text-xs flex-1"
+                        className="text-xs flex-1 rounded-none"
                       >
                         <PlusCircle className="h-3 w-3 mr-1" />
                         Move
@@ -742,6 +893,37 @@ export default function Inventory() {
         onSubmit={handleProductSubmit}
         loading={inventoryLoading}
       />
+
+      {/* Image Preview Modal */}
+      <Dialog open={imagePreviewOpen} onOpenChange={setImagePreviewOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] p-0 rounded-none">
+          <DialogHeader className="p-6 pb-0">
+            <DialogTitle className="text-lg font-semibold">
+              {previewProductName}
+            </DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground">
+              Product Image Preview
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center justify-center p-6">
+            {previewImageUrl ? (
+              <img
+                src={previewImageUrl}
+                alt={previewProductName}
+                className="max-w-full max-h-[60vh] object-contain"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                }}
+              />
+            ) : (
+              <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
+                <Package className="h-16 w-16 mb-4" />
+                <p>No image available</p>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

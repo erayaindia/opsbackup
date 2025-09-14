@@ -20,13 +20,14 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Package, RefreshCw, Upload, Dice1, RotateCw } from 'lucide-react';
+import { Package, RefreshCw, Upload, Dice1, RotateCw, Camera, Trash2, Edit3 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { useSuppliers } from '@/hooks/useSuppliers';
+import { useWarehouses } from '@/hooks/useWarehouses';
 
 interface InventoryProductData {
   id?: string;
   product_name: string;
-  product_description?: string;
   product_image_url?: string;
   product_category: string;
   sku: string;
@@ -60,9 +61,11 @@ export function InventoryProductModal({
   onSubmit,
   loading = false
 }: InventoryProductModalProps) {
+  const { suppliers } = useSuppliers();
+  const { warehouses } = useWarehouses();
+
   const [formData, setFormData] = useState<InventoryProductData>({
     product_name: '',
-    product_description: '',
     product_image_url: '',
     product_category: 'Uncategorized',
     sku: '',
@@ -111,7 +114,6 @@ export function InventoryProductModal({
         // Create mode - reset form
         setFormData({
           product_name: '',
-          product_description: '',
           product_image_url: '',
           product_category: 'Uncategorized',
           sku: '',
@@ -154,7 +156,7 @@ export function InventoryProductModal({
         // Fallback to random/timestamp based SKU
         const randomPart = Math.floor(Math.random() * 9000) + 1000;
         const timestamp = Date.now().toString().slice(-4);
-        const fallbackSku = `INV-${randomPart}${timestamp}`;
+        const fallbackSku = `ERPR-${randomPart}${timestamp}`;
 
         setFormData(prev => ({
           ...prev,
@@ -169,7 +171,7 @@ export function InventoryProductModal({
     } catch (error) {
       console.error('Error generating SKU:', error);
       // Ultimate fallback
-      const randomSku = `INV-${Math.floor(Math.random() * 1000000).toString().padStart(7, '0')}`;
+      const randomSku = `ERPR-${Math.floor(Math.random() * 1000000).toString().padStart(7, '0')}`;
       setFormData(prev => ({
         ...prev,
         sku: randomSku
@@ -254,6 +256,89 @@ export function InventoryProductModal({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Product Image - First Section */}
+          <div className="space-y-4">
+            <Label className="text-base font-semibold">Product Image</Label>
+
+            <div className="flex items-start gap-6">
+              {/* Image Display/Upload Area */}
+              <div className="flex-shrink-0">
+                {formData.product_image_url ? (
+                  <div className="relative group">
+                    <img
+                      src={formData.product_image_url}
+                      alt="Product preview"
+                      className="h-32 w-32 object-cover border-2 border-border"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                    {/* Image Actions Overlay */}
+                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="bg-white/90 hover:bg-white rounded-none"
+                        onClick={() => document.getElementById('imageUpload')?.click()}
+                      >
+                        <Edit3 className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="bg-white/90 hover:bg-white text-red-600 hover:text-red-700 rounded-none"
+                        onClick={() => handleInputChange('product_image_url', '')}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    className="h-32 w-32 border-2 border-dashed border-border flex flex-col items-center justify-center cursor-pointer hover:border-primary transition-colors group"
+                    onClick={() => document.getElementById('imageUpload')?.click()}
+                  >
+                    <Camera className="h-8 w-8 text-muted-foreground group-hover:text-primary mb-2" />
+                    <span className="text-sm text-muted-foreground group-hover:text-primary">Add Image</span>
+                  </div>
+                )}
+
+                {/* Hidden File Input */}
+                <Input
+                  id="imageUpload"
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      try {
+                        await handleImageUpload(file);
+                      } catch (error) {
+                        // Error handling is done in handleImageUpload
+                      }
+                    }
+                  }}
+                />
+              </div>
+
+              {/* Image Instructions */}
+              <div className="flex-1 text-sm text-muted-foreground">
+                <p className="mb-2">Click the image area to upload a product photo</p>
+                <ul className="list-disc list-inside space-y-1 text-xs">
+                  <li>Recommended size: 400x400 pixels</li>
+                  <li>Formats: JPG, PNG, WebP</li>
+                  <li>Maximum size: 5MB</li>
+                  <li>Hover over existing image to edit or delete</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <Separator />
+
           {/* Product Information */}
           <div className="space-y-4">
             <Label className="text-base font-semibold">Product Information</Label>
@@ -268,6 +353,7 @@ export function InventoryProductModal({
                     handleInputChange('product_name', e.target.value);
                   }}
                   placeholder="Enter product name"
+                  className="rounded-none"
                   required
                 />
               </div>
@@ -278,7 +364,7 @@ export function InventoryProductModal({
                   value={formData.product_category}
                   onValueChange={(value) => handleInputChange('product_category', value)}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="rounded-none">
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
                   <SelectContent>
@@ -289,79 +375,6 @@ export function InventoryProductModal({
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-            </div>
-
-            <div>
-              <Label htmlFor="product_description">Description</Label>
-              <Textarea
-                id="product_description"
-                value={formData.product_description}
-                onChange={(e) => handleInputChange('product_description', e.target.value)}
-                placeholder="Enter product description"
-                rows={2}
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="product_image_url">Product Image</Label>
-              <div className="space-y-3">
-                {/* Image Upload */}
-                <div className="flex items-center gap-2">
-                  <Input
-                    id="imageUpload"
-                    type="file"
-                    accept="image/*"
-                    onChange={async (e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        try {
-                          await handleImageUpload(file);
-                        } catch (error) {
-                          // Error handling is done in handleImageUpload
-                        }
-                      }
-                    }}
-                    className="file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => document.getElementById('imageUpload')?.click()}
-                  >
-                    <Upload className="h-4 w-4 mr-2" />
-                    Upload
-                  </Button>
-                </div>
-
-                {/* OR Image URL */}
-                <div>
-                  <Label htmlFor="product_image_url" className="text-sm text-muted-foreground">
-                    Or enter image URL
-                  </Label>
-                  <Input
-                    id="product_image_url"
-                    value={formData.product_image_url}
-                    onChange={(e) => handleInputChange('product_image_url', e.target.value)}
-                    placeholder="https://example.com/image.jpg"
-                    type="url"
-                  />
-                </div>
-
-                {/* Image Preview */}
-                {formData.product_image_url && (
-                  <div className="mt-2">
-                    <img
-                      src={formData.product_image_url}
-                      alt="Product preview"
-                      className="h-24 w-24 rounded-lg object-cover border"
-                      onError={(e) => {
-                        e.currentTarget.style.display = 'none';
-                      }}
-                    />
-                  </div>
-                )}
               </div>
             </div>
           </div>
@@ -380,7 +393,8 @@ export function InventoryProductModal({
                     id="sku"
                     value={formData.sku}
                     onChange={(e) => handleInputChange('sku', e.target.value)}
-                    placeholder="e.g., INV-0001000"
+                    placeholder="e.g., ERPR-0001000"
+                    className="rounded-none"
                     required
                   />
                   {!isEditing && (
@@ -389,7 +403,7 @@ export function InventoryProductModal({
                       variant="outline"
                       size="sm"
                       onClick={generateSKU}
-                      className="whitespace-nowrap"
+                      className="whitespace-nowrap rounded-none"
                     >
                       <RotateCw className="h-4 w-4 mr-1" />
                       Generate
@@ -405,6 +419,7 @@ export function InventoryProductModal({
                   value={formData.barcode}
                   onChange={(e) => handleInputChange('barcode', e.target.value)}
                   placeholder="Product barcode"
+                  className="rounded-none"
                 />
               </div>
             </div>
@@ -419,12 +434,13 @@ export function InventoryProductModal({
                   step="0.01"
                   value={formData.cost}
                   onChange={(e) => handleInputChange('cost', parseFloat(e.target.value) || 0)}
+                  className="rounded-none"
                   required
                 />
               </div>
 
               <div>
-                <Label htmlFor="price">Selling Price (₹) *</Label>
+                <Label htmlFor="price">Selling Price (₹)</Label>
                 <Input
                   id="price"
                   type="number"
@@ -432,7 +448,7 @@ export function InventoryProductModal({
                   step="0.01"
                   value={formData.price}
                   onChange={(e) => handleInputChange('price', parseFloat(e.target.value) || 0)}
-                  required
+                  className="rounded-none"
                 />
               </div>
             </div>
@@ -447,43 +463,43 @@ export function InventoryProductModal({
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="supplier_name">Supplier Name *</Label>
-                <Input
-                  id="supplier_name"
+                <Select
                   value={formData.supplier_name}
-                  onChange={(e) => handleInputChange('supplier_name', e.target.value)}
-                  placeholder="Supplier company name"
-                  required
-                />
+                  onValueChange={(value) => handleInputChange('supplier_name', value)}
+                >
+                  <SelectTrigger className="rounded-none">
+                    <SelectValue placeholder="Select supplier" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {suppliers.map((supplier) => (
+                      <SelectItem key={supplier.id} value={supplier.name}>
+                        {supplier.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div>
-                <Label htmlFor="supplier_contact">Supplier Contact</Label>
-                <Input
-                  id="supplier_contact"
-                  value={formData.supplier_contact}
-                  onChange={(e) => handleInputChange('supplier_contact', e.target.value)}
-                  placeholder="Phone, email, or person name"
-                />
+                <Label htmlFor="warehouse_location">Warehouse Location</Label>
+                <Select
+                  value={formData.warehouse_location}
+                  onValueChange={(value) => handleInputChange('warehouse_location', value)}
+                >
+                  <SelectTrigger className="rounded-none">
+                    <SelectValue placeholder="Select warehouse" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {warehouses.map((warehouse) => (
+                      <SelectItem key={warehouse.id} value={warehouse.name}>
+                        {warehouse.name} ({warehouse.code})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
-            <div>
-              <Label htmlFor="warehouse_location">Warehouse Location</Label>
-              <Select
-                value={formData.warehouse_location}
-                onValueChange={(value) => handleInputChange('warehouse_location', value)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Main Warehouse">Main Warehouse</SelectItem>
-                  <SelectItem value="Secondary Warehouse">Secondary Warehouse</SelectItem>
-                  <SelectItem value="Retail Store">Retail Store</SelectItem>
-                  <SelectItem value="Online Fulfillment">Online Fulfillment</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
           </div>
 
           <Separator />
@@ -501,6 +517,7 @@ export function InventoryProductModal({
                   min="0"
                   value={formData.on_hand_qty}
                   onChange={(e) => handleInputChange('on_hand_qty', parseInt(e.target.value) || 0)}
+                  className="rounded-none"
                 />
               </div>
 
@@ -512,6 +529,7 @@ export function InventoryProductModal({
                   min="0"
                   value={formData.allocated_qty}
                   onChange={(e) => handleInputChange('allocated_qty', parseInt(e.target.value) || 0)}
+                  className="rounded-none"
                 />
               </div>
 
@@ -520,7 +538,7 @@ export function InventoryProductModal({
                 <Input
                   value={Math.max(0, formData.on_hand_qty - formData.allocated_qty)}
                   disabled
-                  className="bg-muted"
+                  className="bg-muted rounded-none"
                 />
               </div>
             </div>
@@ -534,6 +552,7 @@ export function InventoryProductModal({
                   min="0"
                   value={formData.min_stock_level}
                   onChange={(e) => handleInputChange('min_stock_level', parseInt(e.target.value) || 0)}
+                  className="rounded-none"
                 />
               </div>
 
@@ -545,6 +564,7 @@ export function InventoryProductModal({
                   min="0"
                   value={formData.reorder_point}
                   onChange={(e) => handleInputChange('reorder_point', parseInt(e.target.value) || 0)}
+                  className="rounded-none"
                 />
               </div>
 
@@ -556,6 +576,7 @@ export function InventoryProductModal({
                   min="0"
                   value={formData.reorder_quantity}
                   onChange={(e) => handleInputChange('reorder_quantity', parseInt(e.target.value) || 0)}
+                  className="rounded-none"
                 />
               </div>
             </div>
@@ -575,6 +596,7 @@ export function InventoryProductModal({
                 onChange={(e) => handleInputChange('notes', e.target.value)}
                 placeholder="Additional notes about this inventory item"
                 rows={3}
+                className="rounded-none"
               />
             </div>
           </div>
@@ -586,12 +608,14 @@ export function InventoryProductModal({
             variant="outline"
             onClick={() => onOpenChange(false)}
             disabled={loading}
+            className="rounded-none"
           >
             Cancel
           </Button>
           <Button
             onClick={handleSubmit}
             disabled={loading}
+            className="rounded-none"
           >
             {loading && <RefreshCw className="h-4 w-4 mr-2 animate-spin" />}
             {isEditing ? 'Update' : 'Add'} Inventory Item

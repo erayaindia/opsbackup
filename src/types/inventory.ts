@@ -12,6 +12,7 @@ export interface InventoryItem {
   threshold: number;
   status: InventoryStatus;
   cost_per_unit?: number;
+  total_value?: number;
   image_url?: string;
   description?: string;
   location?: string;

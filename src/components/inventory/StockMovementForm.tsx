@@ -139,7 +139,7 @@ export default function StockMovementForm({
       // Submit movement - product.id now refers to inventory_detail_id
       await onSubmit({
         product_variant_id: product.id, // This is actually inventory_detail_id now
-        warehouse_id: product.warehouse.id,
+        warehouse_id: product.warehouse?.id || 'warehouse-1',
         movement_type: formData.movement_type as 'IN' | 'OUT' | 'ADJUST' | 'TRANSFER',
         qty: parseInt(formData.qty),
         unit_cost: formData.unit_cost ? parseFloat(formData.unit_cost) : undefined,
@@ -180,21 +180,27 @@ export default function StockMovementForm({
         <Card>
           <CardContent className="p-4">
             <div className="flex items-start gap-4">
-              <img
-                src={product.product.image_url}
-                alt={product.product.name}
-                className="h-16 w-16 rounded-lg object-cover bg-muted"
-              />
+              {product.product?.image_url ? (
+                <img
+                  src={product.product.image_url}
+                  alt={product.product?.name || 'Product'}
+                  className="h-16 w-16 rounded-lg object-cover bg-muted"
+                />
+              ) : (
+                <div className="h-16 w-16 rounded-lg bg-muted flex items-center justify-center">
+                  <Package className="h-8 w-8 text-muted-foreground" />
+                </div>
+              )}
               <div className="flex-1">
-                <h3 className="font-semibold text-lg">{product.product.name}</h3>
+                <h3 className="font-semibold text-lg">{product.product?.name || 'Unknown Product'}</h3>
                 <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
                   <span>SKU: {product.sku}</span>
                   <span>Current Stock: {product.current_stock}</span>
                   <span>Available: {product.available_stock}</span>
                 </div>
                 <div className="flex items-center gap-2 mt-2">
-                  <Badge variant="outline">{product.product.category?.name}</Badge>
-                  <span className="text-sm text-muted-foreground">{product.warehouse.name}</span>
+                  <Badge variant="outline">{product.product?.category?.name || 'Uncategorized'}</Badge>
+                  <span className="text-sm text-muted-foreground">{product.warehouse?.name || 'Main Warehouse'}</span>
                 </div>
               </div>
             </div>

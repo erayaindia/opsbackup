@@ -672,16 +672,26 @@ export const useInventory = () => {
   };
 
   // Legacy function for backward compatibility
-  const updateProduct = async (id: string, updates: Partial<ProductVariantWithDetails>) => {
+  const updateProduct = async (id: string, updates: any) => {
     return updateInventoryItem(id, {
+      product_name: updates.product_name,
+      product_description: updates.product_description,
+      product_image_url: updates.product_image_url,
+      product_category: updates.product_category,
       sku: updates.sku,
       barcode: updates.barcode,
       cost: updates.cost,
       price: updates.price,
+      supplier_name: updates.supplier_name,
+      supplier_contact: updates.supplier_contact,
+      warehouse_location: updates.warehouse_location,
+      on_hand_qty: updates.on_hand_qty,
+      allocated_qty: updates.allocated_qty,
       min_stock_level: updates.min_stock_level,
       reorder_point: updates.reorder_point,
       reorder_quantity: updates.reorder_quantity,
       attributes: updates.attributes,
+      notes: updates.notes,
     });
   };
 
