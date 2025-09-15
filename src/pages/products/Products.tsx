@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -79,11 +80,11 @@ export interface SavedView {
   view: ViewType
   createdAt: Date
 }
-import { useSuppliers } from '@/hooks/useSuppliers'
+import { useVendors } from '@/hooks/useSuppliers'
 import { useUsers } from '@/hooks/useUsers'
+import { useCategories } from '@/hooks/useCategories'
 import { ActivityPanel, type StageKey, type TimelineEntry, type NowNextBlocked, saveTimelineEntry, updateStage, setNowNextBlocked } from '@/components/products/ActivityPanel'
 import { FormContent } from '@/components/products/FormContent'
-import { ProductDetailsModal } from '@/components/products/ProductDetailsModal'
 import { debugProductsRLS } from '@/utils/debugProductsRLS'
 
 const STORAGE_KEYS = {
@@ -97,10 +98,20 @@ const STAGE_CONFIG = {
   scaling: { name: 'Scaling', icon: TrendingUp, color: 'text-green-600', bgColor: 'bg-green-50 dark:bg-green-950' }
 }
 
+// Generate URL-friendly slug from product title
+const generateSlug = (title: string): string => {
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '')
+}
+
 export default function Lifecycle() {
   // Hooks
-  const { suppliers, loading: suppliersLoading } = useSuppliers()
+  const navigate = useNavigate()
+  const { data: vendors = [], isLoading: vendorsLoading } = useVendors()
   const { users: availableUsers, loading: usersLoading } = useUsers()
+  const { allCategories: databaseCategories, loading: categoriesLoading } = useCategories()
   
   // State management
   const [cards, setCards] = useState<LifecycleCard[]>([])
@@ -126,7 +137,7 @@ export default function Lifecycle() {
     createdDateRange: undefined,
     updatedDateRange: undefined,
     marginRange: undefined,
-    supplierLocations: []
+    vendorLocations: []
   })
   
   // Modal state
@@ -165,15 +176,10 @@ export default function Lifecycle() {
   // Saved views state
   const [savedViews, setSavedViews] = useState<SavedView[]>([])
   
-  // Drawer state
-  const [selectedCardId, setSelectedCardId] = useState<string | null>(null)
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   
   // Stage filter state
   const [activeStageFilter, setActiveStageFilter] = useState<Stage | 'all'>('all')
   
-  // Get selected card
-  const selectedCard = cards.find(card => card.id === selectedCardId)
   
   // Available tags and categories derived from cards
   const availableTags = useMemo(() => {
@@ -182,11 +188,10 @@ export default function Lifecycle() {
     return Array.from(tagSet).sort()
   }, [cards])
 
+  // Use database categories instead of deriving from products
   const availableCategories = useMemo(() => {
-    const categorySet = new Set<string>()
-    cards.forEach(card => card.category.forEach(cat => categorySet.add(cat)))
-    return Array.from(categorySet).sort()
-  }, [cards])
+    return databaseCategories.map(cat => cat.name).sort()
+  }, [databaseCategories])
 
   const availableTeamLeads = useMemo(() => {
     const leadSet = new Set<string>()
@@ -313,6 +318,22 @@ export default function Lifecycle() {
   }
 
   const removeProductImage = () => {
+    setUploadedProductImage(null)
+  }
+
+  const handleChangeProductImage = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      setUploadedProductImage(file)
+    }
+  }
+
+  const handleRemoveCurrentImage = () => {
+    // For new products, we don't have a current image, just remove uploaded
+    setUploadedProductImage(null)
+  }
+
+  const handleRemoveUploadedImage = () => {
     setUploadedProductImage(null)
   }
 
@@ -491,35 +512,6 @@ export default function Lifecycle() {
     textarea.style.height = Math.max(textarea.scrollHeight, 72) + 'px'
   }
 
-  const handleUpdateProduct = async (productId: string, updates: Partial<CreateProductPayload>): Promise<LifecycleProduct> => {
-    try {
-      const updatedProduct = await productLifecycleService.updateProduct(productId, updates)
-
-      // Update the product in the local state
-      setCards(prev => prev.map(card =>
-        card.id === productId ? updatedProduct : card
-      ))
-
-      return updatedProduct
-    } catch (error) {
-      console.error('Failed to update product:', error)
-      throw error
-    }
-  }
-
-  const handleDeleteProduct = async (productId: string): Promise<void> => {
-    try {
-      await productLifecycleService.deleteProduct(productId)
-
-      // Remove the product from the local state
-      setCards(prev => prev.filter(card => card.id !== productId))
-
-      console.log('Product deleted successfully:', productId)
-    } catch (error) {
-      console.error('Failed to delete product:', error)
-      throw error
-    }
-  }
 
   const handleCreateIdea = async () => {
     try {
@@ -660,7 +652,7 @@ export default function Lifecycle() {
       ...filters.owners,
       ...filters.teamLeads,
       ...filters.priority || [],
-      ...filters.supplierLocations || [],
+      ...filters.vendorLocations || [],
       ...(filters.potentialScoreMin !== undefined ? ['score-min'] : []),
       ...(filters.potentialScoreMax !== undefined ? ['score-max'] : []),
       ...(filters.idleDaysMin !== undefined ? ['idle-days'] : []),
@@ -856,8 +848,8 @@ export default function Lifecycle() {
                         key={card.id}
                         className="border-b hover:bg-gray-50 cursor-pointer"
                         onClick={() => {
-                          setSelectedCardId(card.id)
-                          setIsDrawerOpen(true)
+                          const slug = generateSlug(card.workingTitle || card.name || `product-${card.internalCode}`)
+                          navigate(`/products/${slug}`)
                         }}
                       >
                         <td className="p-4">
@@ -894,8 +886,8 @@ export default function Lifecycle() {
                 <Card
                   key={card.id}
                   onClick={() => {
-                    setSelectedCardId(card.id)
-                    setIsDrawerOpen(true)
+                    const slug = generateSlug(card.workingTitle || card.name || `product-${card.internalCode}`)
+                    navigate(`/products/${slug}`)
                   }}
                   className="enhanced-card hover:shadow-elegant transition-all duration-300 cursor-pointer border-border/50 backdrop-blur-sm animate-fade-in overflow-hidden"
                 >
@@ -1127,6 +1119,7 @@ export default function Lifecycle() {
                     selectedCategories={selectedCategories}
                     setSelectedCategories={setSelectedCategories}
                     availableCategories={availableCategories}
+                    categoriesLoading={categoriesLoading}
                     tagInput={tagInput}
                     setTagInput={setTagInput}
                     tags={tags}
@@ -1146,9 +1139,14 @@ export default function Lifecycle() {
                     dragActive={dragActive}
                     extractDomainFromUrl={extractDomainFromUrl}
                     autoResizeTextarea={autoResizeTextarea}
-                    suppliers={suppliers}
-                    suppliersLoading={suppliersLoading}
+                    vendors={vendors}
+                    vendorsLoading={vendorsLoading}
                     availableOwners={availableUsers}
+                    currentProductImage={null}
+                    uploadedProductImage={uploadedProductImage}
+                    onChangeProductImage={handleChangeProductImage}
+                    onRemoveCurrentImage={handleRemoveCurrentImage}
+                    onRemoveUploadedImage={handleRemoveUploadedImage}
                   />
                 </TabsContent>
                 
@@ -1179,6 +1177,7 @@ export default function Lifecycle() {
                   selectedCategories={selectedCategories}
                   setSelectedCategories={setSelectedCategories}
                   availableCategories={availableCategories}
+                  categoriesLoading={categoriesLoading}
                   tagInput={tagInput}
                   setTagInput={setTagInput}
                   tags={tags}
@@ -1198,9 +1197,14 @@ export default function Lifecycle() {
                   dragActive={dragActive}
                   extractDomainFromUrl={extractDomainFromUrl}
                   autoResizeTextarea={autoResizeTextarea}
-                  suppliers={suppliers}
-                  suppliersLoading={suppliersLoading}
+                  vendors={vendors}
+                  vendorsLoading={vendorsLoading}
                   availableOwners={availableUsers}
+                  currentProductImage={null}
+                  uploadedProductImage={uploadedProductImage}
+                  onChangeProductImage={handleChangeProductImage}
+                  onRemoveCurrentImage={handleRemoveCurrentImage}
+                  onRemoveUploadedImage={handleRemoveUploadedImage}
                 />
               </div>
               
@@ -1241,20 +1245,6 @@ export default function Lifecycle() {
             </div>
           </DialogContent>
         </Dialog>
-        
-        {/* Product Details Modal */}
-        <ProductDetailsModal
-          product={selectedCard}
-          open={isDrawerOpen}
-          onOpenChange={setIsDrawerOpen}
-          onUpdate={(updatedProduct) => {
-            setCards(prev => prev.map(card =>
-              card.id === updatedProduct.id ? updatedProduct : card
-            ))
-          }}
-          onUpdateProduct={handleUpdateProduct}
-          onDeleteProduct={handleDeleteProduct}
-        />
       </div>
     </div>
     )

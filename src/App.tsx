@@ -2,6 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthWrapper } from "./components/AuthWrapper";
 import { Layout } from "./components/Layout";
 import { PermissionGuard } from "./components/PermissionGuard";
@@ -63,6 +64,7 @@ import InfluencerCollabs from "./pages/marketing/InfluencerCollabs";
 // Product Management pages
 import ProductsVariants from "./pages/products/ProductsVariants";
 import Products from "./pages/products/Products";
+import ProductDetails from "./pages/products/ProductDetails";
 import Categories from "./pages/products/Categories";
 import PerformanceInsight from "./pages/products/PerformanceInsight";
 import Suppliers from "./pages/products/Suppliers";
@@ -70,6 +72,7 @@ import InventoryManagement from "./pages/products/InventoryManagement";
 import SampleTesting from "./pages/products/SampleTesting";
 import Warehouse from "./pages/inventory/Warehouse";
 import SuppliersPage from "./pages/inventory/Suppliers";
+import Vendors from "./pages/Vendors";
 
 // Finance pages
 import BankAccounts from "./pages/finance/BankAccounts";
@@ -101,12 +104,25 @@ import SystemNotifications from "./pages/alerts/SystemNotifications";
 // Logs page
 import Logs from "./pages/system/Logs";
 
+// Create a client
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      gcTime: 10 * 60 * 1000, // 10 minutes
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
+
 const App = () => (
-  <TooltipProvider>
-    <PermissionsProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
+  <QueryClientProvider client={queryClient}>
+    <TooltipProvider>
+      <PermissionsProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
       <Routes>
         <Route path="/auth" element={<Auth />} />
         <Route path="/onboard" element={<Onboard />} />
@@ -134,6 +150,11 @@ const App = () => (
                 <Route path="products/suppliers" element={
                   <PermissionGuard requiredModule="products">
                     <SuppliersPage />
+                  </PermissionGuard>
+                } />
+                <Route path="vendors" element={
+                  <PermissionGuard requiredModule="products">
+                    <Vendors />
                   </PermissionGuard>
                 } />
                 <Route path="orders" element={
@@ -310,6 +331,11 @@ const App = () => (
                     <Products />
                   </PermissionGuard>
                 } />
+                <Route path="products/:slug" element={
+                  <PermissionGuard requiredModule="products">
+                    <ProductDetails />
+                  </PermissionGuard>
+                } />
                 <Route path="products/categories" element={
                   <PermissionGuard requiredModule="products">
                     <Categories />
@@ -323,6 +349,11 @@ const App = () => (
                 <Route path="products/suppliers" element={
                   <PermissionGuard requiredModule="products">
                     <Suppliers />
+                  </PermissionGuard>
+                } />
+                <Route path="vendors" element={
+                  <PermissionGuard requiredModule="products">
+                    <Vendors />
                   </PermissionGuard>
                 } />
                 <Route path="inventory" element={
@@ -469,6 +500,7 @@ const App = () => (
       </BrowserRouter>
     </PermissionsProvider>
   </TooltipProvider>
+  </QueryClientProvider>
 )
 
 export default App;

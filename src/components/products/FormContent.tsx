@@ -13,6 +13,7 @@ interface FormContentProps {
   selectedCategories: string[]
   setSelectedCategories: (categories: string[]) => void
   availableCategories: string[]
+  categoriesLoading?: boolean
   tagInput: string
   setTagInput: (input: string) => void
   tags: string[]
@@ -32,8 +33,8 @@ interface FormContentProps {
   dragActive: boolean
   extractDomainFromUrl: (url: string) => string
   autoResizeTextarea: (e: React.ChangeEvent<HTMLTextAreaElement>) => void
-  suppliers: any[]
-  suppliersLoading: boolean
+  vendors: any[]
+  vendorsLoading: boolean
   availableOwners: any[]
   // Product image props
   currentProductImage?: string | null
@@ -49,6 +50,7 @@ export const FormContent: React.FC<FormContentProps> = ({
   selectedCategories,
   setSelectedCategories,
   availableCategories,
+  categoriesLoading = false,
   tagInput,
   setTagInput,
   tags,
@@ -68,8 +70,8 @@ export const FormContent: React.FC<FormContentProps> = ({
   dragActive,
   extractDomainFromUrl,
   autoResizeTextarea,
-  suppliers,
-  suppliersLoading,
+  vendors,
+  vendorsLoading,
   availableOwners = [],
   // Product image props
   currentProductImage,
@@ -149,18 +151,30 @@ export const FormContent: React.FC<FormContentProps> = ({
               <Select
                 value={selectedCategories[0] || ''}
                 onValueChange={(value) => setSelectedCategories([value])}
+                disabled={categoriesLoading}
               >
                 <SelectTrigger className="mt-2 h-10 rounded-none">
-                  <SelectValue placeholder="Select category..." />
+                  <SelectValue placeholder={categoriesLoading ? "Loading categories..." : "Select category..."} />
                 </SelectTrigger>
                 <SelectContent>
-                  {availableCategories.map((category) => (
-                    <SelectItem key={category} value={category}>
-                      {category}
-                    </SelectItem>
-                  ))}
+                  {categoriesLoading ? (
+                    <SelectItem value="loading" disabled>Loading categories...</SelectItem>
+                  ) : availableCategories.length === 0 ? (
+                    <SelectItem value="no-categories" disabled>No categories available</SelectItem>
+                  ) : (
+                    availableCategories.map((category) => (
+                      <SelectItem key={category} value={category}>
+                        {category}
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
+              {!categoriesLoading && availableCategories.length === 0 && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  No categories found. <a href="/categories" target="_blank" className="text-primary hover:underline">Manage categories</a>
+                </p>
+              )}
             </div>
 
             {/* Priority */}
@@ -237,65 +251,6 @@ export const FormContent: React.FC<FormContentProps> = ({
               </div>
             </div>
 
-            {/* Source Price */}
-            <div className="w-full">
-              <Label className="text-sm font-medium text-foreground">Estimated Source Price (₹)</Label>
-              <Input
-                type="number"
-                step="1"
-                value={newIdeaForm.estimatedSourcePriceMin}
-                onChange={(e) => setNewIdeaForm(prev => ({ ...prev, estimatedSourcePriceMin: e.target.value }))}
-                placeholder="500"
-                className="mt-2 h-10 rounded-none"
-              />
-              <p className="text-xs text-muted-foreground mt-1">Price in INR</p>
-            </div>
-
-            {/* Supplier Selection */}
-            <div>
-              <Label className="text-sm font-medium text-foreground">Select Supplier</Label>
-              <Select
-                value={newIdeaForm.selectedSupplierId}
-                onValueChange={(value) => setNewIdeaForm(prev => ({ ...prev, selectedSupplierId: value }))}
-              >
-                <SelectTrigger className="mt-2 h-10 rounded-none">
-                  <SelectValue placeholder="Choose a supplier..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {suppliersLoading ? (
-                    <SelectItem value="loading" disabled>Loading suppliers...</SelectItem>
-                  ) : suppliers.length === 0 ? (
-                    <SelectItem value="no-suppliers" disabled>No suppliers available</SelectItem>
-                  ) : (
-                    suppliers
-                      .filter(supplier => supplier.status === 'active')
-                      .map((supplier) => (
-                        <SelectItem key={supplier.id} value={supplier.id}>
-                          <div className="flex flex-col">
-                            <span className="font-medium">{supplier.name}</span>
-                            {supplier.lead_time_days && (
-                              <span className="text-xs text-muted-foreground">
-                                Lead time: {supplier.lead_time_days} days
-                              </span>
-                            )}
-                          </div>
-                        </SelectItem>
-                      ))
-                  )}
-                </SelectContent>
-              </Select>
-              <div className="flex items-center justify-between mt-1">
-                <p className="text-xs text-muted-foreground">Choose from active suppliers</p>
-                <Button
-                  variant="link"
-                  size="sm"
-                  className="h-auto p-0 text-xs text-primary hover:text-primary/80"
-                  onClick={() => window.open('/products/suppliers', '_blank')}
-                >
-                  View All Suppliers
-                </Button>
-              </div>
-            </div>
           </div>
         </div>
 
@@ -352,19 +307,6 @@ export const FormContent: React.FC<FormContentProps> = ({
               />
             </div>
 
-            {/* Selling Price */}
-            <div>
-              <Label className="text-sm font-medium text-foreground">Estimated Selling Price (₹)</Label>
-              <Input
-                type="number"
-                step="1"
-                value={newIdeaForm.estimatedSellingPrice}
-                onChange={(e) => setNewIdeaForm(prev => ({ ...prev, estimatedSellingPrice: e.target.value }))}
-                placeholder="800"
-                className="mt-2 h-10 rounded-none"
-              />
-              <p className="text-xs text-muted-foreground mt-1">Selling price in INR</p>
-            </div>
           </div>
         </div>
       </div>
@@ -500,23 +442,22 @@ export const FormContent: React.FC<FormContentProps> = ({
                     className="w-32 h-32 object-cover rounded-none border border-border"
                   />
                   <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-none flex items-center justify-center gap-2">
-                    <label className="cursor-pointer">
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={onChangeProductImage}
-                        className="hidden"
-                      />
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="secondary"
-                        className="h-8 text-xs"
-                        onClick={() => document.querySelector('input[type="file"]')?.click()}
-                      >
-                        Change
-                      </Button>
-                    </label>
+                    <input
+                      id="current-image-change"
+                      type="file"
+                      accept="image/*"
+                      onChange={onChangeProductImage}
+                      className="hidden"
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      className="h-8 text-xs"
+                      onClick={() => document.getElementById('current-image-change')?.click()}
+                    >
+                      Change
+                    </Button>
                     <Button
                       type="button"
                       size="sm"
@@ -564,22 +505,22 @@ export const FormContent: React.FC<FormContentProps> = ({
                   <p className="text-sm text-muted-foreground">
                     {currentProductImage ? 'Change product photo' : 'Add product photo'}
                   </p>
-                  <label className="cursor-pointer">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={onChangeProductImage}
-                      className="hidden"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="rounded-none"
-                    >
-                      Choose Image
-                    </Button>
-                  </label>
+                  <input
+                    id="product-image-upload"
+                    type="file"
+                    accept="image/*"
+                    onChange={onChangeProductImage}
+                    className="hidden"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="rounded-none"
+                    onClick={() => document.getElementById('product-image-upload')?.click()}
+                  >
+                    Choose Image
+                  </Button>
                 </div>
               </div>
             )}
