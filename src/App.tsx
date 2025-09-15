@@ -240,7 +240,7 @@ const App = () => (
                 } />
                 
                 {/* Team Hub routes */}
-                <Route path="team-hub/attendance" element={
+                <Route path="attendance" element={
                   <PermissionGuard requiredModule="team-hub">
                     <Attendance />
                   </PermissionGuard>

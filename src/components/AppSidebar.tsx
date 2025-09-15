@@ -136,7 +136,7 @@ const customerSupportItems = [
 
 // Team Hub Section
 const teamHubItems = [
-  { title: "Attendance", url: "/team-hub/attendance", icon: CalendarIcon },
+  { title: "Attendance", url: "/attendance", icon: CalendarIcon },
   { title: "Tasks & To-Dos", url: "/team-hub/tasks", icon: CheckSquareIcon },
   { title: "Team Chat", url: "/team-hub/chat", icon: MessageSquareIcon },
   { title: "Announcements", url: "/team-hub/announcements", icon: BellIcon },

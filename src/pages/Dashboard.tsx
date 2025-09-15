@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { KPICard } from "@/components/dashboard/KPICard";
+import { InventoryOverview } from "@/components/dashboard/InventoryOverview";
 import { useDashboardKPIs } from "@/hooks/useDashboardKPIs";
 import { useInventory } from "@/hooks/useInventory";
 import { useUserProfile } from "@/hooks/useUserProfile";
@@ -415,6 +416,12 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Inventory Products Overview */}
+      <InventoryOverview
+        products={products}
+        loading={inventoryLoading}
+      />
     </div>
   );
 }

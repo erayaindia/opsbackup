@@ -1763,6 +1763,221 @@ export type Database = {
           }
         ]
       }
+      attendance_records: {
+        Row: {
+          id: string
+          app_user_id: string
+          auth_user_id: string
+          employee_id: string | null
+          check_in_time: string
+          check_out_time: string | null
+          selfie_url: string | null
+          location_verified: boolean
+          ip_address: string | null
+          gps_latitude: number | null
+          gps_longitude: number | null
+          status: 'present' | 'late' | 'absent' | 'checked_out'
+          notes: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          app_user_id: string
+          auth_user_id: string
+          employee_id?: string | null
+          check_in_time: string
+          check_out_time?: string | null
+          selfie_url?: string | null
+          location_verified?: boolean
+          ip_address?: string | null
+          gps_latitude?: number | null
+          gps_longitude?: number | null
+          status?: 'present' | 'late' | 'absent' | 'checked_out'
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          app_user_id?: string
+          auth_user_id?: string
+          employee_id?: string | null
+          check_in_time?: string
+          check_out_time?: string | null
+          selfie_url?: string | null
+          location_verified?: boolean
+          ip_address?: string | null
+          gps_latitude?: number | null
+          gps_longitude?: number | null
+          status?: 'present' | 'late' | 'absent' | 'checked_out'
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_records_app_user_id_fkey"
+            columns: ["app_user_id"]
+            isOneToOne: false
+            referencedRelation: "app_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_records_auth_user_id_fkey"
+            columns: ["auth_user_id"]
+            isOneToOne: false
+            referencedRelation: "auth.users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      app_users: {
+        Row: {
+          id: string
+          auth_user_id: string
+          full_name: string | null
+          company_email: string | null
+          personal_email: string | null
+          phone: string | null
+          department: string | null
+          designation: string | null
+          work_location: string | null
+          employment_type: string | null
+          status: string
+          role: string
+          joined_at: string | null
+          exited_at: string | null
+          payroll_enabled: boolean
+          module_access: string[]
+          permissions_json: string
+          onboarding_json: string
+          documents_json: string
+          devices_json: string
+          kpis_json: string
+          assets_json: string
+          notes: string | null
+          employee_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          auth_user_id: string
+          full_name?: string | null
+          company_email?: string | null
+          personal_email?: string | null
+          phone?: string | null
+          department?: string | null
+          designation?: string | null
+          work_location?: string | null
+          employment_type?: string | null
+          status?: string
+          role?: string
+          joined_at?: string | null
+          exited_at?: string | null
+          payroll_enabled?: boolean
+          module_access?: string[]
+          permissions_json?: string
+          onboarding_json?: string
+          documents_json?: string
+          devices_json?: string
+          kpis_json?: string
+          assets_json?: string
+          notes?: string | null
+          employee_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          auth_user_id?: string
+          full_name?: string | null
+          company_email?: string | null
+          personal_email?: string | null
+          phone?: string | null
+          department?: string | null
+          designation?: string | null
+          work_location?: string | null
+          employment_type?: string | null
+          status?: string
+          role?: string
+          joined_at?: string | null
+          exited_at?: string | null
+          payroll_enabled?: boolean
+          module_access?: string[]
+          permissions_json?: string
+          onboarding_json?: string
+          documents_json?: string
+          devices_json?: string
+          kpis_json?: string
+          assets_json?: string
+          notes?: string | null
+          employee_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "app_users_auth_user_id_fkey"
+            columns: ["auth_user_id"]
+            isOneToOne: true
+            referencedRelation: "auth.users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      attendance_settings: {
+        Row: {
+          id: string
+          office_name: string
+          office_ip_ranges: string[]
+          office_latitude: number
+          office_longitude: number
+          allowed_radius_meters: number
+          work_start_time: string
+          work_end_time: string
+          late_threshold_minutes: number
+          require_selfie: boolean
+          require_location: boolean
+          is_active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          office_name: string
+          office_ip_ranges: string[]
+          office_latitude: number
+          office_longitude: number
+          allowed_radius_meters?: number
+          work_start_time: string
+          work_end_time: string
+          late_threshold_minutes?: number
+          require_selfie?: boolean
+          require_location?: boolean
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          office_name?: string
+          office_ip_ranges?: string[]
+          office_latitude?: number
+          office_longitude?: number
+          allowed_radius_meters?: number
+          work_start_time?: string
+          work_end_time?: string
+          late_threshold_minutes?: number
+          require_selfie?: boolean
+          require_location?: boolean
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
