@@ -151,10 +151,12 @@ export interface ApprovalResponse {
   data?: {
     app_user_id: string
     auth_user_id: string
-    company_email: string
+    login_email: string
+    company_email: string | null
     temp_password: string
     tempPasswordSet: boolean
     status: string
+    employee_id: string // Auto-generated 4-digit employee ID
     message: string
   }
   error?: {

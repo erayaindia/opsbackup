@@ -954,7 +954,11 @@ export async function approveOnboardingApplication(
     // Keep documents as they are - no migration during approval
     const migratedDocuments = application.documents || []
 
-    // Create app user record
+    // Generate unique employee ID
+    const employeeId = await generateUniqueEmployeeId();
+    console.log(`🆔 Generated employee ID ${employeeId} for ${application.full_name}`);
+
+    // Create app user record with automatic employee ID
     const { data: appUser, error: appUserError } = await supabase
       .from('app_users')
       .insert({
@@ -970,9 +974,10 @@ export async function approveOnboardingApplication(
         employment_type: application.employment_type,
         joined_at: application.joining_date,
         status: data.set_active ? 'active' : 'pending',
-        module_access: ['dashboard'] // Default access, can be expanded
+        module_access: ['dashboard', 'products', 'orders', 'support', 'fulfillment', 'content', 'team-hub', 'analytics'], // Full access except admin modules
+        employee_id: employeeId // Auto-generated unique ID
       })
-      .select('id')
+      .select('id, employee_id')
       .single()
 
     if (appUserError || !appUser) {
@@ -997,7 +1002,8 @@ export async function approveOnboardingApplication(
         temp_password: userPassword,
         tempPasswordSet: true,
         status: 'approved',
-        message: `Application approved and user account created successfully! Login email: ${loginEmail}`
+        employee_id: appUser.employee_id, // Include the auto-generated employee ID
+        message: `Application approved and user account created successfully! Employee ID: ${appUser.employee_id}, Login email: ${loginEmail}`
       },
       timestamp: new Date().toISOString()
     }
@@ -1022,6 +1028,39 @@ function generateTempPassword(): string {
     password += chars.charAt(Math.floor(Math.random() * chars.length))
   }
   return password
+}
+
+// Helper function to generate unique 4-digit employee ID
+async function generateUniqueEmployeeId(): Promise<string> {
+  const maxAttempts = 100; // Prevent infinite loops
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    // Generate 4-digit random number (1000-9999)
+    const randomId = Math.floor(1000 + Math.random() * 9000).toString();
+
+    // Check if this ID already exists in app_users table
+    const { data: existingUser, error } = await supabase
+      .from('app_users')
+      .select('employee_id')
+      .eq('employee_id', randomId)
+      .maybeSingle();
+
+    if (error && error.code !== 'PGRST116') {
+      console.error('Error checking employee ID uniqueness:', error);
+      continue; // Try again with a different ID
+    }
+
+    // If no existing user found, this ID is unique
+    if (!existingUser) {
+      console.log(`✅ Generated unique employee ID: ${randomId}`);
+      return randomId;
+    }
+
+    console.log(`🔄 Employee ID ${randomId} already exists, trying again...`);
+  }
+
+  // Fallback: if we can't generate a unique ID after maxAttempts
+  throw new Error('Unable to generate unique employee ID after multiple attempts');
 }
 
 // Admin: Reject onboarding application

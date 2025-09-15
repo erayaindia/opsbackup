@@ -56,7 +56,6 @@ import {
   Target,
   TestTube as FlaskConical,
   DollarSign as Banknote,
-  Receipt,
   TrendingUp as TrendingUpIcon,
   CreditCard,
   Clock,
@@ -165,7 +164,7 @@ const productManagementItems = [
 // Accounts Section
 const accountsItems = [
   { title: "Purchase", url: "/account/purchase", icon: ShoppingCart },
-  { title: "Bills", url: "/account/bills", icon: FileText },
+  { title: "Invoice", url: "/account/invoice", icon: FileText },
 ];
 
 // Admin Section

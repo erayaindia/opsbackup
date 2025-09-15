@@ -53,11 +53,11 @@ export function ApplicationApprovalModal({
 
       if (response.ok && response.data) {
         toast.success('Application approved successfully!')
-        
-        // Show success details with login email
+
+        // Show success details with login email and auto-generated employee ID
         toast.success(
-          `User account created for ${application.full_name}. Login: ${response.data.login_email} | Password: ${response.data.temp_password}`,
-          { duration: 15000 }
+          `User account created for ${application.full_name}. Employee ID: ${response.data.employee_id} | Login: ${response.data.login_email} | Password: ${response.data.temp_password}`,
+          { duration: 20000 }
         )
 
         onApproved()

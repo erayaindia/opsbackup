@@ -48,6 +48,7 @@ import NDRRTOManagement from "./pages/support/NDRRTOManagement";
 
 // Team Hub pages
 import Attendance from "./pages/team-hub/Attendance";
+import CheckIn from "./pages/team-hub/CheckIn";
 import TasksTodos from "./pages/team-hub/TasksTodos";
 import Announcements from "./pages/team-hub/Announcements";
 import TrainingKnowledge from "./pages/team-hub/TrainingKnowledge";
@@ -78,7 +79,7 @@ import ProfitLoss from "./pages/finance/ProfitLoss";
 import GSTTax from "./pages/finance/GSTTax";
 import PendingRemittances from "./pages/finance/PendingRemittances";
 import Purchase from "./pages/finance/Purchase";
-import Bills from "./pages/finance/Bills";
+import Invoice from "./pages/finance/Invoice";
 
 // Management pages
 import PeopleRoles from "./pages/management/PeopleRoles";
@@ -245,6 +246,11 @@ const App = () => (
                     <Attendance />
                   </PermissionGuard>
                 } />
+                <Route path="checkin" element={
+                  <PermissionGuard requiredModule="team-hub">
+                    <CheckIn />
+                  </PermissionGuard>
+                } />
                 <Route path="team-hub/tasks" element={
                   <PermissionGuard requiredModule="team-hub">
                     <TasksTodos />
@@ -376,9 +382,9 @@ const App = () => (
                     <Purchase />
                   </PermissionGuard>
                 } />
-                <Route path="account/bills" element={
+                <Route path="account/invoice" element={
                   <PermissionGuard requiredModule="finance">
-                    <Bills />
+                    <Invoice />
                   </PermissionGuard>
                 } />
                 

@@ -1043,16 +1043,17 @@ export type Database = {
         Row: {
           id: string
           name: string
+          gstin: string | null
+          contact_email: string | null
+          contact_phone: string | null
           contact_person: string | null
-          email: string | null
-          phone: string | null
           address: string | null
           city: string | null
           state: string | null
           country: string | null
           postal_code: string | null
-          tax_number: string | null
           payment_terms: string | null
+          status: string
           is_active: boolean
           created_at: string | null
           updated_at: string | null
@@ -1060,16 +1061,17 @@ export type Database = {
         Insert: {
           id?: string
           name: string
+          gstin?: string | null
+          contact_email?: string | null
+          contact_phone?: string | null
           contact_person?: string | null
-          email?: string | null
-          phone?: string | null
           address?: string | null
           city?: string | null
           state?: string | null
           country?: string | null
           postal_code?: string | null
-          tax_number?: string | null
           payment_terms?: string | null
+          status?: string
           is_active?: boolean
           created_at?: string | null
           updated_at?: string | null
@@ -1077,16 +1079,17 @@ export type Database = {
         Update: {
           id?: string
           name?: string
+          gstin?: string | null
+          contact_email?: string | null
+          contact_phone?: string | null
           contact_person?: string | null
-          email?: string | null
-          phone?: string | null
           address?: string | null
           city?: string | null
           state?: string | null
           country?: string | null
           postal_code?: string | null
-          tax_number?: string | null
           payment_terms?: string | null
+          status?: string
           is_active?: boolean
           created_at?: string | null
           updated_at?: string | null
@@ -1975,6 +1978,135 @@ export type Database = {
           is_active?: boolean
           created_at?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      invoice_details: {
+        Row: {
+          id: string
+          bill_number: string
+          vendor_name: string
+          vendor_gstin: string | null
+          vendor_contact: string | null
+          type: 'stock' | 'expense' | 'service' | 'capex'
+          bill_date: string
+          due_date: string
+          status: 'draft' | 'pending' | 'approved' | 'part_paid' | 'paid' | 'void'
+          grand_total: number
+          amount_paid: number
+          amount_due: number
+          subtotal: number
+          discount_amount: number
+          freight_amount: number
+          other_charges: number
+          taxable_value: number
+          cgst: number
+          sgst: number
+          igst: number
+          tcs: number
+          tds: number
+          round_off: number
+          gst_scheme: string | null
+          place_of_supply: string | null
+          itc_eligible: boolean
+          currency: string
+          exchange_rate: number
+          reason: string | null
+          notes_internal: string | null
+          file_url: string | null
+          file_type: string | null
+          file_name: string | null
+          file_size: number | null
+          created_by: string
+          created_at: string
+          approved_by: string | null
+          updated_at: string | null
+          organization_id: string | null
+          is_deleted: boolean
+        }
+        Insert: {
+          id?: string
+          bill_number: string
+          vendor_name: string
+          vendor_gstin?: string | null
+          vendor_contact?: string | null
+          type: 'stock' | 'expense' | 'service' | 'capex'
+          bill_date: string
+          due_date: string
+          status?: 'draft' | 'pending' | 'approved' | 'part_paid' | 'paid' | 'void'
+          grand_total: number
+          amount_paid?: number
+          amount_due?: number
+          subtotal: number
+          discount_amount?: number
+          freight_amount?: number
+          other_charges?: number
+          taxable_value: number
+          cgst?: number
+          sgst?: number
+          igst?: number
+          tcs?: number
+          tds?: number
+          round_off?: number
+          gst_scheme?: string | null
+          place_of_supply?: string | null
+          itc_eligible?: boolean
+          currency?: string
+          exchange_rate?: number
+          reason?: string | null
+          notes_internal?: string | null
+          file_url?: string | null
+          file_type?: string | null
+          file_name?: string | null
+          file_size?: number | null
+          created_by: string
+          created_at?: string
+          approved_by?: string | null
+          updated_at?: string | null
+          organization_id?: string | null
+          is_deleted?: boolean
+        }
+        Update: {
+          id?: string
+          bill_number?: string
+          vendor_name?: string
+          vendor_gstin?: string | null
+          vendor_contact?: string | null
+          type?: 'stock' | 'expense' | 'service' | 'capex'
+          bill_date?: string
+          due_date?: string
+          status?: 'draft' | 'pending' | 'approved' | 'part_paid' | 'paid' | 'void'
+          grand_total?: number
+          amount_paid?: number
+          amount_due?: number
+          subtotal?: number
+          discount_amount?: number
+          freight_amount?: number
+          other_charges?: number
+          taxable_value?: number
+          cgst?: number
+          sgst?: number
+          igst?: number
+          tcs?: number
+          tds?: number
+          round_off?: number
+          gst_scheme?: string | null
+          place_of_supply?: string | null
+          itc_eligible?: boolean
+          currency?: string
+          exchange_rate?: number
+          reason?: string | null
+          notes_internal?: string | null
+          file_url?: string | null
+          file_type?: string | null
+          file_name?: string | null
+          file_size?: number | null
+          created_by?: string
+          created_at?: string
+          approved_by?: string | null
+          updated_at?: string | null
+          organization_id?: string | null
+          is_deleted?: boolean
         }
         Relationships: []
       }

@@ -1,21 +1,18 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { KPICard } from "@/components/dashboard/KPICard";
-import { InventoryOverview } from "@/components/dashboard/InventoryOverview";
 import { useDashboardKPIs } from "@/hooks/useDashboardKPIs";
 import { useInventory } from "@/hooks/useInventory";
 import { useUserProfile } from "@/hooks/useUserProfile";
+import { useEmployeeAttendance } from "@/hooks/useEmployeeAttendance";
 import {
   Package,
   Clock,
   CheckCircle,
   IndianRupee,
   Users,
-  Search,
-  Download,
   TrendingUp,
   AlertCircle,
   ShoppingCart,
@@ -27,13 +24,17 @@ import {
   Sun,
   Sunset,
   Moon,
-  Sunrise
+  Sunrise,
+  UserCheck
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 export default function Dashboard() {
   const { kpis, recentOrders, recentOrdersLoading } = useDashboardKPIs();
   const { products, alerts, loading: inventoryLoading } = useInventory();
   const { profile } = useUserProfile();
+  const { employees, loading: employeesLoading, getOnlineCount, getCheckedInCount, getTotalActiveEmployees } = useEmployeeAttendance();
+  const navigate = useNavigate();
 
   const getGreeting = () => {
     const now = new Date();
@@ -134,6 +135,14 @@ export default function Dashboard() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <Button
+            onClick={() => navigate('/checkin')}
+            variant="outline"
+            className="gap-2 hover:shadow-md transition-all border-primary/50 hover:border-primary text-primary hover:bg-primary/5"
+          >
+            <UserCheck className="h-4 w-4" />
+            Check In
+          </Button>
           <Button variant="outline" className="gap-2 hover:shadow-md transition-all">
             <Activity className="h-4 w-4" />
             View Analytics
@@ -201,46 +210,6 @@ export default function Dashboard() {
         />
       </div>
 
-      {/* Quick Tools Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Search className="h-5 w-5" />
-            Quick Tools
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Search Employee</label>
-              <div className="flex gap-2">
-                <Input placeholder="Employee name or ID..." />
-                <Button variant="outline" size="icon">
-                  <Search className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-            
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Search Order</label>
-              <div className="flex gap-2">
-                <Input placeholder="Order number..." />
-                <Button variant="outline" size="icon">
-                  <Search className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-            
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Export Data</label>
-              <Button variant="outline" className="w-full">
-                <Download className="h-4 w-4 mr-2" />
-                Export Reports
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Live Feed Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -315,34 +284,96 @@ export default function Dashboard() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Users className="h-5 w-5" />
-              Active Employees
-              <Badge variant="secondary" className="ml-auto">8 online</Badge>
+              Employee Status
+              <Badge variant="secondary" className="ml-auto">
+                {employeesLoading ? '...' : `${getCheckedInCount()}/${getTotalActiveEmployees()} checked in`}
+              </Badge>
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {[
-                { name: "Sarah Johnson", role: "Packing Lead", status: "online", activity: "Processing Order #1024" },
-                { name: "Mike Chen", role: "Support Agent", status: "online", activity: "Handling Ticket #456" },
-                { name: "Emma Wilson", role: "Order Manager", status: "online", activity: "Reviewing Orders" },
-                { name: "David Smith", role: "Packer", status: "away", activity: "On break" },
-                { name: "Lisa Park", role: "Quality Check", status: "online", activity: "Inspecting Items" },
-                { name: "Tom Wilson", role: "Dispatcher", status: "online", activity: "Coordinating Shipments" }
-              ].map((employee, index) => (
-                <div key={index} className="flex items-center justify-between hover:bg-muted/20 rounded-lg p-2 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-2 h-2 rounded-full ${employee.status === 'online' ? 'bg-success' : 'bg-warning'}`} />
-                    <div>
-                      <div className="font-medium text-sm">{employee.name}</div>
-                      <div className="text-xs text-muted-foreground">{employee.role}</div>
+            {employeesLoading ? (
+              <div className="space-y-3">
+                {Array.from({ length: 6 }).map((_, index) => (
+                  <div key={index} className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Skeleton className="w-2 h-2 rounded-full" />
+                      <div className="space-y-1">
+                        <Skeleton className="h-4 w-24" />
+                        <Skeleton className="h-3 w-16" />
+                      </div>
                     </div>
+                    <Skeleton className="h-3 w-20" />
                   </div>
-                  <div className="text-xs text-muted-foreground max-w-[120px] truncate">
-                    {employee.activity}
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {employees.slice(0, 8).map((employee) => {
+                  // Determine status indicator
+                  const getStatusColor = () => {
+                    if (employee.status === 'inactive') return 'bg-gray-400';
+                    if (!employee.isCheckedIn) return 'bg-red-500';
+                    if (employee.attendanceStatus === 'late') return 'bg-orange-500';
+                    if (employee.attendanceStatus === 'present') return 'bg-green-500';
+                    if (employee.attendanceStatus === 'checked_out') return 'bg-blue-500';
+                    return 'bg-gray-400';
+                  };
+
+                  const getStatusText = () => {
+                    if (employee.status === 'inactive') return 'Inactive';
+                    if (!employee.isCheckedIn) return 'Not checked in';
+                    if (employee.attendanceStatus === 'late') return 'Late';
+                    if (employee.attendanceStatus === 'present') return 'Present';
+                    if (employee.attendanceStatus === 'checked_out') return 'Checked out';
+                    return 'Unknown';
+                  };
+
+                  return (
+                    <div key={employee.id} className="flex items-center justify-between hover:bg-muted/20 rounded-lg p-2 transition-colors">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`w-2 h-2 rounded-full ${getStatusColor()}`}
+                          title={getStatusText()}
+                        />
+                        <div>
+                          <div className="font-medium text-sm">{employee.full_name}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {employee.designation || 'Employee'}
+                            {employee.employee_id && ` • ${employee.employee_id}`}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-xs text-muted-foreground max-w-[120px] truncate text-right">
+                        <div className="font-medium">{getStatusText()}</div>
+                        {employee.department && (
+                          <div className="text-xs">{employee.department}</div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {employees.length > 8 && (
+                  <div className="pt-2 border-t">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => navigate('/attendance')}
+                    >
+                      View All Employees ({employees.length})
+                    </Button>
                   </div>
-                </div>
-              ))}
-            </div>
+                )}
+
+                {employees.length === 0 && !employeesLoading && (
+                  <div className="text-center py-4">
+                    <Users className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                    <div className="text-sm text-muted-foreground">No employees found</div>
+                  </div>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -417,11 +448,6 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* Inventory Products Overview */}
-      <InventoryOverview
-        products={products}
-        loading={inventoryLoading}
-      />
     </div>
   );
 }

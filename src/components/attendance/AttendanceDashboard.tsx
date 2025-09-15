@@ -5,6 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { format } from 'date-fns';
 import {
   Table,
   TableBody,
@@ -23,7 +26,8 @@ import {
   Download,
   RefreshCw,
   Camera,
-  MapPin
+  MapPin,
+  CalendarIcon
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -61,12 +65,14 @@ const AttendanceDashboard: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const [selfieUrls, setSelfieUrls] = useState<Record<string, string>>({});
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
 
-  const fetchAttendanceData = async () => {
+  const fetchAttendanceData = async (dateToFetch?: Date) => {
     setIsLoading(true);
     try {
-      const today = new Date().toISOString().split('T')[0];
-      console.log('📅 Fetching attendance for date:', today);
+      const targetDate = dateToFetch || selectedDate;
+      const dateStr = targetDate.toISOString().split('T')[0];
+      console.log('📅 Fetching attendance for date:', dateStr);
 
       // Fetch all active employees from app_users (excluding super admins)
       const { data: appUsers, error: usersError } = await supabase
@@ -83,12 +89,12 @@ const AttendanceDashboard: React.FC = () => {
 
       console.log('👥 Found active employees:', appUsers?.length);
 
-      // Fetch today's attendance records
+      // Fetch attendance records for the selected date
       const { data: attendanceRecords, error: attendanceError } = await supabase
         .from('attendance_records')
         .select('*')
-        .gte('check_in_time', `${today}T00:00:00.000Z`)
-        .lt('check_in_time', `${today}T23:59:59.999Z`);
+        .gte('check_in_time', `${dateStr}T00:00:00.000Z`)
+        .lt('check_in_time', `${dateStr}T23:59:59.999Z`);
 
       if (attendanceError) {
         console.error('Error fetching attendance records:', attendanceError);
@@ -235,30 +241,36 @@ const AttendanceDashboard: React.FC = () => {
   useEffect(() => {
     fetchAttendanceData();
 
-    // Set up real-time subscription for attendance updates
-    const subscription = supabase
-      .channel('attendance_dashboard_updates')
-      .on('postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'attendance_records'
-        },
-        (payload) => {
-          console.log('🔄 Real-time attendance update:', payload);
-          fetchAttendanceData();
-        }
-      )
-      .subscribe();
+    // Set up real-time subscription for attendance updates (only for today)
+    const isToday = selectedDate.toDateString() === new Date().toDateString();
+    let subscription: any = null;
+    let interval: any = null;
 
-    // Set up auto-refresh every 5 minutes as backup
-    const interval = setInterval(fetchAttendanceData, 5 * 60 * 1000);
+    if (isToday) {
+      subscription = supabase
+        .channel('attendance_dashboard_updates')
+        .on('postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'attendance_records'
+          },
+          (payload) => {
+            console.log('🔄 Real-time attendance update:', payload);
+            fetchAttendanceData();
+          }
+        )
+        .subscribe();
+
+      // Set up auto-refresh every 5 minutes as backup for today
+      interval = setInterval(fetchAttendanceData, 5 * 60 * 1000);
+    }
 
     return () => {
-      subscription.unsubscribe();
-      clearInterval(interval);
+      if (subscription) subscription.unsubscribe();
+      if (interval) clearInterval(interval);
     };
-  }, []);
+  }, [selectedDate]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -317,14 +329,71 @@ const AttendanceDashboard: React.FC = () => {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
-        <div>
-          <p className="text-muted-foreground mt-1">
-            Last updated: {lastUpdated.toLocaleTimeString()}
-          </p>
+        <div className="flex items-center gap-4">
+          <div>
+            <h3 className="text-lg font-semibold">
+              Attendance for {format(selectedDate, "EEEE, MMMM d, yyyy")}
+            </h3>
+            <p className="text-muted-foreground mt-1">
+              Last updated: {lastUpdated.toLocaleTimeString()}
+            </p>
+          </div>
+
+          {/* Date Picker */}
+          <div className="flex items-center gap-2">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="gap-2">
+                  <CalendarIcon className="h-4 w-4" />
+                  {format(selectedDate, "MMM d, yyyy")}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <CalendarComponent
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={(date) => {
+                    if (date) {
+                      setSelectedDate(date);
+                    }
+                  }}
+                  disabled={(date) => {
+                    // Disable future dates
+                    return date > new Date();
+                  }}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+
+            {/* Quick Date Buttons */}
+            <div className="flex items-center gap-1 border-l pl-2 ml-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedDate(new Date())}
+                className={selectedDate.toDateString() === new Date().toDateString() ? "bg-primary/10" : ""}
+              >
+                Today
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  const yesterday = new Date();
+                  yesterday.setDate(yesterday.getDate() - 1);
+                  setSelectedDate(yesterday);
+                }}
+              >
+                Yesterday
+              </Button>
+            </div>
+          </div>
         </div>
+
         <div className="flex gap-2">
           <Button
-            onClick={fetchAttendanceData}
+            onClick={() => fetchAttendanceData()}
             variant="outline"
             size="sm"
             disabled={isLoading}
@@ -340,7 +409,6 @@ const AttendanceDashboard: React.FC = () => {
             <Download className="h-4 w-4 mr-2" />
             Export
           </Button>
-
         </div>
       </div>
 
