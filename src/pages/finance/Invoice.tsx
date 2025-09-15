@@ -22,6 +22,8 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useInvoices, Bill } from "@/hooks/useInvoices";
 import AddBillModal from "@/components/finance/AddBillModal";
+import BillDetailsModal from "@/components/finance/BillDetailsModal";
+import FileViewerModal from "@/components/finance/FileViewerModal";
 
 // Bill interface is imported from useInvoices hook
 // Mock data removed - now using real Supabase data
@@ -45,8 +47,12 @@ export default function Invoice() {
 
   // Dialog states
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [showEditForm, setShowEditForm] = useState(false);
   const [selectedBill, setSelectedBill] = useState<Bill | null>(null);
   const [editingBill, setEditingBill] = useState<Bill | null>(null);
+  const [showBillDetails, setShowBillDetails] = useState(false);
+  const [showFileViewer, setShowFileViewer] = useState(false);
+  const [viewingFile, setViewingFile] = useState<{ url: string; name?: string; type?: string } | null>(null);
 
   // Handle sorting
   const handleSort = (field: string) => {
@@ -228,6 +234,51 @@ export default function Invoice() {
   const handleBillCreated = (newBill: Bill) => {
     console.log('New bill created:', newBill);
     // Bill is already added to the list by the useInvoices hook
+  };
+
+  const handleEditBill = (bill: Bill) => {
+    setEditingBill(bill);
+    setShowEditForm(true);
+  };
+
+  const handleUpdateBill = async (billData: Partial<Bill>) => {
+    if (!editingBill) return;
+    return await actions.updateInvoice(editingBill.id, billData);
+  };
+
+  const handleBillUpdated = (updatedBill: Bill) => {
+    console.log('Bill updated:', updatedBill);
+    setEditingBill(null);
+    setShowEditForm(false);
+  };
+
+  const handleShowBillDetails = (bill: Bill) => {
+    setSelectedBill(bill);
+    setShowBillDetails(true);
+  };
+
+  const handleStatusUpdate = async (billId: string, newStatus: string) => {
+    try {
+      await actions.updateInvoice(billId, { status: newStatus as any });
+      // Update the selected bill if it's the one being updated
+      if (selectedBill && selectedBill.id === billId) {
+        setSelectedBill(prev => prev ? { ...prev, status: newStatus as any } : null);
+      }
+    } catch (error) {
+      console.error('Error updating bill status:', error);
+      throw error; // Re-throw to let the modal handle the error
+    }
+  };
+
+  const handleViewFile = (bill: Bill) => {
+    if (bill.file_url) {
+      setViewingFile({
+        url: bill.file_url,
+        name: bill.file_name,
+        type: bill.file_type
+      });
+      setShowFileViewer(true);
+    }
   };
 
   return (
@@ -522,14 +573,17 @@ export default function Invoice() {
                           {getSortIcon('amount_due')}
                         </div>
                       </TableHead>
-                      <TableHead className="border-r border-border/50 text-center">GST</TableHead>
-                      <TableHead className="border-r border-border/50 text-center">ITC</TableHead>
+                      <TableHead className="border-r border-border/50 text-center">File</TableHead>
                       <TableHead className="text-center">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {paginatedData.map((bill) => (
-                      <TableRow key={bill.id}>
+                      <TableRow
+                        key={bill.id}
+                        className="cursor-pointer hover:bg-muted/50"
+                        onClick={() => handleShowBillDetails(bill)}
+                      >
                         <TableCell className="border-r border-border/50 text-left">
                           <div className="font-medium text-blue-600 cursor-pointer hover:underline">
                             {bill.bill_number}
@@ -589,28 +643,34 @@ export default function Invoice() {
                           </div>
                         </TableCell>
                         <TableCell className="border-r border-border/50 text-center">
-                          <Badge variant="outline" className="rounded-none">
-                            {getGSTType(bill)}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="border-r border-border/50 text-center">
-                          <Tooltip>
-                            <TooltipTrigger>
-                              {bill.itc_eligible ? (
-                                <Check className="h-4 w-4 text-green-600 mx-auto" />
-                              ) : (
-                                <X className="h-4 w-4 text-red-600 mx-auto" />
-                              )}
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              {bill.itc_eligible ? "ITC Eligible" : "ITC Not Eligible"}
-                            </TooltipContent>
-                          </Tooltip>
+                          {bill.file_url ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleViewFile(bill);
+                              }}
+                              className="rounded-none p-1 h-8 w-8"
+                            >
+                              <div className="relative">
+                                <Eye className="h-4 w-4" />
+                                <FileText className="h-2 w-2 absolute -bottom-0.5 -right-0.5" />
+                              </div>
+                            </Button>
+                          ) : (
+                            <span className="text-muted-foreground text-xs">No file</span>
+                          )}
                         </TableCell>
                         <TableCell className="text-center">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="outline" size="sm" className="rounded-none">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="rounded-none"
+                                onClick={(e) => e.stopPropagation()}
+                              >
                                 <MoreHorizontal className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
@@ -646,7 +706,7 @@ export default function Invoice() {
                                   Mark Payment
                                 </DropdownMenuItem>
                               )}
-                              <DropdownMenuItem onClick={() => setEditingBill(bill)}>
+                              <DropdownMenuItem onClick={() => handleEditBill(bill)}>
                                 <Edit className="mr-2 h-4 w-4" />
                                 Edit
                               </DropdownMenuItem>
@@ -783,6 +843,42 @@ export default function Invoice() {
           onSuccess={handleBillCreated}
           vendors={vendors}
           onCreateBill={handleCreateBill}
+          onGenerateNextBillNumber={actions.generateNextBillNumber}
+        />
+
+        {/* Edit Bill Modal */}
+        {editingBill && (
+          <AddBillModal
+            open={showEditForm}
+            onOpenChange={setShowEditForm}
+            onSuccess={handleBillUpdated}
+            vendors={vendors}
+            onCreateBill={handleUpdateBill}
+            onGenerateNextBillNumber={actions.generateNextBillNumber}
+            initialData={editingBill}
+            isEdit={true}
+          />
+        )}
+
+        {/* Bill Details Modal */}
+        <BillDetailsModal
+          open={showBillDetails}
+          onOpenChange={setShowBillDetails}
+          bill={selectedBill}
+          onStatusUpdate={handleStatusUpdate}
+          onEdit={(bill) => {
+            setShowBillDetails(false); // Close details modal
+            handleEditBill(bill); // Open edit modal
+          }}
+        />
+
+        {/* File Viewer Modal */}
+        <FileViewerModal
+          open={showFileViewer}
+          onOpenChange={setShowFileViewer}
+          fileUrl={viewingFile?.url}
+          fileName={viewingFile?.name}
+          fileType={viewingFile?.type}
         />
       </div>
     </TooltipProvider>

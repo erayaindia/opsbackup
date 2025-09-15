@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 export interface InvoiceDetail {
   id: string;
   bill_number: string;
+  vendor_id?: string;
   vendor_name: string;
   vendor_gstin?: string;
   vendor_contact?: string;
@@ -462,6 +463,42 @@ export const invoiceService = {
       return vendors.filter(vendor => vendor && vendor.trim() !== '');
     } catch (error) {
       console.error('Error in getUniqueVendors:', error);
+      throw error;
+    }
+  },
+
+  // Generate next sequential bill number
+  async generateNextBillNumber(): Promise<string> {
+    try {
+      // Get the latest bill number (just numbers)
+      const { data, error } = await supabase
+        .from('invoice_details')
+        .select('bill_number')
+        .eq('is_deleted', false)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (error) {
+        console.error('Error fetching last bill number:', error);
+        throw new Error(`Failed to generate bill number: ${error.message}`);
+      }
+
+      let nextSequence = 1;
+
+      if (data && data.length > 0) {
+        const lastBillNumber = data[0].bill_number;
+        // Try to parse as number, if it's a valid number, increment
+        const currentNumber = parseInt(lastBillNumber);
+        if (!isNaN(currentNumber)) {
+          nextSequence = currentNumber + 1;
+        }
+      }
+
+      // Format: 1, 2, 3, etc.
+      return nextSequence.toString();
+
+    } catch (error) {
+      console.error('Error in generateNextBillNumber:', error);
       throw error;
     }
   }

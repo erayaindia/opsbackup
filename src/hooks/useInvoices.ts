@@ -6,6 +6,7 @@ import { invoiceService, InvoiceDetail, CreateInvoiceData, UpdateInvoiceData, In
 export interface Bill {
   id: string;
   bill_number: string;
+  vendor_id?: string;
   vendor_name: string;
   vendor_gstin: string;
   vendor_contact: string;
@@ -42,6 +43,8 @@ export interface Bill {
   created_at: Date;
   approved_by?: string;
   updated_at?: Date;
+  organization_id?: string;
+  is_deleted: boolean;
 }
 
 export interface InvoiceStats {
@@ -72,6 +75,7 @@ export const useInvoices = () => {
   const transformInvoiceToBill = (invoice: InvoiceDetail): Bill => ({
     id: invoice.id,
     bill_number: invoice.bill_number,
+    vendor_id: invoice.vendor_id,
     vendor_name: invoice.vendor_name,
     vendor_gstin: invoice.vendor_gstin || '',
     vendor_contact: invoice.vendor_contact || '',
@@ -107,7 +111,9 @@ export const useInvoices = () => {
     created_by: invoice.created_by,
     created_at: new Date(invoice.created_at),
     approved_by: invoice.approved_by,
-    updated_at: invoice.updated_at ? new Date(invoice.updated_at) : undefined
+    updated_at: invoice.updated_at ? new Date(invoice.updated_at) : undefined,
+    organization_id: invoice.organization_id,
+    is_deleted: invoice.is_deleted
   });
 
   // Transform UI bill to database format for creation
@@ -184,6 +190,17 @@ export const useInvoices = () => {
     } catch (err) {
       console.error('Error fetching vendors:', err);
       // Don't set error here as vendors are not critical
+    }
+  }, []);
+
+  // Generate next sequential bill number
+  const generateNextBillNumber = useCallback(async (): Promise<string> => {
+    try {
+      return await invoiceService.generateNextBillNumber();
+    } catch (err) {
+      console.error('Error generating bill number:', err);
+      // Fallback to timestamp-based number if generation fails
+      return Date.now().toString().slice(-6);
     }
   }, []);
 
@@ -390,7 +407,8 @@ export const useInvoices = () => {
       approveInvoice,
       markPayment,
       voidInvoice,
-      refreshData
+      refreshData,
+      generateNextBillNumber
     }
   };
 };

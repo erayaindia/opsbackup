@@ -9,12 +9,14 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { CalendarIcon, Calculator, Upload, AlertCircle } from 'lucide-react';
+import { CalendarIcon, Calculator, Upload, AlertCircle, FileText, X } from 'lucide-react';
+import { useVendors } from '@/hooks/useSuppliers';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Bill } from '@/hooks/useInvoices';
+import { supabase } from '@/integrations/supabase/client';
 
 interface AddBillModalProps {
   open: boolean;
@@ -22,10 +24,14 @@ interface AddBillModalProps {
   onSuccess?: (bill: Bill) => void;
   vendors: string[];
   onCreateBill: (billData: CreateBillData) => Promise<Bill>;
+  onGenerateNextBillNumber: () => Promise<string>;
+  initialData?: Bill;
+  isEdit?: boolean;
 }
 
 interface CreateBillData {
   bill_number: string;
+  vendor_id?: string;
   vendor_name: string;
   vendor_gstin?: string;
   vendor_contact?: string;
@@ -53,16 +59,22 @@ interface CreateBillData {
   exchange_rate: number;
   reason?: string;
   notes_internal?: string;
+  file_url?: string;
+  file_type?: string;
+  file_name?: string;
+  file_size?: number;
 }
 
 interface BillFormData {
   bill_number: string;
+  vendor_id: string;
   vendor_name: string;
   vendor_gstin: string;
   vendor_contact: string;
   type: 'stock' | 'expense' | 'service' | 'capex' | '';
   bill_date: Date | null;
   due_date: Date | null;
+  uploaded_file: File | null;
   subtotal: string;
   discount_amount: string;
   freight_amount: string;
@@ -90,12 +102,14 @@ interface BillFormData {
 
 const initialFormData: BillFormData = {
   bill_number: '',
+  vendor_id: '',
   vendor_name: '',
   vendor_gstin: '',
   vendor_contact: '',
   type: '',
   bill_date: null,
   due_date: null,
+  uploaded_file: null,
   subtotal: '',
   discount_amount: '0',
   freight_amount: '0',
@@ -140,18 +154,70 @@ interface FormErrors {
   [key: string]: string;
 }
 
-export default function AddBillModal({ open, onOpenChange, onSuccess, vendors, onCreateBill }: AddBillModalProps) {
+export default function AddBillModal({ open, onOpenChange, onSuccess, vendors, onCreateBill, onGenerateNextBillNumber, initialData, isEdit = false }: AddBillModalProps) {
   const [formData, setFormData] = useState<BillFormData>(initialFormData);
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploadingFile, setIsUploadingFile] = useState(false);
 
-  // Auto-generate bill number when modal opens
+  // Fetch vendors from database
+  const { data: vendorsData = [], isLoading: vendorsLoading } = useVendors();
+
+  // Initialize form data when modal opens
   useEffect(() => {
-    if (open && !formData.bill_number) {
-      const billNumber = `BILL-${Date.now()}`;
-      setFormData(prev => ({ ...prev, bill_number: billNumber }));
+    if (open) {
+      if (isEdit && initialData) {
+        // Populate form with existing bill data for editing
+        setFormData({
+          bill_number: initialData.bill_number,
+          vendor_id: initialData.vendor_id || '',
+          vendor_name: initialData.vendor_name,
+          vendor_gstin: initialData.vendor_gstin || '',
+          vendor_contact: initialData.vendor_contact || '',
+          type: initialData.type,
+          bill_date: new Date(initialData.bill_date),
+          due_date: new Date(initialData.due_date),
+          subtotal: initialData.subtotal.toString(),
+          discount_amount: initialData.discount_amount.toString(),
+          freight_amount: initialData.freight_amount.toString(),
+          other_charges: initialData.other_charges.toString(),
+          taxable_value: initialData.taxable_value.toString(),
+          gst_type: initialData.igst > 0 ? 'igst' : 'cgst_sgst',
+          cgst_rate: initialData.taxable_value > 0 ? ((initialData.cgst / initialData.taxable_value) * 100).toFixed(2) : '9',
+          sgst_rate: initialData.taxable_value > 0 ? ((initialData.sgst / initialData.taxable_value) * 100).toFixed(2) : '9',
+          igst_rate: initialData.taxable_value > 0 ? ((initialData.igst / initialData.taxable_value) * 100).toFixed(2) : '18',
+          cgst: initialData.cgst.toString(),
+          sgst: initialData.sgst.toString(),
+          igst: initialData.igst.toString(),
+          tcs: initialData.tcs.toString(),
+          tds: initialData.tds.toString(),
+          round_off: initialData.round_off.toString(),
+          grand_total: initialData.grand_total.toString(),
+          gst_scheme: initialData.gst_scheme || '',
+          place_of_supply: initialData.place_of_supply || '',
+          itc_eligible: initialData.itc_eligible,
+          currency: initialData.currency,
+          exchange_rate: initialData.exchange_rate.toString(),
+          reason: initialData.reason || '',
+          notes_internal: initialData.notes_internal || ''
+        });
+      } else if (!isEdit && !formData.bill_number) {
+        // Auto-generate sequential bill number for new bills
+        const generateBillNumber = async () => {
+          try {
+            const billNumber = await onGenerateNextBillNumber();
+            setFormData(prev => ({ ...prev, bill_number: billNumber }));
+          } catch (error) {
+            console.error('Error generating bill number:', error);
+            // Fallback to timestamp-based number
+            const fallbackNumber = Date.now().toString().slice(-6);
+            setFormData(prev => ({ ...prev, bill_number: fallbackNumber }));
+          }
+        };
+        generateBillNumber();
+      }
     }
-  }, [open, formData.bill_number]);
+  }, [open, isEdit, initialData, formData.bill_number]);
 
   // Calculate taxable value when amounts change
   useEffect(() => {
@@ -214,15 +280,38 @@ export default function AddBillModal({ open, onOpenChange, onSuccess, vendors, o
     }
   };
 
+  // Handle vendor selection - auto-populate vendor details
+  const handleVendorChange = (vendorId: string) => {
+    const selectedVendor = vendorsData.find(vendor => vendor.id === vendorId);
+    if (selectedVendor) {
+      setFormData(prev => ({
+        ...prev,
+        vendor_id: vendorId,
+        vendor_name: selectedVendor.name,
+        vendor_gstin: selectedVendor.gstin || '',
+        vendor_contact: selectedVendor.email || selectedVendor.phone || ''
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        vendor_id: '',
+        vendor_name: '',
+        vendor_gstin: '',
+        vendor_contact: ''
+      }));
+    }
+  };
+
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
 
     // Required fields validation
     if (!formData.bill_number.trim()) newErrors.bill_number = 'Bill number is required';
-    if (!formData.vendor_name.trim()) newErrors.vendor_name = 'Vendor name is required';
+    if (!formData.vendor_id.trim()) newErrors.vendor_id = 'Vendor selection is required';
     if (!formData.type) newErrors.type = 'Bill type is required';
     if (!formData.bill_date) newErrors.bill_date = 'Bill date is required';
     if (!formData.due_date) newErrors.due_date = 'Due date is required';
+    if (!formData.uploaded_file) newErrors.uploaded_file = 'Bill document is required';
     if (!formData.subtotal.trim()) newErrors.subtotal = 'Subtotal is required';
 
     // Date validation
@@ -235,13 +324,44 @@ export default function AddBillModal({ open, onOpenChange, onSuccess, vendors, o
       newErrors.subtotal = 'Subtotal must be a positive number';
     }
 
-    // GSTIN validation (if provided)
-    if (formData.vendor_gstin && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(formData.vendor_gstin)) {
-      newErrors.vendor_gstin = 'Invalid GSTIN format';
-    }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
+  };
+
+  const uploadFileToStorage = async (file: File, billId: string): Promise<{url: string, path: string}> => {
+    try {
+      // Generate unique filename with timestamp to avoid conflicts
+      const timestamp = Date.now();
+      const fileExtension = file.name.split('.').pop();
+      const fileName = `${timestamp}_${file.name}`;
+      const filePath = `invoices/${billId}/${fileName}`;
+
+      // Upload file to Supabase storage
+      const { data, error } = await supabase.storage
+        .from('invoice-documents')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (error) {
+        console.error('Upload error:', error);
+        throw new Error(`Failed to upload file: ${error.message}`);
+      }
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('invoice-documents')
+        .getPublicUrl(filePath);
+
+      return {
+        url: publicUrl,
+        path: filePath
+      };
+    } catch (error) {
+      console.error('Error in uploadFileToStorage:', error);
+      throw error;
+    }
   };
 
   const handleSubmit = async () => {
@@ -249,14 +369,50 @@ export default function AddBillModal({ open, onOpenChange, onSuccess, vendors, o
 
     setIsSubmitting(true);
     try {
+      let fileData = {};
+
+      // If file is uploaded, upload it to storage first
+      if (formData.uploaded_file) {
+        setIsUploadingFile(true);
+        try {
+          // Generate a temporary ID for file path (we'll use bill number for now)
+          const tempId = formData.bill_number.replace(/[^a-zA-Z0-9]/g, '_');
+          const { url, path } = await uploadFileToStorage(formData.uploaded_file, tempId);
+
+          fileData = {
+            file_url: url,
+            file_type: formData.uploaded_file.type,
+            file_name: formData.uploaded_file.name,
+            file_size: formData.uploaded_file.size
+          };
+
+          // Debug: Check file data lengths
+          console.log('File data:', fileData);
+          Object.entries(fileData).forEach(([key, value]) => {
+            if (typeof value === 'string' && value.length > 10) {
+              console.warn(`File field '${key}' has length ${value.length}: "${value}"`);
+            }
+          });
+
+        } catch (fileError) {
+          console.error('File upload failed:', fileError);
+          setErrors({ uploaded_file: 'File upload failed. Please try again.' });
+          return;
+        } finally {
+          setIsUploadingFile(false);
+        }
+      }
+
+      // Create bill with all data including file metadata
       const billData = {
         bill_number: formData.bill_number,
+        vendor_id: formData.vendor_id || undefined,
         vendor_name: formData.vendor_name,
         vendor_gstin: formData.vendor_gstin || undefined,
         vendor_contact: formData.vendor_contact || undefined,
         type: formData.type,
-        bill_date: formData.bill_date!.toISOString().split('T')[0],
-        due_date: formData.due_date!.toISOString().split('T')[0],
+        bill_date: formData.bill_date!,
+        due_date: formData.due_date!,
         status: 'draft' as const,
         grand_total: parseFloat(formData.grand_total),
         amount_paid: 0,
@@ -277,21 +433,45 @@ export default function AddBillModal({ open, onOpenChange, onSuccess, vendors, o
         currency: formData.currency,
         exchange_rate: parseFloat(formData.exchange_rate),
         reason: formData.reason || undefined,
-        notes_internal: formData.notes_internal || undefined
+        notes_internal: formData.notes_internal || undefined,
+        ...fileData
       };
 
+      // Debug: Log the data being sent to identify long values
+      console.log('Bill data being sent:', billData);
+      Object.entries(billData).forEach(([key, value]) => {
+        if (typeof value === 'string' && value.length > 10) {
+          console.warn(`Field '${key}' has length ${value.length}: "${value}"`);
+        }
+      });
+
       const newBill = await onCreateBill(billData);
+
+      // Show success message
+      console.log('✅ Bill created successfully:', newBill);
 
       if (onSuccess) {
         onSuccess(newBill);
       }
 
-      // Reset form
+      // Reset form and close modal
       setFormData(initialFormData);
+      setErrors({});
       onOpenChange(false);
+
+      // Could add toast notification here
+      // toast.success('Bill created successfully!');
+
     } catch (error) {
-      console.error('Error creating bill:', error);
-      // Handle error - could show toast notification
+      console.error('❌ Error creating bill:', error);
+
+      // Set error message for user feedback
+      setErrors({
+        submit: error instanceof Error ? error.message : 'Failed to create bill. Please try again.'
+      });
+
+      // Could add toast notification here
+      // toast.error('Failed to create bill. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -307,9 +487,12 @@ export default function AddBillModal({ open, onOpenChange, onSuccess, vendors, o
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Add New Bill</DialogTitle>
+          <DialogTitle>{isEdit ? 'Edit Bill' : 'Add New Bill'}</DialogTitle>
           <DialogDescription>
-            Create a new invoice bill with vendor details, amounts, and tax information.
+            {isEdit
+              ? 'Update the invoice bill details, amounts, and tax information.'
+              : 'Create a new invoice bill with vendor details, amounts, and tax information.'
+            }
           </DialogDescription>
         </DialogHeader>
 
@@ -326,11 +509,15 @@ export default function AddBillModal({ open, onOpenChange, onSuccess, vendors, o
                   <Input
                     id="bill_number"
                     value={formData.bill_number}
-                    onChange={(e) => handleInputChange('bill_number', e.target.value)}
-                    placeholder="Enter bill number"
-                    className={errors.bill_number ? 'border-red-500' : ''}
+                    placeholder="Auto-generated"
+                    className="bg-muted"
+                    readOnly
+                    disabled
                   />
                   {errors.bill_number && <p className="text-sm text-red-500 mt-1">{errors.bill_number}</p>}
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Auto-generated sequential number (1, 2, 3...)
+                  </p>
                 </div>
 
                 <div>
@@ -412,50 +599,176 @@ export default function AddBillModal({ open, onOpenChange, onSuccess, vendors, o
           {/* Vendor Information */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Vendor Information</CardTitle>
+              <CardTitle className="text-lg">
+                Vendor Information
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Select a vendor from your vendors database. Contact and GSTIN will be auto-populated.
+              </p>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                 <div>
-                  <Label htmlFor="vendor_name">Vendor Name *</Label>
-                  <Input
-                    id="vendor_name"
-                    value={formData.vendor_name}
-                    onChange={(e) => handleInputChange('vendor_name', e.target.value)}
-                    placeholder="Enter vendor name"
-                    className={errors.vendor_name ? 'border-red-500' : ''}
-                    list="vendors-list"
-                  />
-                  <datalist id="vendors-list">
-                    {vendors.map((vendor, index) => (
-                      <option key={index} value={vendor} />
-                    ))}
-                  </datalist>
-                  {errors.vendor_name && <p className="text-sm text-red-500 mt-1">{errors.vendor_name}</p>}
+                  <Label htmlFor="vendor_id">Select Vendor *</Label>
+                  <Select
+                    value={formData.vendor_id}
+                    onValueChange={handleVendorChange}
+                  >
+                    <SelectTrigger className={errors.vendor_id ? 'border-red-500' : ''}>
+                      <SelectValue placeholder={vendorsLoading ? "Loading vendors..." : "Choose a vendor"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {vendorsLoading ? (
+                        <SelectItem value="loading" disabled>Loading vendors...</SelectItem>
+                      ) : vendorsData.length === 0 ? (
+                        <SelectItem value="no-vendors" disabled>No vendors available</SelectItem>
+                      ) : (
+                        vendorsData
+                          .filter(vendor => vendor.status === 'active')
+                          .map((vendor) => (
+                            <SelectItem key={vendor.id} value={vendor.id}>
+                              {vendor.name}
+                            </SelectItem>
+                          ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                  {errors.vendor_id && <p className="text-sm text-red-500 mt-1">{errors.vendor_id}</p>}
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {vendorsData.length > 0
+                      ? `${vendorsData.filter(v => v.status === 'active').length} active vendors available`
+                      : "No vendors found - add vendors first"
+                    }
+                  </p>
                 </div>
 
-                <div>
-                  <Label htmlFor="vendor_gstin">Vendor GSTIN</Label>
-                  <Input
-                    id="vendor_gstin"
-                    value={formData.vendor_gstin}
-                    onChange={(e) => handleInputChange('vendor_gstin', e.target.value.toUpperCase())}
-                    placeholder="22AAAAA0000A1Z5"
-                    maxLength={15}
-                    className={errors.vendor_gstin ? 'border-red-500' : ''}
-                  />
-                  {errors.vendor_gstin && <p className="text-sm text-red-500 mt-1">{errors.vendor_gstin}</p>}
-                </div>
+                {formData.vendor_id && (
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="vendor_name">Vendor Name</Label>
+                        <Input
+                          id="vendor_name"
+                          value={formData.vendor_name}
+                          placeholder="Auto-populated from vendor"
+                          className="bg-muted"
+                          disabled
+                        />
+                      </div>
 
-                <div className="md:col-span-2">
-                  <Label htmlFor="vendor_contact">Vendor Contact</Label>
-                  <Input
-                    id="vendor_contact"
-                    value={formData.vendor_contact}
-                    onChange={(e) => handleInputChange('vendor_contact', e.target.value)}
-                    placeholder="Email or phone number"
-                  />
-                </div>
+                      <div>
+                        <Label htmlFor="vendor_gstin">Vendor GSTIN</Label>
+                        <Input
+                          id="vendor_gstin"
+                          value={formData.vendor_gstin}
+                          placeholder="Auto-populated from vendor"
+                          className="bg-muted"
+                          disabled
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="vendor_contact">Vendor Contact</Label>
+                      <Input
+                        id="vendor_contact"
+                        value={formData.vendor_contact}
+                        placeholder="Auto-populated from vendor"
+                        className="bg-muted"
+                        disabled
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Bill File Upload */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Upload className="h-4 w-4" />
+                Bill Document *
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div>
+                <input
+                  type="file"
+                  id="bill-file-upload"
+                  accept=".pdf,.png,.jpg,.jpeg"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      // Validate file size (10MB max)
+                      if (file.size > 10 * 1024 * 1024) {
+                        setErrors(prev => ({ ...prev, uploaded_file: 'File size must be less than 10MB' }));
+                        return;
+                      }
+                      // Validate file type
+                      const allowedTypes = ['application/pdf', 'image/png', 'image/jpg', 'image/jpeg'];
+                      if (!allowedTypes.includes(file.type)) {
+                        setErrors(prev => ({ ...prev, uploaded_file: 'Please upload a PDF, PNG, JPG, or JPEG file' }));
+                        return;
+                      }
+                      setFormData(prev => ({ ...prev, uploaded_file: file }));
+                      if (errors.uploaded_file) {
+                        setErrors(prev => ({ ...prev, uploaded_file: '' }));
+                      }
+                    }
+                  }}
+                  className="hidden"
+                />
+
+                {formData.uploaded_file ? (
+                  <div className="border border-green-300 bg-green-50 rounded-md p-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <FileText className="h-4 w-4 text-green-600" />
+                        <div>
+                          <p className="text-sm font-medium text-green-800">{formData.uploaded_file.name}</p>
+                          <p className="text-xs text-green-600">
+                            {(formData.uploaded_file.size / 1024 / 1024).toFixed(1)} MB
+                            {isUploadingFile && <span className="ml-2">- Uploading...</span>}
+                          </p>
+                        </div>
+                      </div>
+                      {!isUploadingFile && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setFormData(prev => ({ ...prev, uploaded_file: null }));
+                            const fileInput = document.getElementById('bill-file-upload') as HTMLInputElement;
+                            if (fileInput) fileInput.value = '';
+                          }}
+                          className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    className={`border border-dashed rounded-md p-4 text-center cursor-pointer hover:border-primary transition-colors ${
+                      errors.uploaded_file ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                    }`}
+                    onClick={() => document.getElementById('bill-file-upload')?.click()}
+                  >
+                    <Upload className="h-6 w-6 mx-auto text-muted-foreground mb-2" />
+                    <p className="text-sm font-medium mb-1">Choose file</p>
+                    <p className="text-xs text-muted-foreground">
+                      PDF, PNG, JPG (Max 10MB)
+                    </p>
+                  </div>
+                )}
+
+                {errors.uploaded_file && (
+                  <p className="text-sm text-red-500 mt-2">{errors.uploaded_file}</p>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -770,12 +1083,28 @@ export default function AddBillModal({ open, onOpenChange, onSuccess, vendors, o
           </Card>
         </div>
 
+        {/* Error Display */}
+        {errors.submit && (
+          <div className="mx-6 mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <div className="flex items-center gap-2 text-red-700">
+              <AlertCircle className="h-4 w-4" />
+              <span className="font-medium">Error creating bill:</span>
+            </div>
+            <p className="text-red-600 mt-1">{errors.submit}</p>
+          </div>
+        )}
+
         <DialogFooter>
           <Button variant="outline" onClick={handleClose} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={isSubmitting}>
-            {isSubmitting ? 'Creating...' : 'Create Bill'}
+          <Button onClick={handleSubmit} disabled={isSubmitting || isUploadingFile}>
+            {isUploadingFile
+              ? 'Uploading file...'
+              : isSubmitting
+              ? (isEdit ? 'Updating...' : 'Creating...')
+              : (isEdit ? 'Update Bill' : 'Create Bill')
+            }
           </Button>
         </DialogFooter>
       </DialogContent>

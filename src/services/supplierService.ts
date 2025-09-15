@@ -1,11 +1,11 @@
 import { supabase } from "@/integrations/supabase/client";
 
-export interface Supplier {
+export interface Vendor {
   id: string;
   name: string;
   gstin?: string;
-  contact_email?: string;
-  contact_phone?: string;
+  email?: string;
+  phone?: string;
   contact_person?: string;
   address?: string;
   city?: string;
@@ -19,53 +19,62 @@ export interface Supplier {
   updated_at: string;
 }
 
-// Get all active suppliers
-export const getSuppliers = async (): Promise<Supplier[]> => {
+// Backward compatibility
+export type Supplier = Vendor;
+
+// Get all active vendors
+export const getVendors = async (): Promise<Vendor[]> => {
   try {
     const { data, error } = await supabase
-      .from('suppliers')
+      .from('vendors')
       .select('*')
       .eq('status', 'active')
       .order('name');
 
     if (error) {
-      console.error('Error fetching suppliers:', error);
+      console.error('Error fetching vendors:', error);
       throw error;
     }
 
     return data || [];
   } catch (error) {
-    console.error('Error in getSuppliers:', error);
+    console.error('Error in getVendors:', error);
     throw error;
   }
 };
 
-// Get supplier by ID
-export const getSupplierById = async (id: string): Promise<Supplier> => {
+// Backward compatibility
+export const getSuppliers = getVendors;
+
+// Get vendor by ID
+export const getVendorById = async (id: string): Promise<Vendor> => {
   try {
     const { data, error } = await supabase
-      .from('suppliers')
+      .from('vendors')
       .select('*')
       .eq('id', id)
       .single();
 
     if (error) {
-      console.error('Error fetching supplier:', error);
+      console.error('Error fetching vendor:', error);
       throw error;
     }
 
     return data;
   } catch (error) {
-    console.error('Error in getSupplierById:', error);
+    console.error('Error in getVendorById:', error);
     throw error;
   }
 };
 
-// Search suppliers by name
-export const searchSuppliers = async (query: string): Promise<Supplier[]> => {
+// Backward compatibility
+export const getSupplierById = getVendorById;
+
+// Search vendors by name
+export const searchVendors = async (query: string): Promise<Vendor[]> => {
   try {
     const { data, error } = await supabase
-      .from('suppliers')
+      .from('vendors')
       .select('*')
       .eq('status', 'active')
       .ilike('name', `%${query}%`)
@@ -73,13 +82,16 @@ export const searchSuppliers = async (query: string): Promise<Supplier[]> => {
       .limit(20);
 
     if (error) {
-      console.error('Error searching suppliers:', error);
+      console.error('Error searching vendors:', error);
       throw error;
     }
 
     return data || [];
   } catch (error) {
-    console.error('Error in searchSuppliers:', error);
+    console.error('Error in searchVendors:', error);
     throw error;
   }
 };
+
+// Backward compatibility
+export const searchSuppliers = searchVendors;

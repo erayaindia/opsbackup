@@ -155,7 +155,7 @@ const productManagementItems = [
   { title: "Products", url: "/products", icon: Repeat },
   { title: "Categories", url: "/products/categories", icon: Grid3X3 },
   { title: "Performance Insight", url: "/products/performance-insight", icon: Activity },
-  { title: "Suppliers", url: "/products/suppliers", icon: Truck },
+  { title: "Vendors", url: "/vendors", icon: Truck },
   { title: "Inventory", url: "/inventory", icon: ClipboardList },
   { title: "Warehouse", url: "/products/warehouse", icon: Building },
   { title: "Sample Testing / QC", url: "/products/sample-testing", icon: FlaskConical },

@@ -22,7 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Package, RefreshCw, Upload, Dice1, RotateCw, Camera, Trash2, Edit3 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { useSuppliers } from '@/hooks/useSuppliers';
+import { useVendors } from '@/hooks/useSuppliers';
 import { useWarehouses } from '@/hooks/useWarehouses';
 import { useCategories } from '@/hooks/useCategories';
 
@@ -35,8 +35,8 @@ interface InventoryProductData {
   barcode?: string;
   cost: number;
   price: number;
-  supplier_name: string;
-  supplier_contact?: string;
+  vendor_name: string;
+  vendor_contact?: string;
   warehouse_location: string;
   on_hand_qty: number;
   allocated_qty: number;
@@ -62,7 +62,7 @@ export function InventoryProductModal({
   onSubmit,
   loading = false
 }: InventoryProductModalProps) {
-  const { suppliers } = useSuppliers();
+  const { data: vendors = [], isLoading: vendorsLoading } = useVendors();
   const { warehouses } = useWarehouses();
   const { allCategories, loading: categoriesLoading } = useCategories();
 
@@ -74,8 +74,8 @@ export function InventoryProductModal({
     barcode: '',
     cost: '' as any,
     price: '' as any,
-    supplier_name: '',
-    supplier_contact: '',
+    vendor_name: '',
+    vendor_contact: '',
     warehouse_location: 'Main Warehouse',
     on_hand_qty: '' as any,
     allocated_qty: '' as any,
@@ -107,8 +107,8 @@ export function InventoryProductModal({
           barcode: '',
           cost: '' as any,
           price: '' as any,
-          supplier_name: '',
-          supplier_contact: '',
+          vendor_name: '',
+          vendor_contact: '',
           warehouse_location: 'Main Warehouse',
           on_hand_qty: '' as any,
           allocated_qty: '' as any,
@@ -211,8 +211,8 @@ export function InventoryProductModal({
       return;
     }
 
-    if (!formData.supplier_name.trim()) {
-      alert('Supplier name is required');
+    if (!formData.vendor_name.trim()) {
+      alert('Vendor name is required');
       return;
     }
 
@@ -469,26 +469,32 @@ export function InventoryProductModal({
 
           <Separator />
 
-          {/* Supplier Information */}
+          {/* Vendor Information */}
           <div className="space-y-4">
-            <Label className="text-base font-semibold">Supplier Information</Label>
+            <Label className="text-base font-semibold">Vendor Information</Label>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="supplier_name">Supplier Name *</Label>
+                <Label htmlFor="vendor_name">Vendor Name *</Label>
                 <Select
-                  value={formData.supplier_name}
-                  onValueChange={(value) => handleInputChange('supplier_name', value)}
+                  value={formData.vendor_name}
+                  onValueChange={(value) => handleInputChange('vendor_name', value)}
                 >
                   <SelectTrigger className="rounded-none">
-                    <SelectValue placeholder="Select supplier" />
+                    <SelectValue placeholder="Select vendor" />
                   </SelectTrigger>
                   <SelectContent>
-                    {suppliers.map((supplier) => (
-                      <SelectItem key={supplier.id} value={supplier.name}>
-                        {supplier.name}
-                      </SelectItem>
-                    ))}
+                    {vendorsLoading ? (
+                      <SelectItem value="loading" disabled>Loading vendors...</SelectItem>
+                    ) : vendors.length === 0 ? (
+                      <SelectItem value="no-vendors" disabled>No vendors available</SelectItem>
+                    ) : (
+                      vendors.map((vendor) => (
+                        <SelectItem key={vendor.id} value={vendor.name}>
+                          {vendor.name}
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>

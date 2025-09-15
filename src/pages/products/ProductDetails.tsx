@@ -13,7 +13,11 @@ import {
   Lightbulb,
   Factory,
   Camera,
-  TrendingUp
+  TrendingUp,
+  X,
+  ExternalLink,
+  Plus,
+  Link
 } from 'lucide-react'
 import {
   AlertDialog,
@@ -29,6 +33,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea'
 import { Separator } from '@/components/ui/separator'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Badge } from '@/components/ui/badge'
 
 import {
   productLifecycleService,
@@ -107,6 +112,28 @@ export default function ProductDetails() {
   const [removeCurrentImage, setRemoveCurrentImage] = useState(false)
   const [dragActive, setDragActive] = useState(false)
 
+  // Multiple suppliers state
+  const [selectedSuppliers, setSelectedSuppliers] = useState<Array<{
+    id: string,
+    name: string,
+    sourcePrice?: string,
+    sellingPrice?: string,
+    quality?: 'excellent' | 'good' | 'average' | 'poor',
+    notes?: string
+  }>>([])
+  const [supplierDropdownOpen, setSupplierDropdownOpen] = useState(false)
+
+  // Multiple links state
+  const [productLinks, setProductLinks] = useState<Array<{
+    id: string,
+    url: string,
+    title: string,
+    type: 'reference' | 'competitor' | 'inspiration' | 'documentation' | 'other'
+  }>>([])
+  const [newLinkUrl, setNewLinkUrl] = useState('')
+  const [newLinkTitle, setNewLinkTitle] = useState('')
+  const [newLinkType, setNewLinkType] = useState<'reference' | 'competitor' | 'inspiration' | 'documentation' | 'other'>('reference')
+
   // Hooks
   const { users: availableUsers, loading: usersLoading } = useUsers()
   const { suppliers, loading: suppliersLoading } = useSuppliers()
@@ -115,6 +142,8 @@ export default function ProductDetails() {
 
   // Use database categories
   const availableCategories = databaseCategories.map(cat => cat.name).sort()
+
+  // No automatic supplier initialization - users must manually select suppliers
 
   // Load product data
   useEffect(() => {
@@ -264,7 +293,7 @@ export default function ProductDetails() {
         estimatedSourcePriceMin: editForm.estimatedSourcePriceMin.trim() || undefined,
         estimatedSourcePriceMax: editForm.estimatedSourcePriceMax.trim() || undefined,
         estimatedSellingPrice: editForm.estimatedSellingPrice.trim() || undefined,
-        selectedSupplierId: editForm.selectedSupplierId.trim() || undefined,
+        selectedSupplierId: selectedSuppliers.length > 0 ? selectedSuppliers[0].id : undefined,
         priority: editForm.priority as 'low' | 'medium' | 'high',
         stage: editForm.stage as 'idea' | 'production' | 'content' | 'scaling' | 'inventory',
         assignedTo: editForm.assignedTo,
@@ -467,6 +496,62 @@ export default function ProductDetails() {
     textarea.style.height = Math.max(textarea.scrollHeight, 72) + 'px'
   }
 
+  // Multiple suppliers helper functions
+  const addSupplier = (supplierId: string) => {
+    const supplier = vendors.find(v => v.id === supplierId)
+    if (supplier && !selectedSuppliers.some(s => s.id === supplierId)) {
+      setSelectedSuppliers(prev => [...prev, {
+        id: supplier.id,
+        name: supplier.name,
+        sourcePrice: '',
+        sellingPrice: '',
+        quality: 'good',
+        notes: ''
+      }])
+    }
+    setSupplierDropdownOpen(false)
+  }
+
+  const removeSupplier = (supplierId: string) => {
+    setSelectedSuppliers(prev => prev.filter(s => s.id !== supplierId))
+  }
+
+  const updateSupplierField = (supplierId: string, field: string, value: string) => {
+    setSelectedSuppliers(prev => prev.map(supplier =>
+      supplier.id === supplierId
+        ? { ...supplier, [field]: value }
+        : supplier
+    ))
+  }
+
+  // Multiple links helper functions
+  const addProductLink = () => {
+    if (newLinkUrl.trim() && newLinkTitle.trim()) {
+      const newLink = {
+        id: Date.now().toString(),
+        url: newLinkUrl.trim(),
+        title: newLinkTitle.trim(),
+        type: newLinkType
+      }
+      setProductLinks(prev => [...prev, newLink])
+      setNewLinkUrl('')
+      setNewLinkTitle('')
+      setNewLinkType('reference')
+    }
+  }
+
+  const removeProductLink = (linkId: string) => {
+    setProductLinks(prev => prev.filter(link => link.id !== linkId))
+  }
+
+  const updateProductLink = (linkId: string, field: string, value: string) => {
+    setProductLinks(prev => prev.map(link =>
+      link.id === linkId
+        ? { ...link, [field]: value }
+        : link
+    ))
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <div className="px-6 py-6">
@@ -604,74 +689,337 @@ export default function ProductDetails() {
                     </div>
                   </div>
 
-                  {/* Supplier & Pricing */}
-                  <div className="space-y-4">
-                    <Label className="text-sm font-medium text-foreground">Supplier & Pricing</Label>
+                  {/* Supplier & Pricing and Links - Two Columns */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    {/* Supplier & Pricing */}
+                    <div className="space-y-4">
+                      <Label className="text-sm font-medium text-foreground">Supplier & Pricing</Label>
 
-                    {/* Supplier Selection */}
-                    <div>
-                      <Label className="text-xs font-medium text-muted-foreground mb-2 block">Select Supplier</Label>
-                      <Select
-                        value={editForm.selectedSupplierId}
-                        onValueChange={(value) => setEditForm(prev => ({ ...prev, selectedSupplierId: value }))}
-                      >
-                        <SelectTrigger className="rounded-none">
-                          <SelectValue placeholder="Choose a vendor..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {vendorsLoading ? (
-                            <SelectItem value="loading" disabled>Loading vendors...</SelectItem>
-                          ) : !vendors || vendors.length === 0 ? (
-                            <SelectItem value="no-vendors" disabled>No vendors available</SelectItem>
-                          ) : (
-                            vendors
-                              .filter(vendor => vendor.status === 'active')
-                              .map((vendor) => (
-                                <SelectItem key={vendor.id} value={vendor.id}>
-                                  <span className="font-medium">{vendor.name}</span>
-                                </SelectItem>
-                              ))
-                          )}
-                        </SelectContent>
-                      </Select>
-                      <div className="flex items-center justify-between mt-1">
-                        <p className="text-xs text-muted-foreground">Choose from active vendors</p>
-                        <Button
-                          variant="link"
-                          size="sm"
-                          className="h-auto p-0 text-xs text-primary hover:text-primary/80"
-                          onClick={() => window.open('/vendors', '_blank')}
+                      {/* Multiple Supplier Selection with Pricing & Quality */}
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-xs font-medium text-muted-foreground">Suppliers Comparison</Label>
+                          <Button
+                            variant="link"
+                            size="sm"
+                            className="h-auto p-0 text-xs text-primary hover:text-primary/80"
+                            onClick={() => window.open('/vendors', '_blank')}
+                          >
+                            View All Vendors
+                          </Button>
+                        </div>
+
+                        {/* Add Supplier Dropdown */}
+                        <Select
+                          open={supplierDropdownOpen}
+                          onOpenChange={setSupplierDropdownOpen}
+                          onValueChange={addSupplier}
                         >
-                          View All Vendors
-                        </Button>
+                          <SelectTrigger className="rounded-none">
+                            <SelectValue placeholder="Add vendors to compare..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {vendorsLoading ? (
+                              <SelectItem value="loading" disabled>Loading vendors...</SelectItem>
+                            ) : !vendors || vendors.length === 0 ? (
+                              <SelectItem value="no-vendors" disabled>No vendors available</SelectItem>
+                            ) : (
+                              vendors
+                                .filter(vendor =>
+                                  vendor.status === 'active' &&
+                                  !selectedSuppliers.some(s => s.id === vendor.id)
+                                )
+                                .map((vendor) => (
+                                  <SelectItem key={vendor.id} value={vendor.id}>
+                                    <span className="font-medium">{vendor.name}</span>
+                                  </SelectItem>
+                                ))
+                            )}
+                          </SelectContent>
+                        </Select>
+
+                        {/* Selected Suppliers with Individual Pricing & Quality */}
+                        {selectedSuppliers.length > 0 ? (
+                          <div className="space-y-4">
+                            {selectedSuppliers.map((supplier, index) => (
+                              <div key={supplier.id} className="border rounded-lg p-4 space-y-3 bg-muted/20">
+                                {/* Supplier Header */}
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <Badge variant="outline" className="text-xs">
+                                      #{index + 1}
+                                    </Badge>
+                                    <span className="font-medium text-sm">{supplier.name}</span>
+                                  </div>
+                                  <X
+                                    className="h-4 w-4 cursor-pointer hover:text-destructive"
+                                    onClick={() => removeSupplier(supplier.id)}
+                                  />
+                                </div>
+
+                                {/* Pricing Fields */}
+                                <div className="grid grid-cols-2 gap-3">
+                                  <div>
+                                    <Label className="text-xs font-medium text-muted-foreground mb-1 block">
+                                      Source Price (₹)
+                                    </Label>
+                                    <Input
+                                      type="number"
+                                      step="1"
+                                      value={supplier.sourcePrice}
+                                      onChange={(e) => updateSupplierField(supplier.id, 'sourcePrice', e.target.value)}
+                                      placeholder="500"
+                                      className="rounded-none h-8"
+                                    />
+                                  </div>
+                                  <div>
+                                    <Label className="text-xs font-medium text-muted-foreground mb-1 block">
+                                      Selling Price (₹)
+                                    </Label>
+                                    <Input
+                                      type="number"
+                                      step="1"
+                                      value={supplier.sellingPrice}
+                                      onChange={(e) => updateSupplierField(supplier.id, 'sellingPrice', e.target.value)}
+                                      placeholder="800"
+                                      className="rounded-none h-8"
+                                    />
+                                  </div>
+                                </div>
+
+                                {/* Quality & Notes */}
+                                <div className="grid grid-cols-2 gap-3">
+                                  <div>
+                                    <Label className="text-xs font-medium text-muted-foreground mb-1 block">
+                                      Quality Rating
+                                    </Label>
+                                    <Select
+                                      value={supplier.quality}
+                                      onValueChange={(value) => updateSupplierField(supplier.id, 'quality', value)}
+                                    >
+                                      <SelectTrigger className="rounded-none h-8">
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="excellent">⭐⭐⭐⭐⭐ Excellent</SelectItem>
+                                        <SelectItem value="good">⭐⭐⭐⭐ Good</SelectItem>
+                                        <SelectItem value="average">⭐⭐⭐ Average</SelectItem>
+                                        <SelectItem value="poor">⭐⭐ Poor</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                  <div>
+                                    <Label className="text-xs font-medium text-muted-foreground mb-1 block">
+                                      Notes
+                                    </Label>
+                                    <Input
+                                      value={supplier.notes}
+                                      onChange={(e) => updateSupplierField(supplier.id, 'notes', e.target.value)}
+                                      placeholder="Quality notes..."
+                                      className="rounded-none h-8"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+
+                            <p className="text-xs text-muted-foreground text-center">
+                              {selectedSuppliers.length} supplier{selectedSuppliers.length > 1 ? 's' : ''} added for comparison
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="text-center py-8 border-2 border-dashed border-muted rounded-lg">
+                            <p className="text-sm text-muted-foreground">No suppliers selected</p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Add vendors from the dropdown above to compare pricing and quality
+                            </p>
+                          </div>
+                        )}
                       </div>
                     </div>
 
-                    {/* Pricing */}
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label className="text-xs font-medium text-muted-foreground mb-2 block">Estimated Source Price (₹)</Label>
-                        <Input
-                          type="number"
-                          step="1"
-                          value={editForm.estimatedSourcePriceMin}
-                          onChange={(e) => setEditForm(prev => ({ ...prev, estimatedSourcePriceMin: e.target.value }))}
-                          placeholder="500"
-                          className="rounded-none"
-                        />
-                        <p className="text-xs text-muted-foreground mt-1">Price in INR</p>
+                    {/* Product Links */}
+                    <div className="space-y-4">
+                      <Label className="text-sm font-medium text-foreground">Product Links</Label>
+
+                      {/* Add New Link Form */}
+                      <div className="space-y-3 border rounded-lg p-4 bg-muted/10">
+                        <Label className="text-xs font-medium text-muted-foreground">Add New Link</Label>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <Input
+                              value={newLinkTitle}
+                              onChange={(e) => setNewLinkTitle(e.target.value)}
+                              placeholder="Link title..."
+                              className="rounded-none h-8"
+                            />
+                          </div>
+                          <div>
+                            <Select
+                              value={newLinkType}
+                              onValueChange={(value) => setNewLinkType(value as any)}
+                            >
+                              <SelectTrigger className="rounded-none h-8">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="reference">📋 Reference</SelectItem>
+                                <SelectItem value="competitor">🏪 Competitor</SelectItem>
+                                <SelectItem value="inspiration">💡 Inspiration</SelectItem>
+                                <SelectItem value="documentation">📄 Documentation</SelectItem>
+                                <SelectItem value="other">🔗 Other</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+
+                        <div className="flex gap-3">
+                          <Input
+                            value={newLinkUrl}
+                            onChange={(e) => setNewLinkUrl(e.target.value)}
+                            placeholder="https://..."
+                            className="rounded-none h-8 flex-1"
+                          />
+                          <Button
+                            onClick={addProductLink}
+                            size="sm"
+                            className="h-8 px-3 rounded-none"
+                            disabled={!newLinkUrl.trim() || !newLinkTitle.trim()}
+                          >
+                            <Plus className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Existing Links */}
+                      {productLinks.length > 0 ? (
+                        <div className="space-y-3">
+                          {productLinks.map((link) => (
+                            <div key={link.id} className="border rounded-lg p-3 bg-muted/20">
+                              <div className="flex items-center justify-between gap-3">
+                                <div className="flex items-center gap-2 flex-1 min-w-0">
+                                  <Badge variant="outline" className="text-xs flex-shrink-0">
+                                    {link.type === 'reference' && '📋'}
+                                    {link.type === 'competitor' && '🏪'}
+                                    {link.type === 'inspiration' && '💡'}
+                                    {link.type === 'documentation' && '📄'}
+                                    {link.type === 'other' && '🔗'}
+                                  </Badge>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium truncate">{link.title}</p>
+                                    <p className="text-xs text-muted-foreground truncate">{link.url}</p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-1 flex-shrink-0">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 w-6 p-0"
+                                    onClick={() => window.open(link.url, '_blank')}
+                                  >
+                                    <ExternalLink className="h-3 w-3" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 w-6 p-0 hover:text-destructive"
+                                    onClick={() => removeProductLink(link.id)}
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+
+                          <p className="text-xs text-muted-foreground text-center">
+                            {productLinks.length} link{productLinks.length > 1 ? 's' : ''} added
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="text-center py-8 border-2 border-dashed border-muted rounded-lg">
+                          <Link className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                          <p className="text-sm text-muted-foreground">No links added</p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Add reference links, competitor analysis, or documentation
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <Separator className="my-6" />
+
+                  {/* Sample Management & Production Timeline - Two Columns */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    {/* Sample Management */}
+                    <div className="space-y-4">
+                      <Label className="text-sm font-medium text-foreground">Sample Management</Label>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label className="text-xs font-medium text-muted-foreground mb-2 block">Sample Request Date</Label>
+                          <Input
+                            type="date"
+                            className="rounded-none"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs font-medium text-muted-foreground mb-2 block">Sample Received Date</Label>
+                          <Input
+                            type="date"
+                            className="rounded-none"
+                          />
+                        </div>
                       </div>
                       <div>
-                        <Label className="text-xs font-medium text-muted-foreground mb-2 block">Estimated Selling Price (₹)</Label>
-                        <Input
-                          type="number"
-                          step="1"
-                          value={editForm.estimatedSellingPrice}
-                          onChange={(e) => setEditForm(prev => ({ ...prev, estimatedSellingPrice: e.target.value }))}
-                          placeholder="800"
-                          className="rounded-none"
+                        <Label className="text-xs font-medium text-muted-foreground mb-2 block">Sample Status</Label>
+                        <Select>
+                          <SelectTrigger className="rounded-none">
+                            <SelectValue placeholder="Select status" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="pending">Pending</SelectItem>
+                            <SelectItem value="approved">Approved</SelectItem>
+                            <SelectItem value="rejected">Rejected</SelectItem>
+                            <SelectItem value="needs-revision">Needs Revision</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label className="text-xs font-medium text-muted-foreground mb-2 block">Sample Notes</Label>
+                        <Textarea
+                          placeholder="Notes about sample quality, feedback..."
+                          className="rounded-none min-h-[80px]"
                         />
-                        <p className="text-xs text-muted-foreground mt-1">Selling price in INR</p>
+                      </div>
+                    </div>
+
+                    {/* Production Timeline */}
+                    <div className="space-y-4">
+                      <Label className="text-sm font-medium text-foreground">Production Timeline</Label>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label className="text-xs font-medium text-muted-foreground mb-2 block">Production Start</Label>
+                          <Input
+                            type="date"
+                            className="rounded-none"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs font-medium text-muted-foreground mb-2 block">Expected Completion</Label>
+                          <Input
+                            type="date"
+                            className="rounded-none"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-xs font-medium text-muted-foreground mb-2 block">Production Milestones</Label>
+                        <Textarea
+                          placeholder="Key milestones and deadlines..."
+                          className="rounded-none min-h-[100px]"
+                        />
                       </div>
                     </div>
                   </div>
@@ -702,80 +1050,6 @@ export default function ProductDetails() {
                       <Textarea
                         placeholder="Describe materials used..."
                         className="rounded-none min-h-[80px]"
-                      />
-                    </div>
-                  </div>
-
-                  <Separator className="my-6" />
-
-                  {/* Sample Management */}
-                  <div className="space-y-4">
-                    <Label className="text-sm font-medium text-foreground">Sample Management</Label>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label className="text-xs font-medium text-muted-foreground mb-2 block">Sample Request Date</Label>
-                        <Input
-                          type="date"
-                          className="rounded-none"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs font-medium text-muted-foreground mb-2 block">Sample Received Date</Label>
-                        <Input
-                          type="date"
-                          className="rounded-none"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <Label className="text-xs font-medium text-muted-foreground mb-2 block">Sample Status</Label>
-                      <Select>
-                        <SelectTrigger className="rounded-none">
-                          <SelectValue placeholder="Select status" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="pending">Pending</SelectItem>
-                          <SelectItem value="approved">Approved</SelectItem>
-                          <SelectItem value="rejected">Rejected</SelectItem>
-                          <SelectItem value="needs-revision">Needs Revision</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label className="text-xs font-medium text-muted-foreground mb-2 block">Sample Notes</Label>
-                      <Textarea
-                        placeholder="Notes about sample quality, feedback..."
-                        className="rounded-none min-h-[80px]"
-                      />
-                    </div>
-                  </div>
-
-                  <Separator className="my-6" />
-
-                  {/* Production Timeline */}
-                  <div className="space-y-4">
-                    <Label className="text-sm font-medium text-foreground">Production Timeline</Label>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label className="text-xs font-medium text-muted-foreground mb-2 block">Production Start</Label>
-                        <Input
-                          type="date"
-                          className="rounded-none"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs font-medium text-muted-foreground mb-2 block">Expected Completion</Label>
-                        <Input
-                          type="date"
-                          className="rounded-none"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <Label className="text-xs font-medium text-muted-foreground mb-2 block">Production Milestones</Label>
-                      <Textarea
-                        placeholder="Key milestones and deadlines..."
-                        className="rounded-none min-h-[100px]"
                       />
                     </div>
                   </div>

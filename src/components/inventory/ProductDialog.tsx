@@ -21,7 +21,7 @@ import {
 import { ProductVariantWithDetails } from '@/hooks/useInventory';
 import { useCategories } from '@/hooks/useCategories';
 import { useWarehouses } from '@/hooks/useWarehouses';
-import { useSuppliers } from '@/hooks/useSuppliers';
+import { useVendors } from '@/hooks/useSuppliers';
 
 interface ProductDialogProps {
   open: boolean;
@@ -40,13 +40,13 @@ export const ProductDialog: React.FC<ProductDialogProps> = ({
 }) => {
   const { allCategories } = useCategories();
   const { warehouses } = useWarehouses();
-  const { suppliers } = useSuppliers();
+  const { data: vendors = [], isLoading: vendorsLoading } = useVendors();
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     category_id: '',
     warehouse_id: '',
-    supplier_id: '',
+    vendor_id: '',
     sku: '',
     barcode: '',
     cost: '',
@@ -65,7 +65,7 @@ export const ProductDialog: React.FC<ProductDialogProps> = ({
         description: product.product.description || '',
         category_id: product.product.category?.id || '',
         warehouse_id: '', // Will be set when creating initial stock
-        supplier_id: product.supplier?.id || '',
+        vendor_id: product.supplier?.id || '',
         sku: product.sku || '',
         barcode: product.barcode || '',
         cost: product.cost?.toString() || '',
@@ -80,7 +80,7 @@ export const ProductDialog: React.FC<ProductDialogProps> = ({
         description: '',
         category_id: '',
         warehouse_id: '',
-        supplier_id: '',
+        vendor_id: '',
         sku: '',
         barcode: '',
         cost: '',
@@ -119,8 +119,8 @@ export const ProductDialog: React.FC<ProductDialogProps> = ({
       newErrors.warehouse_id = 'Warehouse is required';
     }
 
-    if (!formData.supplier_id) {
-      newErrors.supplier_id = 'Supplier is required';
+    if (!formData.vendor_id) {
+      newErrors.vendor_id = 'Vendor is required';
     }
 
     if (!formData.cost || formData.cost.trim() === '') {
@@ -154,7 +154,7 @@ export const ProductDialog: React.FC<ProductDialogProps> = ({
         description: formData.description.trim() || undefined,
         category_id: formData.category_id,
         warehouse_id: formData.warehouse_id,
-        supplier_id: formData.supplier_id,
+        vendor_id: formData.vendor_id,
         sku: formData.sku.trim(),
         barcode: formData.barcode.trim() || undefined,
         cost: parseFloat(formData.cost),
@@ -269,23 +269,29 @@ export const ProductDialog: React.FC<ProductDialogProps> = ({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="supplier">Supplier *</Label>
+            <Label htmlFor="vendor">Vendor *</Label>
             <Select
-              value={formData.supplier_id}
-              onValueChange={(value) => handleChange('supplier_id', value)}
+              value={formData.vendor_id}
+              onValueChange={(value) => handleChange('vendor_id', value)}
             >
-              <SelectTrigger className={errors.supplier_id ? 'border-destructive' : ''}>
-                <SelectValue placeholder="Select supplier" />
+              <SelectTrigger className={errors.vendor_id ? 'border-destructive' : ''}>
+                <SelectValue placeholder="Select vendor" />
               </SelectTrigger>
               <SelectContent>
-                {suppliers.filter(s => s.status === 'active').map((supplier) => (
-                  <SelectItem key={supplier.id} value={supplier.id}>
-                    {supplier.name} {supplier.code && `(${supplier.code})`}
-                  </SelectItem>
-                ))}
+                {vendorsLoading ? (
+                  <SelectItem value="loading" disabled>Loading vendors...</SelectItem>
+                ) : vendors.length === 0 ? (
+                  <SelectItem value="no-vendors" disabled>No vendors available</SelectItem>
+                ) : (
+                  vendors.filter(v => v.status === 'active').map((vendor) => (
+                    <SelectItem key={vendor.id} value={vendor.id}>
+                      {vendor.name} {vendor.gstin && `(${vendor.gstin})`}
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
-            {errors.supplier_id && <p className="text-sm text-destructive">{errors.supplier_id}</p>}
+            {errors.vendor_id && <p className="text-sm text-destructive">{errors.vendor_id}</p>}
           </div>
 
           <div className="grid grid-cols-2 gap-4">

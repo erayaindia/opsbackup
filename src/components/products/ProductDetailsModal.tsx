@@ -41,6 +41,8 @@ import type { LifecycleProduct, CreateProductPayload } from '@/services/productL
 import { FormContent } from './FormContent'
 import { useUsers } from '@/hooks/useUsers'
 import { useSuppliers } from '@/hooks/useSuppliers'
+import { useCategories } from '@/hooks/useCategories'
+import { useVendors } from '@/hooks/useSuppliers'
 
 interface ProductDetailsModalProps {
   product: LifecycleProduct | null
@@ -107,6 +109,11 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
   // Hooks
   const { users: availableUsers, loading: usersLoading } = useUsers()
   const { suppliers, loading: suppliersLoading } = useSuppliers()
+  const { allCategories: databaseCategories, loading: categoriesLoading } = useCategories()
+  const { data: vendors = [], isLoading: vendorsLoading } = useVendors()
+
+  // Use database categories
+  const availableCategories = databaseCategories.map(cat => cat.name).sort()
 
   // Initialize form data when product changes and always start in edit mode
   useEffect(() => {
@@ -471,7 +478,8 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
                     setNewIdeaForm={setEditForm}
                     selectedCategories={selectedCategories}
                     setSelectedCategories={setSelectedCategories}
-                    availableCategories={[]}
+                    availableCategories={availableCategories}
+                    categoriesLoading={categoriesLoading}
                     tagInput={tagInput}
                     setTagInput={setTagInput}
                     tags={tags}
@@ -491,8 +499,8 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
                     dragActive={dragActive}
                     extractDomainFromUrl={extractDomainFromUrl}
                     autoResizeTextarea={autoResizeTextarea}
-                    suppliers={suppliers}
-                    suppliersLoading={suppliersLoading}
+                    vendors={vendors}
+                    vendorsLoading={vendorsLoading}
                     availableOwners={availableUsers}
                     // Product image props
                     currentProductImage={currentProductImage}
@@ -617,6 +625,80 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
                           placeholder="Key milestones and deadlines..."
                           className="rounded-none min-h-[100px]"
                         />
+                      </div>
+                    </div>
+
+                    <Separator className="my-6" />
+
+                    {/* Supplier & Pricing */}
+                    <div className="space-y-4">
+                      <Label className="text-sm font-medium text-foreground">Supplier & Pricing</Label>
+
+                      {/* Supplier Selection */}
+                      <div>
+                        <Label className="text-xs font-medium text-muted-foreground mb-2 block">Select Supplier</Label>
+                        <Select
+                          value={editForm.selectedSupplierId}
+                          onValueChange={(value) => setEditForm(prev => ({ ...prev, selectedSupplierId: value }))}
+                        >
+                          <SelectTrigger className="rounded-none">
+                            <SelectValue placeholder="Choose a vendor..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {vendorsLoading ? (
+                              <SelectItem value="loading" disabled>Loading vendors...</SelectItem>
+                            ) : !vendors || vendors.length === 0 ? (
+                              <SelectItem value="no-vendors" disabled>No vendors available</SelectItem>
+                            ) : (
+                              vendors
+                                .filter(vendor => vendor.status === 'active')
+                                .map((vendor) => (
+                                  <SelectItem key={vendor.id} value={vendor.id}>
+                                    <span className="font-medium">{vendor.name}</span>
+                                  </SelectItem>
+                                ))
+                            )}
+                          </SelectContent>
+                        </Select>
+                        <div className="flex items-center justify-between mt-1">
+                          <p className="text-xs text-muted-foreground">Choose from active vendors</p>
+                          <Button
+                            variant="link"
+                            size="sm"
+                            className="h-auto p-0 text-xs text-primary hover:text-primary/80"
+                            onClick={() => window.open('/vendors', '_blank')}
+                          >
+                            View All Vendors
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Pricing */}
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label className="text-xs font-medium text-muted-foreground mb-2 block">Estimated Source Price (₹)</Label>
+                          <Input
+                            type="number"
+                            step="1"
+                            value={editForm.estimatedSourcePriceMin}
+                            onChange={(e) => setEditForm(prev => ({ ...prev, estimatedSourcePriceMin: e.target.value }))}
+                            placeholder="500"
+                            className="rounded-none"
+                          />
+                          <p className="text-xs text-muted-foreground mt-1">Price in INR</p>
+                        </div>
+                        <div>
+                          <Label className="text-xs font-medium text-muted-foreground mb-2 block">Estimated Selling Price (₹)</Label>
+                          <Input
+                            type="number"
+                            step="1"
+                            value={editForm.estimatedSellingPrice}
+                            onChange={(e) => setEditForm(prev => ({ ...prev, estimatedSellingPrice: e.target.value }))}
+                            placeholder="800"
+                            className="rounded-none"
+                          />
+                          <p className="text-xs text-muted-foreground mt-1">Selling price in INR</p>
+                        </div>
                       </div>
                     </div>
                   </div>
