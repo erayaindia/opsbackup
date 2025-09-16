@@ -55,9 +55,12 @@ export default function Invoice() {
   const [viewingFile, setViewingFile] = useState<{ url: string; name?: string; type?: string } | null>(null);
 
   // Handle sorting
-  const handleSort = (field: string) => {
+  const handleSort = (field: string, event?: React.MouseEvent) => {
+    event?.preventDefault();
+    event?.stopPropagation();
+
     if (sortField === field) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
     } else {
       setSortField(field);
       setSortDirection('asc');
@@ -67,16 +70,16 @@ export default function Invoice() {
   // Get sort icon for header
   const getSortIcon = (field: string) => {
     if (sortField !== field) {
-      return <ArrowUpDown className="h-3 w-3 text-muted-foreground" />;
+      return <ArrowUpDown className="h-4 w-4 text-muted-foreground opacity-50 hover:opacity-100 transition-opacity" />;
     }
     return sortDirection === 'asc' ?
-      <ArrowUp className="h-3 w-3" /> :
-      <ArrowDown className="h-3 w-3" />;
+      <ArrowUp className="h-4 w-4 text-primary" /> :
+      <ArrowDown className="h-4 w-4 text-primary" />;
   };
 
   // Filter and sort data
   const filteredData = useMemo(() => {
-    let filtered = bills;
+    let filtered = [...bills];
 
     // Search filter
     if (searchTerm) {
@@ -108,19 +111,25 @@ export default function Invoice() {
         let aValue: unknown = a[sortField as keyof typeof a];
         let bValue: unknown = b[sortField as keyof typeof b];
 
-        // Handle different data types
-        if (typeof aValue === 'string' && typeof bValue === 'string') {
-          aValue = aValue.toLowerCase();
-          bValue = bValue.toLowerCase();
+        // Handle different data types for comparison
+        let comparison = 0;
+
+        if (aValue instanceof Date && bValue instanceof Date) {
+          // Date comparison
+          comparison = aValue.getTime() - bValue.getTime();
+        } else if (sortField === 'bill_number' || sortField === 'grand_total' || sortField === 'amount_due') {
+          // Numeric comparison for bill numbers and amounts
+          const aNum = parseFloat(String(aValue)) || 0;
+          const bNum = parseFloat(String(bValue)) || 0;
+          comparison = aNum - bNum;
+        } else {
+          // String comparison
+          const aStr = String(aValue || '').toLowerCase();
+          const bStr = String(bValue || '').toLowerCase();
+          comparison = aStr.localeCompare(bStr);
         }
 
-        if (aValue < bValue) {
-          return sortDirection === 'asc' ? -1 : 1;
-        }
-        if (aValue > bValue) {
-          return sortDirection === 'asc' ? 1 : -1;
-        }
-        return 0;
+        return sortDirection === 'asc' ? comparison : -comparison;
       });
     }
 
@@ -502,73 +511,73 @@ export default function Invoice() {
                   <TableHeader>
                     <TableRow>
                       <TableHead
-                        className="cursor-pointer hover:bg-muted/50 border-r border-border/50 text-left"
-                        onClick={() => handleSort('bill_number')}
+                        className="cursor-pointer hover:bg-muted/50 border-r border-border/50 text-left select-none"
+                        onClick={(e) => handleSort('bill_number', e)}
                       >
-                        <div className="flex items-center justify-start gap-1">
+                        <div className="flex items-center justify-start gap-2">
                           <span>Bill #</span>
                           {getSortIcon('bill_number')}
                         </div>
                       </TableHead>
                       <TableHead
-                        className="cursor-pointer hover:bg-muted/50 border-r border-border/50 text-center"
-                        onClick={() => handleSort('vendor_name')}
+                        className="cursor-pointer hover:bg-muted/50 border-r border-border/50 text-center select-none"
+                        onClick={(e) => handleSort('vendor_name', e)}
                       >
-                        <div className="flex items-center justify-center gap-1">
+                        <div className="flex items-center justify-center gap-2">
                           <span>Vendor</span>
                           {getSortIcon('vendor_name')}
                         </div>
                       </TableHead>
                       <TableHead
-                        className="cursor-pointer hover:bg-muted/50 border-r border-border/50 text-center"
-                        onClick={() => handleSort('type')}
+                        className="cursor-pointer hover:bg-muted/50 border-r border-border/50 text-center select-none"
+                        onClick={(e) => handleSort('type', e)}
                       >
-                        <div className="flex items-center justify-center gap-1">
+                        <div className="flex items-center justify-center gap-2">
                           <span>Type</span>
                           {getSortIcon('type')}
                         </div>
                       </TableHead>
                       <TableHead
-                        className="cursor-pointer hover:bg-muted/50 border-r border-border/50 text-center"
-                        onClick={() => handleSort('bill_date')}
+                        className="cursor-pointer hover:bg-muted/50 border-r border-border/50 text-center select-none"
+                        onClick={(e) => handleSort('bill_date', e)}
                       >
-                        <div className="flex items-center justify-center gap-1">
+                        <div className="flex items-center justify-center gap-2">
                           <span>Bill Date</span>
                           {getSortIcon('bill_date')}
                         </div>
                       </TableHead>
                       <TableHead
-                        className="cursor-pointer hover:bg-muted/50 border-r border-border/50 text-center"
-                        onClick={() => handleSort('due_date')}
+                        className="cursor-pointer hover:bg-muted/50 border-r border-border/50 text-center select-none"
+                        onClick={(e) => handleSort('due_date', e)}
                       >
-                        <div className="flex items-center justify-center gap-1">
+                        <div className="flex items-center justify-center gap-2">
                           <span>Due Date</span>
                           {getSortIcon('due_date')}
                         </div>
                       </TableHead>
                       <TableHead
-                        className="cursor-pointer hover:bg-muted/50 border-r border-border/50 text-center"
-                        onClick={() => handleSort('status')}
+                        className="cursor-pointer hover:bg-muted/50 border-r border-border/50 text-center select-none"
+                        onClick={(e) => handleSort('status', e)}
                       >
-                        <div className="flex items-center justify-center gap-1">
+                        <div className="flex items-center justify-center gap-2">
                           <span>Status</span>
                           {getSortIcon('status')}
                         </div>
                       </TableHead>
                       <TableHead
-                        className="cursor-pointer hover:bg-muted/50 border-r border-border/50 text-center"
-                        onClick={() => handleSort('grand_total')}
+                        className="cursor-pointer hover:bg-muted/50 border-r border-border/50 text-center select-none"
+                        onClick={(e) => handleSort('grand_total', e)}
                       >
-                        <div className="flex items-center justify-center gap-1">
+                        <div className="flex items-center justify-center gap-2">
                           <span>Total</span>
                           {getSortIcon('grand_total')}
                         </div>
                       </TableHead>
                       <TableHead
-                        className="cursor-pointer hover:bg-muted/50 border-r border-border/50 text-center"
-                        onClick={() => handleSort('amount_due')}
+                        className="cursor-pointer hover:bg-muted/50 border-r border-border/50 text-center select-none"
+                        onClick={(e) => handleSort('amount_due', e)}
                       >
-                        <div className="flex items-center justify-center gap-1">
+                        <div className="flex items-center justify-center gap-2">
                           <span>Due</span>
                           {getSortIcon('amount_due')}
                         </div>
