@@ -17,7 +17,16 @@ import {
   X,
   ExternalLink,
   Plus,
-  Link
+  Link,
+  Palette,
+  Upload,
+  FileText,
+  Archive,
+  Eye,
+  CheckCircle,
+  Clock,
+  Tag,
+  ChevronDown
 } from 'lucide-react'
 import {
   AlertDialog,
@@ -34,12 +43,18 @@ import { Textarea } from '@/components/ui/textarea'
 import { Separator } from '@/components/ui/separator'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
+import { RichTextEditor } from '@/components/ui/rich-text-editor'
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 
 import {
   productLifecycleService,
   type LifecycleProduct,
   type CreateProductPayload
 } from '@/services/productLifecycleService'
+import { productDesignService, type ProductDesign } from '@/integrations/supabase/product-design-service'
+import { productProductionService, type ProductProduction } from '@/integrations/supabase/product-production-service'
+import { productScalingService, type ProductScaling } from '@/integrations/supabase/product-scaling-service'
+import { supabase } from '@/integrations/supabase/client'
 import { FormContent } from '@/components/products/FormContent'
 import { useUsers } from '@/hooks/useUsers'
 import { useSuppliers } from '@/hooks/useSuppliers'
@@ -48,6 +63,7 @@ import { useVendors } from '@/hooks/useSuppliers'
 
 const STAGE_CONFIG = {
   idea: { name: 'Idea', icon: Lightbulb, color: 'text-purple-600', bgColor: 'bg-purple-50 dark:bg-purple-950' },
+  design: { name: 'Design', icon: Palette, color: 'text-pink-600', bgColor: 'bg-pink-50 dark:bg-pink-950' },
   production: { name: 'Production', icon: Factory, color: 'text-orange-600', bgColor: 'bg-orange-50 dark:bg-orange-950' },
   content: { name: 'Content', icon: Camera, color: 'text-blue-600', bgColor: 'bg-blue-50 dark:bg-blue-950' },
   scaling: { name: 'Scaling', icon: TrendingUp, color: 'text-green-600', bgColor: 'bg-green-50 dark:bg-green-950' },
@@ -80,6 +96,11 @@ export default function ProductDetails() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [activeTab, setActiveTab] = useState('idea')
+
+  // Database records state
+  const [designData, setDesignData] = useState<ProductDesign | null>(null)
+  const [productionData, setProductionData] = useState<ProductProduction | null>(null)
+  const [scalingData, setScalingData] = useState<ProductScaling | null>(null)
 
   // Form state for editing
   const [editForm, setEditForm] = useState({
@@ -134,6 +155,98 @@ export default function ProductDetails() {
   const [newLinkTitle, setNewLinkTitle] = useState('')
   const [newLinkType, setNewLinkType] = useState<'reference' | 'competitor' | 'inspiration' | 'documentation' | 'other'>('reference')
 
+  // Packing section state
+  const [packingFiles, setPackingFiles] = useState<File[]>([])
+  const [packingInstructions, setPackingInstructions] = useState('')
+
+  // Visual Identity and Design Feedback state
+  const [materialPreferences, setMaterialPreferences] = useState('')
+  const [designFeedback, setDesignFeedback] = useState('')
+
+  // Production Materials & Specifications state
+  const [materialsSpecification, setMaterialsSpecification] = useState('')
+
+  // Scaling Learning & Insights state
+  const [learningsInsights, setLearningsInsights] = useState('')
+
+  // Packing Design Section state
+  const [packagingConcept, setPackagingConcept] = useState('')
+  const [packagingFiles, setPackagingFiles] = useState<File[]>([])
+  const [printVendorLinks, setPrintVendorLinks] = useState<Array<{
+    id: string,
+    name: string,
+    url: string,
+    contact: string
+  }>>([])
+  const [packagingApprovalStatus, setPackagingApprovalStatus] = useState('pending')
+  const [packagingApprovalDate, setPackagingApprovalDate] = useState('')
+  const [newVendorName, setNewVendorName] = useState('')
+  const [newVendorUrl, setNewVendorUrl] = useState('')
+  const [newVendorContact, setNewVendorContact] = useState('')
+
+  // Product Design Ideas Repository state
+  const [designIdeas, setDesignIdeas] = useState<Array<{
+    id: string,
+    title: string,
+    description: string,
+    links: string[],
+    files: File[],
+    status: 'new' | 'under-review' | 'approved' | 'archived',
+    tags: string[]
+  }>>([])
+  const [newIdeaTitle, setNewIdeaTitle] = useState('')
+  const [newIdeaDescription, setNewIdeaDescription] = useState('')
+  const [newIdeaLinks, setNewIdeaLinks] = useState<string[]>([])
+  const [newIdeaFiles, setNewIdeaFiles] = useState<File[]>([])
+  const [newIdeaTags, setNewIdeaTags] = useState<string[]>([])
+  const [showAddIdeaForm, setShowAddIdeaForm] = useState(false)
+  const [ideaLinkInput, setIdeaLinkInput] = useState('')
+  const [ideaTagInput, setIdeaTagInput] = useState('')
+
+  // Design tab toggles state
+  const [showDesignBrief, setShowDesignBrief] = useState(false)
+  const [showVisualIdentity, setShowVisualIdentity] = useState(false)
+  const [showDesignAssets, setShowDesignAssets] = useState(false)
+  const [showDesignProgress, setShowDesignProgress] = useState(false)
+  const [showDesignFeedback, setShowDesignFeedback] = useState(false)
+  const [showPackingDesign, setShowPackingDesign] = useState(false)
+  const [showDesignIdeasRepository, setShowDesignIdeasRepository] = useState(false)
+
+  // Production tab toggles state
+  const [showSupplierPricing, setShowSupplierPricing] = useState(false)
+  const [showProductLinks, setShowProductLinks] = useState(false)
+  const [showSampleManagement, setShowSampleManagement] = useState(false)
+  const [showProductionTimeline, setShowProductionTimeline] = useState(false)
+  const [showMaterialsSpecs, setShowMaterialsSpecs] = useState(false)
+
+  // Idea tab toggles state
+  const [showBasics, setShowBasics] = useState(false)
+  const [showMarketResearch, setShowMarketResearch] = useState(false)
+  const [showReferencesMedia, setShowReferencesMedia] = useState(false)
+
+  // Scaling tab toggles state
+  const [showLaunchDetails, setShowLaunchDetails] = useState(false)
+  const [showBudgetAllocation, setShowBudgetAllocation] = useState(false)
+  const [showPerformanceTargets, setShowPerformanceTargets] = useState(false)
+  const [showLearningsInsights, setShowLearningsInsights] = useState(false)
+
+  // Accordion state with persistence
+  const [openAccordionItems, setOpenAccordionItems] = useState<string[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(`production-accordion-${slug}`)
+      return saved ? JSON.parse(saved) : []
+    }
+    return []
+  })
+
+  // Save accordion state to localStorage
+  const handleAccordionChange = (value: string[]) => {
+    setOpenAccordionItems(value)
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(`production-accordion-${slug}`, JSON.stringify(value))
+    }
+  }
+
   // Hooks
   const { users: availableUsers, loading: usersLoading } = useUsers()
   const { suppliers, loading: suppliersLoading } = useSuppliers()
@@ -144,6 +257,131 @@ export default function ProductDetails() {
   const availableCategories = databaseCategories.map(cat => cat.name).sort()
 
   // No automatic supplier initialization - users must manually select suppliers
+
+  // Load tab-specific data from database
+  const loadTabData = async (productId: string) => {
+    console.log('🔍 Loading tab data for product ID:', productId)
+
+    try {
+      // First, verify the product exists in the database
+      const { data: productExists, error: productError } = await supabase
+        .from('products')
+        .select('id')
+        .eq('id', productId)
+        .single()
+
+      if (productError || !productExists) {
+        console.error('❌ Product not found in database:', productError?.message)
+        toast({
+          title: 'Product not found',
+          description: 'This product does not exist in the database. Please check the product ID.',
+          variant: 'destructive'
+        })
+        return
+      }
+
+      console.log('✅ Product exists in database')
+
+      // Load design data
+      console.log('🔍 Loading design data...')
+      const design = await productDesignService.getOrCreateProductDesign(productId)
+      if (design) {
+        setDesignData(design)
+        // Update state with design data
+        setMaterialPreferences(design.material_preferences || '')
+        setDesignFeedback(design.design_feedback || '')
+        setPackagingConcept(design.packaging_concept || '')
+        setPackagingApprovalStatus(design.packaging_approval_status || 'pending')
+        setPackagingApprovalDate(design.packaging_approval_date || '')
+        setDesignIdeas(design.design_ideas || [])
+        console.log('✅ Design data loaded successfully:', {
+          material_preferences: design.material_preferences ? 'has data' : 'empty',
+          design_feedback: design.design_feedback ? 'has data' : 'empty',
+          packaging_concept: design.packaging_concept ? 'has data' : 'empty'
+        })
+      } else {
+        console.log('❌ Design data not loaded')
+      }
+
+      // Load production data
+      console.log('🔍 Loading production data...')
+      const production = await productProductionService.getOrCreateProductProduction(productId)
+      if (production) {
+        setProductionData(production)
+        // Update state with production data
+        setSelectedSuppliers(production.selected_suppliers || [])
+        setProductLinks(production.product_links || [])
+        setMaterialsSpecification(production.materials_specification || '')
+        console.log('✅ Production data loaded successfully')
+      } else {
+        console.log('❌ Production data not loaded')
+      }
+
+      // Load scaling data
+      console.log('🔍 Loading scaling data...')
+      const scaling = await productScalingService.getOrCreateProductScaling(productId)
+      if (scaling) {
+        setScalingData(scaling)
+        // Update state with scaling data
+        setLearningsInsights(scaling.learnings_insights || '')
+        console.log('✅ Scaling data loaded successfully')
+      } else {
+        console.log('❌ Scaling data not loaded')
+      }
+    } catch (error) {
+      console.error('❌ Error loading tab data:', error)
+      if (error.message && error.message.includes('foreign key constraint')) {
+        toast({
+          title: 'Product data error',
+          description: 'Unable to load product data. This product may not exist in the database.',
+          variant: 'destructive'
+        })
+      } else {
+        toast({
+          title: 'Database error',
+          description: error.message || 'An unexpected error occurred while loading product data.',
+          variant: 'destructive'
+        })
+      }
+    }
+  }
+
+  // Save tab-specific data to database
+  const saveTabData = async () => {
+    if (!product?.id) return
+
+    try {
+      // Save design data
+      if (designData) {
+        await productDesignService.updateProductDesignByProductId(product.id, {
+          material_preferences: materialPreferences,
+          design_feedback: designFeedback,
+          packaging_concept: packagingConcept,
+          packaging_approval_status: packagingApprovalStatus,
+          packaging_approval_date: packagingApprovalDate,
+          design_ideas: designIdeas
+        })
+      }
+
+      // Save production data
+      if (productionData) {
+        await productProductionService.updateProductProductionByProductId(product.id, {
+          selected_suppliers: selectedSuppliers,
+          product_links: productLinks,
+          materials_specification: materialsSpecification
+        })
+      }
+
+      // Save scaling data
+      if (scalingData) {
+        await productScalingService.updateProductScalingByProductId(product.id, {
+          learnings_insights: learningsInsights
+        })
+      }
+    } catch (error) {
+      console.error('Error saving tab data:', error)
+    }
+  }
 
   // Load product data
   useEffect(() => {
@@ -207,7 +445,14 @@ export default function ProductDetails() {
         setUploadedImages([])
         setUploadedVideos([])
         setUploadedProductImage(null)
-        setActiveTab(foundProduct.stage || 'idea') // Set active tab based on product stage
+        setActiveTab('idea') // Always open the idea tab by default
+
+        // Initialize packing data (reset for now, will be loaded from database when implemented)
+        setPackingFiles([])
+        setPackingInstructions('')
+
+        // Load tab-specific data from database
+        await loadTabData(foundProduct.id)
 
       } catch (error) {
         console.error('Failed to load product:', error)
@@ -225,14 +470,93 @@ export default function ProductDetails() {
     loadProduct()
   }, [slug, navigate])
 
+  // Auto-save design data when it changes
+  useEffect(() => {
+    if (product?.id) {
+      const timer = setTimeout(async () => {
+        try {
+          console.log('💾 Auto-saving design data for product:', product.id)
+          // Always try to get or create the design record first, then update
+          const designRecord = await productDesignService.getOrCreateProductDesign(product.id)
+          if (designRecord) {
+            await productDesignService.updateProductDesignByProductId(product.id, {
+              material_preferences: materialPreferences,
+              design_feedback: designFeedback,
+              packaging_concept: packagingConcept,
+              packaging_approval_status: packagingApprovalStatus,
+              packaging_approval_date: packagingApprovalDate,
+              design_ideas: designIdeas
+            })
+            console.log('✅ Auto-saved design data successfully')
+          } else {
+            console.log('❌ Could not create design record for auto-save')
+          }
+        } catch (error) {
+          console.error('❌ Error auto-saving design data:', error)
+          if (error.message && error.message.includes('foreign key constraint')) {
+            console.error('❌ Product does not exist in database, cannot auto-save')
+          }
+        }
+      }, 1000)
+
+      return () => clearTimeout(timer)
+    }
+  }, [materialPreferences, designFeedback, packagingConcept, packagingApprovalStatus, packagingApprovalDate, designIdeas, product?.id])
+
+  // Auto-save production data when it changes
+  useEffect(() => {
+    if (product?.id) {
+      const timer = setTimeout(async () => {
+        try {
+          // Always try to get or create the production record first, then update
+          const productionRecord = await productProductionService.getOrCreateProductProduction(product.id)
+          if (productionRecord) {
+            await productProductionService.updateProductProductionByProductId(product.id, {
+              selected_suppliers: selectedSuppliers,
+              product_links: productLinks,
+              materials_specification: materialsSpecification
+            })
+            console.log('✅ Auto-saved production data')
+          }
+        } catch (error) {
+          console.error('Error auto-saving production data:', error)
+        }
+      }, 1000)
+
+      return () => clearTimeout(timer)
+    }
+  }, [selectedSuppliers, productLinks, materialsSpecification, product?.id])
+
+  // Auto-save scaling data when it changes
+  useEffect(() => {
+    if (product?.id) {
+      const timer = setTimeout(async () => {
+        try {
+          // Always try to get or create the scaling record first, then update
+          const scalingRecord = await productScalingService.getOrCreateProductScaling(product.id)
+          if (scalingRecord) {
+            await productScalingService.updateProductScalingByProductId(product.id, {
+              learnings_insights: learningsInsights
+            })
+            console.log('✅ Auto-saved scaling data')
+          }
+        } catch (error) {
+          console.error('Error auto-saving scaling data:', error)
+        }
+      }, 1000)
+
+      return () => clearTimeout(timer)
+    }
+  }, [learningsInsights, product?.id])
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
         <div className="px-6 py-6">
           <div className="animate-pulse">
-            <div className="h-8 bg-muted rounded w-64 mb-6" />
-            <div className="h-12 bg-muted rounded mb-6" />
-            <div className="h-96 bg-muted rounded" />
+            <div className="h-8 bg-muted rounded-none w-64 mb-6" />
+            <div className="h-12 bg-muted rounded-none mb-6" />
+            <div className="h-96 bg-muted rounded-none" />
           </div>
         </div>
       </div>
@@ -295,7 +619,7 @@ export default function ProductDetails() {
         estimatedSellingPrice: editForm.estimatedSellingPrice.trim() || undefined,
         selectedSupplierId: selectedSuppliers.length > 0 ? selectedSuppliers[0].id : undefined,
         priority: editForm.priority as 'low' | 'medium' | 'high',
-        stage: editForm.stage as 'idea' | 'production' | 'content' | 'scaling' | 'inventory',
+        stage: editForm.stage as 'idea' | 'design' | 'production' | 'content' | 'scaling' | 'inventory',
         assignedTo: editForm.assignedTo,
         // Add uploaded files to the payload
         uploadedImages: uploadedImages,
@@ -313,6 +637,9 @@ export default function ProductDetails() {
       const updatedProduct = await productLifecycleService.updateProduct(product.id, updatePayload)
 
       setProduct(updatedProduct)
+
+      // Save tab-specific data
+      await saveTabData()
 
       toast({
         title: 'Product updated successfully!',
@@ -497,17 +824,31 @@ export default function ProductDetails() {
   }
 
   // Multiple suppliers helper functions
-  const addSupplier = (supplierId: string) => {
+  const addSupplier = async (supplierId: string) => {
     const supplier = vendors.find(v => v.id === supplierId)
-    if (supplier && !selectedSuppliers.some(s => s.id === supplierId)) {
-      setSelectedSuppliers(prev => [...prev, {
+    if (supplier && !selectedSuppliers.some(s => s.id === supplierId) && product?.id) {
+      const newSupplier = {
         id: supplier.id,
         name: supplier.name,
-        sourcePrice: '',
-        sellingPrice: '',
+        pricing: '',
         quality: 'good',
-        notes: ''
-      }])
+        contact: '',
+        url: ''
+      }
+
+      try {
+        await productProductionService.addSupplier(product.id, newSupplier)
+        setSelectedSuppliers(prev => [...prev, {
+          id: supplier.id,
+          name: supplier.name,
+          sourcePrice: '',
+          sellingPrice: '',
+          quality: 'good',
+          notes: ''
+        }])
+      } catch (error) {
+        console.error('Error adding supplier:', error)
+      }
     }
     setSupplierDropdownOpen(false)
   }
@@ -525,18 +866,24 @@ export default function ProductDetails() {
   }
 
   // Multiple links helper functions
-  const addProductLink = () => {
-    if (newLinkUrl.trim() && newLinkTitle.trim()) {
+  const addProductLink = async () => {
+    if (newLinkUrl.trim() && newLinkTitle.trim() && product?.id) {
       const newLink = {
         id: Date.now().toString(),
         url: newLinkUrl.trim(),
         title: newLinkTitle.trim(),
         type: newLinkType
       }
-      setProductLinks(prev => [...prev, newLink])
-      setNewLinkUrl('')
-      setNewLinkTitle('')
-      setNewLinkType('reference')
+
+      try {
+        await productProductionService.addProductLink(product.id, newLink)
+        setProductLinks(prev => [...prev, newLink])
+        setNewLinkUrl('')
+        setNewLinkTitle('')
+        setNewLinkType('reference')
+      } catch (error) {
+        console.error('Error adding product link:', error)
+      }
     }
   }
 
@@ -552,57 +899,273 @@ export default function ProductDetails() {
     ))
   }
 
+  // Packing files helper functions
+  const handlePackingFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || [])
+    const validFiles = files.filter(file => {
+      const isValidImage = file.type.startsWith('image/')
+      const isValidPDF = file.type === 'application/pdf'
+      const isValidVideo = file.type.startsWith('video/') && file.type === 'video/mp4'
+      return isValidImage || isValidPDF || isValidVideo
+    })
+
+    const totalFiles = packingFiles.length + validFiles.length
+    if (totalFiles > 20) {
+      toast({
+        title: 'Too many files',
+        description: 'You can upload up to 20 packing files maximum.',
+        variant: 'destructive'
+      })
+      return
+    }
+
+    setPackingFiles(prev => [...prev, ...validFiles])
+  }
+
+  const removePackingFile = (index: number) => {
+    setPackingFiles(prev => prev.filter((_, i) => i !== index))
+  }
+
+  const getFileTypeIcon = (file: File) => {
+    if (file.type.startsWith('image/')) return '🖼️'
+    if (file.type === 'application/pdf') return '📄'
+    if (file.type.startsWith('video/')) return '🎥'
+    return '📁'
+  }
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes'
+    const k = 1024
+    const sizes = ['Bytes', 'KB', 'MB', 'GB']
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+  }
+
+  // Packing Design helper functions
+  const handlePackagingFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || [])
+    const validFiles = files.filter(file => {
+      const isValidPDF = file.type === 'application/pdf'
+      const isValidImage = file.type.startsWith('image/')
+      const isValidVideo = file.type.startsWith('video/')
+      return isValidPDF || isValidImage || isValidVideo
+    })
+
+    const totalFiles = packagingFiles.length + validFiles.length
+    if (totalFiles > 15) {
+      toast({
+        title: 'Too many files',
+        description: 'You can upload up to 15 packaging files maximum.',
+        variant: 'destructive'
+      })
+      return
+    }
+
+    setPackagingFiles(prev => [...prev, ...validFiles])
+  }
+
+  const removePackagingFile = (index: number) => {
+    setPackagingFiles(prev => prev.filter((_, i) => i !== index))
+  }
+
+  const addPrintVendor = () => {
+    if (newVendorName.trim() && newVendorUrl.trim()) {
+      const newVendor = {
+        id: Date.now().toString(),
+        name: newVendorName.trim(),
+        url: newVendorUrl.trim(),
+        contact: newVendorContact.trim()
+      }
+      setPrintVendorLinks(prev => [...prev, newVendor])
+      setNewVendorName('')
+      setNewVendorUrl('')
+      setNewVendorContact('')
+    }
+  }
+
+  const removePrintVendor = (vendorId: string) => {
+    setPrintVendorLinks(prev => prev.filter(vendor => vendor.id !== vendorId))
+  }
+
+  // Design Ideas helper functions
+  const addIdeaLink = () => {
+    if (ideaLinkInput.trim() && !newIdeaLinks.includes(ideaLinkInput.trim())) {
+      setNewIdeaLinks(prev => [...prev, ideaLinkInput.trim()])
+      setIdeaLinkInput('')
+    }
+  }
+
+  const removeIdeaLink = (index: number) => {
+    setNewIdeaLinks(prev => prev.filter((_, i) => i !== index))
+  }
+
+  const addIdeaTag = () => {
+    if (ideaTagInput.trim() && !newIdeaTags.includes(ideaTagInput.trim())) {
+      setNewIdeaTags(prev => [...prev, ideaTagInput.trim()])
+      setIdeaTagInput('')
+    }
+  }
+
+  const removeIdeaTag = (index: number) => {
+    setNewIdeaTags(prev => prev.filter((_, i) => i !== index))
+  }
+
+  const handleIdeaFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || [])
+    const totalFiles = newIdeaFiles.length + files.length
+    if (totalFiles > 10) {
+      toast({
+        title: 'Too many files',
+        description: 'You can upload up to 10 files per idea.',
+        variant: 'destructive'
+      })
+      return
+    }
+    setNewIdeaFiles(prev => [...prev, ...files])
+  }
+
+  const removeIdeaFile = (index: number) => {
+    setNewIdeaFiles(prev => prev.filter((_, i) => i !== index))
+  }
+
+  const saveDesignIdea = async () => {
+    if (newIdeaTitle.trim() && product?.id) {
+      const newIdea = {
+        id: Date.now().toString(),
+        title: newIdeaTitle.trim(),
+        description: newIdeaDescription.trim(),
+        links: [...newIdeaLinks],
+        files: [...newIdeaFiles],
+        status: 'new' as const,
+        tags: [...newIdeaTags]
+      }
+
+      try {
+        await productDesignService.addDesignIdea(product.id, newIdea)
+        setDesignIdeas(prev => [...prev, newIdea])
+
+        // Reset form
+        setNewIdeaTitle('')
+        setNewIdeaDescription('')
+        setNewIdeaLinks([])
+        setNewIdeaFiles([])
+        setNewIdeaTags([])
+        setShowAddIdeaForm(false)
+      } catch (error) {
+        console.error('Error saving design idea:', error)
+      }
+    }
+  }
+
+  const updateIdeaStatus = (ideaId: string, status: 'new' | 'under-review' | 'approved' | 'archived') => {
+    setDesignIdeas(prev => prev.map(idea =>
+      idea.id === ideaId ? { ...idea, status } : idea
+    ))
+  }
+
+  const removeDesignIdea = (ideaId: string) => {
+    setDesignIdeas(prev => prev.filter(idea => idea.id !== ideaId))
+  }
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'new': return <Plus className="h-3 w-3" />
+      case 'under-review': return <Eye className="h-3 w-3" />
+      case 'approved': return <CheckCircle className="h-3 w-3" />
+      case 'archived': return <Archive className="h-3 w-3" />
+      default: return <Clock className="h-3 w-3" />
+    }
+  }
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'new': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+      case 'under-review': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+      case 'approved': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+      case 'archived': return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
+      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
+    }
+  }
+
+  // Section summary helpers
+  const getSectionSummaries = () => {
+    return {
+      suppliers: selectedSuppliers.length > 0
+        ? `${selectedSuppliers.length} supplier${selectedSuppliers.length > 1 ? 's' : ''}`
+        : 'No suppliers selected',
+
+      links: productLinks.length > 0
+        ? `${productLinks.length} link${productLinks.length > 1 ? 's' : ''}`
+        : 'No links added',
+
+      samples: 'Status pending',
+      timeline: 'Not scheduled',
+      materials: 'Not specified',
+
+      packing: packingFiles.length > 0 || packingInstructions.trim()
+        ? `${packingFiles.length} files${packingInstructions.trim() ? ', instructions added' : ''}`
+        : 'No assets or instructions'
+    }
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <div className="px-6 py-6">
         {/* Header */}
-        <div className="sticky top-0 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b mb-6 pb-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigate('/products')}
-                className="gap-2 rounded-none"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                Back to Products
-              </Button>
+        <div className="sticky top-0 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border/40 mb-6">
+          <div className="py-4">
+            <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-none ${stageConfig?.bgColor}`}>
-                  <Edit3 className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <h1 className="text-2xl font-bold tracking-tight">
-                    {product.workingTitle || product.name || 'Untitled Product'}
-                  </h1>
-                  <p className="text-sm text-muted-foreground">
-                    {product.internalCode} • {stageConfig?.name} Stage
-                  </p>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => navigate('/products')}
+                  className="gap-1.5 rounded-none text-muted-foreground hover:text-foreground h-8 px-2"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  <span className="text-xs">Back</span>
+                </Button>
+
+                <div className="flex items-center gap-3">
+                  <div className={`p-1.5 rounded-none ${stageConfig?.bgColor}`}>
+                    <Edit3 className="h-4 w-4 text-primary" />
+                  </div>
+                  <div>
+                    <h1 className="text-xl font-semibold tracking-tight text-foreground">
+                      {product.workingTitle || product.name || 'Untitled Product'}
+                    </h1>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span className="font-medium bg-muted/40 px-1.5 py-0.5 rounded-none">
+                        {product.internalCode}
+                      </span>
+                      <span>•</span>
+                      <span>{stageConfig?.name} Stage</span>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Action buttons */}
-            <div className="flex items-center gap-2">
-              <Button
-                onClick={() => setShowDeleteDialog(true)}
-                variant="outline"
-                size="sm"
-                className="gap-2 rounded-none text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground"
-              >
-                <Trash2 className="h-4 w-4" />
-                Delete
-              </Button>
-              <Button
-                onClick={handleUpdateProduct}
-                disabled={isUpdating}
-                size="sm"
-                className="gap-2 rounded-none"
-              >
-                <Save className="h-4 w-4" />
-                {isUpdating ? 'Saving...' : 'Save Changes'}
-              </Button>
+              {/* Action buttons */}
+              <div className="flex items-center gap-2">
+                <Button
+                  onClick={() => setShowDeleteDialog(true)}
+                  variant="ghost"
+                  size="sm"
+                  className="gap-1.5 rounded-none text-muted-foreground hover:text-destructive h-8 px-2"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  <span className="text-xs">Delete</span>
+                </Button>
+                <Button
+                  onClick={handleUpdateProduct}
+                  disabled={isUpdating}
+                  size="sm"
+                  className="gap-1.5 rounded-none h-8 px-3 text-xs"
+                >
+                  <Save className="h-3.5 w-3.5" />
+                  {isUpdating ? 'Saving...' : 'Save'}
+                </Button>
+              </div>
             </div>
           </div>
         </div>
@@ -612,20 +1175,24 @@ export default function ProductDetails() {
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             {/* Tab Navigation */}
             <div className="mb-6">
-              <TabsList className="grid w-full max-w-md grid-cols-4 bg-muted rounded-lg">
-                <TabsTrigger value="idea" className="flex items-center gap-2 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              <TabsList className="grid w-full max-w-2xl grid-cols-5 bg-muted rounded-none">
+                <TabsTrigger value="idea" className="flex items-center gap-2 rounded-none data-[state=active]:bg-background data-[state=active]:shadow-sm">
                   <Lightbulb className="h-4 w-4" />
                   Idea
                 </TabsTrigger>
-                <TabsTrigger value="production" className="flex items-center gap-2 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                <TabsTrigger value="design" className="flex items-center gap-2 rounded-none data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                  <Palette className="h-4 w-4" />
+                  Design
+                </TabsTrigger>
+                <TabsTrigger value="production" className="flex items-center gap-2 rounded-none data-[state=active]:bg-background data-[state=active]:shadow-sm">
                   <Factory className="h-4 w-4" />
                   Production
                 </TabsTrigger>
-                <TabsTrigger value="content" className="flex items-center gap-2 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                <TabsTrigger value="content" className="flex items-center gap-2 rounded-none data-[state=active]:bg-background data-[state=active]:shadow-sm">
                   <Camera className="h-4 w-4" />
                   Content
                 </TabsTrigger>
-                <TabsTrigger value="scaling" className="flex items-center gap-2 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                <TabsTrigger value="scaling" className="flex items-center gap-2 rounded-none data-[state=active]:bg-background data-[state=active]:shadow-sm">
                   <TrendingUp className="h-4 w-4" />
                   Scaling
                 </TabsTrigger>
@@ -635,7 +1202,7 @@ export default function ProductDetails() {
             {/* Tab Content */}
             {/* Idea Tab */}
             <TabsContent value="idea" className="mt-0">
-              <div className="bg-card rounded-lg border shadow-sm p-6">
+              <div className="bg-card rounded-none border shadow-sm p-6">
                   <FormContent
                   newIdeaForm={editForm}
                   setNewIdeaForm={setEditForm}
@@ -670,14 +1237,859 @@ export default function ProductDetails() {
                   uploadedProductImage={uploadedProductImage}
                   onChangeProductImage={handleChangeCurrentImage}
                   onRemoveCurrentImage={handleRemoveCurrentImage}
-                    onRemoveUploadedImage={removeProductImage}
+                  onRemoveUploadedImage={removeProductImage}
+                  // Toggle states for collapsible sections
+                  showBasics={showBasics}
+                  setShowBasics={setShowBasics}
+                  showMarketResearch={showMarketResearch}
+                  setShowMarketResearch={setShowMarketResearch}
+                  showReferencesMedia={showReferencesMedia}
+                  setShowReferencesMedia={setShowReferencesMedia}
                   />
+              </div>
+            </TabsContent>
+
+            {/* Design Tab */}
+            <TabsContent value="design" className="mt-0">
+              <div className="bg-card rounded-none border shadow-sm p-6">
+                <div className="space-y-6">
+                  <div className="flex items-center gap-3 pb-4">
+                    <div className="p-2 rounded-none bg-pink-50 dark:bg-pink-950">
+                      <Palette className="h-5 w-5 text-pink-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-foreground">Design Management</h3>
+                      <p className="text-sm text-muted-foreground">Manage product design, prototypes, and visual specifications</p>
+                    </div>
+                  </div>
+
+                  {/* Design Brief - Collapsible */}
+                  <div className="border rounded-none bg-background overflow-hidden">
+                    <div
+                      className={`flex items-center justify-between cursor-pointer p-3 bg-muted/10 hover:bg-muted/20 transition-colors ${
+                        showDesignBrief ? 'border-b border-border' : ''
+                      }`}
+                      onClick={() => setShowDesignBrief(!showDesignBrief)}
+                    >
+                      <Label className="text-sm font-medium text-foreground cursor-pointer">Design Brief</Label>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">
+                          {showDesignBrief ? 'Hide details' : 'Vision, audience, style'}
+                        </span>
+                        <ChevronDown
+                          className={`h-4 w-4 text-muted-foreground transition-transform ${
+                            showDesignBrief ? 'rotate-180' : ''
+                          }`}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Collapsible Content */}
+                    {showDesignBrief && (
+                      <div className="space-y-4 p-4 bg-muted/5">
+                        <div>
+                          <Label className="text-xs font-medium text-muted-foreground mb-2 block">Product Vision</Label>
+                          <RichTextEditor
+                            value=""
+                            onChange={(value) => {}}
+                            placeholder="Describe the overall design vision and aesthetic goals..."
+                            className="min-h-[100px]"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label className="text-xs font-medium text-muted-foreground mb-2 block">Target Audience</Label>
+                            <Input
+                              placeholder="e.g., Young professionals, families..."
+                              className="rounded-none"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs font-medium text-muted-foreground mb-2 block">Design Style</Label>
+                            <Select>
+                              <SelectTrigger className="rounded-none">
+                                <SelectValue placeholder="Select design style" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="minimal">Minimal</SelectItem>
+                                <SelectItem value="modern">Modern</SelectItem>
+                                <SelectItem value="vintage">Vintage</SelectItem>
+                                <SelectItem value="industrial">Industrial</SelectItem>
+                                <SelectItem value="luxury">Luxury</SelectItem>
+                                <SelectItem value="playful">Playful</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <Separator className="my-6" />
+
+                  {/* Visual Identity - Collapsible */}
+                  <div className="border rounded-none bg-background overflow-hidden">
+                    <div
+                      className={`flex items-center justify-between cursor-pointer p-3 bg-muted/10 hover:bg-muted/20 transition-colors ${
+                        showVisualIdentity ? 'border-b border-border' : ''
+                      }`}
+                      onClick={() => setShowVisualIdentity(!showVisualIdentity)}
+                    >
+                      <Label className="text-sm font-medium text-foreground cursor-pointer">Visual Identity</Label>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">
+                          {showVisualIdentity ? 'Hide details' : 'Colors, materials'}
+                        </span>
+                        <ChevronDown
+                          className={`h-4 w-4 text-muted-foreground transition-transform ${
+                            showVisualIdentity ? 'rotate-180' : ''
+                          }`}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Collapsible Content */}
+                    {showVisualIdentity && (
+                      <div className="space-y-4 p-4 bg-muted/5">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label className="text-xs font-medium text-muted-foreground mb-2 block">Primary Colors</Label>
+                            <Input
+                              placeholder="e.g., Navy Blue, White, Gold..."
+                              className="rounded-none"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs font-medium text-muted-foreground mb-2 block">Secondary Colors</Label>
+                            <Input
+                              placeholder="e.g., Light Gray, Accent Blue..."
+                              className="rounded-none"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <Label className="text-xs font-medium text-muted-foreground mb-2 block">Material Preferences</Label>
+                          <RichTextEditor
+                            content={materialPreferences}
+                            onChange={setMaterialPreferences}
+                            placeholder="Describe preferred materials, textures, and finishes..."
+                            className="rounded-none"
+                            minHeight="80px"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <Separator className="my-6" />
+
+                  {/* Design Assets - Collapsible */}
+                  <div className="border rounded-none bg-background overflow-hidden">
+                    <div
+                      className={`flex items-center justify-between cursor-pointer p-3 bg-muted/10 hover:bg-muted/20 transition-colors ${
+                        showDesignAssets ? 'border-b border-border' : ''
+                      }`}
+                      onClick={() => setShowDesignAssets(!showDesignAssets)}
+                    >
+                      <Label className="text-sm font-medium text-foreground cursor-pointer">Design Assets</Label>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">
+                          {showDesignAssets ? 'Hide details' : 'Files, models, drawings'}
+                        </span>
+                        <ChevronDown
+                          className={`h-4 w-4 text-muted-foreground transition-transform ${
+                            showDesignAssets ? 'rotate-180' : ''
+                          }`}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Collapsible Content */}
+                    {showDesignAssets && (
+                      <div className="space-y-4 p-4 bg-muted/5">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label className="text-xs font-medium text-muted-foreground mb-2 block">Mood Board</Label>
+                            <Input
+                              placeholder="https://... (Pinterest, Figma, etc.)"
+                              className="rounded-none"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs font-medium text-muted-foreground mb-2 block">Design Files</Label>
+                            <Input
+                              placeholder="https://... (Figma, Sketch, etc.)"
+                              className="rounded-none"
+                            />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label className="text-xs font-medium text-muted-foreground mb-2 block">3D Models</Label>
+                            <Input
+                              placeholder="https://... (3D files, renderings)"
+                              className="rounded-none"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs font-medium text-muted-foreground mb-2 block">Technical Drawings</Label>
+                            <Input
+                              placeholder="https://... (CAD files, blueprints)"
+                              className="rounded-none"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <Separator className="my-6" />
+
+                  {/* Design Progress - Collapsible */}
+                  <div className="border rounded-none bg-background overflow-hidden">
+                    <div
+                      className={`flex items-center justify-between cursor-pointer p-3 bg-muted/10 hover:bg-muted/20 transition-colors ${
+                        showDesignProgress ? 'border-b border-border' : ''
+                      }`}
+                      onClick={() => setShowDesignProgress(!showDesignProgress)}
+                    >
+                      <Label className="text-sm font-medium text-foreground cursor-pointer">Design Progress</Label>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">
+                          {showDesignProgress ? 'Hide details' : 'Status, timeline, designer'}
+                        </span>
+                        <ChevronDown
+                          className={`h-4 w-4 text-muted-foreground transition-transform ${
+                            showDesignProgress ? 'rotate-180' : ''
+                          }`}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Collapsible Content */}
+                    {showDesignProgress && (
+                      <div className="space-y-4 p-4 bg-muted/5">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label className="text-xs font-medium text-muted-foreground mb-2 block">Design Status</Label>
+                            <Select>
+                              <SelectTrigger className="rounded-none">
+                                <SelectValue placeholder="Select status" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="concept">Concept Phase</SelectItem>
+                                <SelectItem value="sketching">Sketching</SelectItem>
+                                <SelectItem value="prototyping">Prototyping</SelectItem>
+                                <SelectItem value="refinement">Refinement</SelectItem>
+                                <SelectItem value="finalized">Finalized</SelectItem>
+                                <SelectItem value="approved">Approved</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label className="text-xs font-medium text-muted-foreground mb-2 block">Designer</Label>
+                            <Select>
+                              <SelectTrigger className="rounded-none">
+                                <SelectValue placeholder="Assign designer" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {availableUsers && availableUsers.map((user) => (
+                                  <SelectItem key={user.id} value={user.id}>
+                                    {user.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label className="text-xs font-medium text-muted-foreground mb-2 block">Design Start Date</Label>
+                            <Input
+                              type="date"
+                              className="rounded-none"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs font-medium text-muted-foreground mb-2 block">Target Completion</Label>
+                            <Input
+                              type="date"
+                              className="rounded-none"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <Separator className="my-6" />
+
+                  {/* Design Feedback - Collapsible */}
+                  <div className="border rounded-none bg-background overflow-hidden">
+                    <div
+                      className={`flex items-center justify-between cursor-pointer p-3 bg-muted/10 hover:bg-muted/20 transition-colors ${
+                        showDesignFeedback ? 'border-b border-border' : ''
+                      }`}
+                      onClick={() => setShowDesignFeedback(!showDesignFeedback)}
+                    >
+                      <Label className="text-sm font-medium text-foreground cursor-pointer">Design Feedback</Label>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">
+                          {showDesignFeedback ? 'Hide details' : 'Feedback, revisions'}
+                        </span>
+                        <ChevronDown
+                          className={`h-4 w-4 text-muted-foreground transition-transform ${
+                            showDesignFeedback ? 'rotate-180' : ''
+                          }`}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Collapsible Content */}
+                    {showDesignFeedback && (
+                      <div className="space-y-4 p-4 bg-muted/5">
+                        <div>
+                          <Label className="text-xs font-medium text-muted-foreground mb-2 block">Feedback & Revisions</Label>
+                          <RichTextEditor
+                            content={designFeedback}
+                            onChange={setDesignFeedback}
+                            placeholder="Design feedback, revision requests, approval notes..."
+                            className="rounded-none"
+                            minHeight="120px"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <Separator className="my-6" />
+
+                  {/* Packing Design Section - Collapsible */}
+                  <div className="border rounded-none bg-background overflow-hidden">
+                    <div
+                      className={`flex items-center justify-between cursor-pointer p-3 bg-muted/10 hover:bg-muted/20 transition-colors ${
+                        showPackingDesign ? 'border-b border-border' : ''
+                      }`}
+                      onClick={() => setShowPackingDesign(!showPackingDesign)}
+                    >
+                      <Label className="text-sm font-medium text-foreground cursor-pointer">Packing Design</Label>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">
+                          {showPackingDesign ? 'Hide details' : 'Packaging, vendors'}
+                        </span>
+                        <ChevronDown
+                          className={`h-4 w-4 text-muted-foreground transition-transform ${
+                            showPackingDesign ? 'rotate-180' : ''
+                          }`}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Collapsible Content */}
+                    {showPackingDesign && (
+                      <div className="space-y-4 p-4 bg-muted/5">
+
+                    {/* Packaging Concept Notes */}
+                    <div>
+                      <Label className="text-xs font-medium text-muted-foreground mb-2 block">Packaging Concept Notes</Label>
+                      <RichTextEditor
+                        content={packagingConcept}
+                        onChange={setPackagingConcept}
+                        placeholder="Describe dieline ideas, ribbon choices, insert concepts, seasonal editions..."
+                        className="rounded-none"
+                        minHeight="120px"
+                      />
+                    </div>
+
+                    {/* File Upload for Packaging */}
+                    <div>
+                      <Label className="text-xs font-medium text-muted-foreground mb-2 block">Packaging Files</Label>
+                      <div className="border-2 border-dashed border-border rounded-none p-4">
+                        <div className="flex flex-col items-center gap-2">
+                          <Upload className="h-6 w-6 text-muted-foreground" />
+                          <p className="text-sm text-muted-foreground">Upload PDFs, mock-ups, printer specs, unboxing videos</p>
+                          <input
+                            id="packaging-files"
+                            type="file"
+                            multiple
+                            accept=".pdf,image/*,video/*"
+                            onChange={handlePackagingFileUpload}
+                            className="hidden"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => document.getElementById('packaging-files')?.click()}
+                          >
+                            Choose Files
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Packaging Files Preview */}
+                      {packagingFiles.length > 0 && (
+                        <div className="mt-3 space-y-2">
+                          <p className="text-xs font-medium text-muted-foreground">
+                            Uploaded Files ({packagingFiles.length}/15)
+                          </p>
+                          <div className="space-y-1">
+                            {packagingFiles.map((file, index) => (
+                              <div key={index} className="flex items-center justify-between p-2 bg-muted/20 rounded-none">
+                                <div className="flex items-center gap-2">
+                                  <span>{getFileTypeIcon(file)}</span>
+                                  <span className="text-xs font-medium truncate max-w-[200px]">{file.name}</span>
+                                  <span className="text-xs text-muted-foreground">({formatFileSize(file.size)})</span>
+                                </div>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 w-6 p-0 hover:text-destructive"
+                                  onClick={() => removePackagingFile(index)}
+                                >
+                                  <X className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Print Vendor Links */}
+                    <div>
+                      <Label className="text-xs font-medium text-muted-foreground mb-2 block">Print Vendor Links</Label>
+
+                      {/* Add New Vendor Form */}
+                      <div className="space-y-3 p-3 border rounded-none bg-muted/10">
+                        <div className="grid grid-cols-3 gap-2">
+                          <Input
+                            placeholder="Vendor name"
+                            value={newVendorName}
+                            onChange={(e) => setNewVendorName(e.target.value)}
+                            className="h-8 rounded-none"
+                          />
+                          <Input
+                            placeholder="Website URL"
+                            value={newVendorUrl}
+                            onChange={(e) => setNewVendorUrl(e.target.value)}
+                            className="h-8 rounded-none"
+                          />
+                          <Input
+                            placeholder="Contact info"
+                            value={newVendorContact}
+                            onChange={(e) => setNewVendorContact(e.target.value)}
+                            className="h-8 rounded-none"
+                          />
+                        </div>
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={addPrintVendor}
+                          disabled={!newVendorName.trim() || !newVendorUrl.trim()}
+                          className="h-7 text-xs"
+                        >
+                          <Plus className="h-3 w-3 mr-1" />
+                          Add Vendor
+                        </Button>
+                      </div>
+
+                      {/* Vendor List */}
+                      {printVendorLinks.length > 0 && (
+                        <div className="mt-3 space-y-2">
+                          {printVendorLinks.map((vendor) => (
+                            <div key={vendor.id} className="flex items-center justify-between p-2 bg-muted/20 rounded-none">
+                              <div className="flex-1">
+                                <p className="text-sm font-medium">{vendor.name}</p>
+                                <div className="flex items-center gap-4 mt-1">
+                                  <a href={vendor.url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline">
+                                    {vendor.url}
+                                  </a>
+                                  {vendor.contact && (
+                                    <span className="text-xs text-muted-foreground">{vendor.contact}</span>
+                                  )}
+                                </div>
+                              </div>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0 hover:text-destructive"
+                                onClick={() => removePrintVendor(vendor.id)}
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Approval Status & Dates */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label className="text-xs font-medium text-muted-foreground mb-2 block">Approval Status</Label>
+                        <Select value={packagingApprovalStatus} onValueChange={setPackagingApprovalStatus}>
+                          <SelectTrigger className="rounded-none">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="pending">Pending</SelectItem>
+                            <SelectItem value="in-review">In Review</SelectItem>
+                            <SelectItem value="approved">Approved</SelectItem>
+                            <SelectItem value="rejected">Rejected</SelectItem>
+                            <SelectItem value="locked">Final - Locked</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label className="text-xs font-medium text-muted-foreground mb-2 block">Approval Date</Label>
+                        <Input
+                          type="date"
+                          value={packagingApprovalDate}
+                          onChange={(e) => setPackagingApprovalDate(e.target.value)}
+                          className="rounded-none"
+                        />
+                      </div>
+                    </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <Separator className="my-6" />
+
+                  {/* Product Design Ideas Repository - Collapsible */}
+                  <div className="border rounded-none bg-background overflow-hidden">
+                    <div
+                      className={`flex items-center justify-between cursor-pointer p-3 bg-muted/10 hover:bg-muted/20 transition-colors ${
+                        showDesignIdeasRepository ? 'border-b border-border' : ''
+                      }`}
+                      onClick={() => setShowDesignIdeasRepository(!showDesignIdeasRepository)}
+                    >
+                      <Label className="text-sm font-medium text-foreground cursor-pointer">Design Ideas Repository</Label>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">
+                          {showDesignIdeasRepository ? 'Hide details' : 'Concepts, gallery'}
+                        </span>
+                        <ChevronDown
+                          className={`h-4 w-4 text-muted-foreground transition-transform ${
+                            showDesignIdeasRepository ? 'rotate-180' : ''
+                          }`}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Collapsible Content */}
+                    {showDesignIdeasRepository && (
+                      <div className="space-y-4 p-4 bg-muted/5">
+                        {/* Add Idea Button */}
+                        <div className="flex justify-end">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setShowAddIdeaForm(true)}
+                            className="h-8 text-xs"
+                          >
+                            <Plus className="h-3 w-3 mr-1" />
+                            Add Idea
+                          </Button>
+                        </div>
+
+                    {/* Add New Idea Form */}
+                    {showAddIdeaForm && (
+                      <div className="p-4 border rounded-none bg-muted/10 space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label className="text-xs font-medium text-muted-foreground mb-1 block">Title *</Label>
+                            <Input
+                              value={newIdeaTitle}
+                              onChange={(e) => setNewIdeaTitle(e.target.value)}
+                              placeholder="Idea title..."
+                              className="h-8 rounded-none"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs font-medium text-muted-foreground mb-1 block">Description</Label>
+                            <Input
+                              value={newIdeaDescription}
+                              onChange={(e) => setNewIdeaDescription(e.target.value)}
+                              placeholder="Brief description..."
+                              className="h-8 rounded-none"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Links */}
+                        <div>
+                          <Label className="text-xs font-medium text-muted-foreground mb-1 block">Links</Label>
+                          <div className="flex gap-2">
+                            <Input
+                              value={ideaLinkInput}
+                              onChange={(e) => setIdeaLinkInput(e.target.value)}
+                              placeholder="Pinterest, Behance, competitor pages..."
+                              className="h-8 rounded-none flex-1"
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault()
+                                  addIdeaLink()
+                                }
+                              }}
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={addIdeaLink}
+                              className="h-8 px-3"
+                            >
+                              Add
+                            </Button>
+                          </div>
+                          {newIdeaLinks.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-2">
+                              {newIdeaLinks.map((link, index) => (
+                                <Badge key={index} variant="secondary" className="text-xs">
+                                  <a href={link} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                                    {extractDomainFromUrl(link)}
+                                  </a>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="ml-1 h-auto p-0 text-muted-foreground hover:text-foreground"
+                                    onClick={() => removeIdeaLink(index)}
+                                  >
+                                    <X className="h-2 w-2" />
+                                  </Button>
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Tags */}
+                        <div>
+                          <Label className="text-xs font-medium text-muted-foreground mb-1 block">Tags</Label>
+                          <div className="flex gap-2">
+                            <Input
+                              value={ideaTagInput}
+                              onChange={(e) => setIdeaTagInput(e.target.value)}
+                              placeholder="Minimal, Festive, Men's, Custom Engraving..."
+                              className="h-8 rounded-none flex-1"
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault()
+                                  addIdeaTag()
+                                }
+                              }}
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={addIdeaTag}
+                              className="h-8 px-3"
+                            >
+                              Add
+                            </Button>
+                          </div>
+                          {newIdeaTags.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-2">
+                              {newIdeaTags.map((tag, index) => (
+                                <Badge key={index} variant="outline" className="text-xs">
+                                  <Tag className="h-2 w-2 mr-1" />
+                                  {tag}
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="ml-1 h-auto p-0 text-muted-foreground hover:text-foreground"
+                                    onClick={() => removeIdeaTag(index)}
+                                  >
+                                    <X className="h-2 w-2" />
+                                  </Button>
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* File Upload */}
+                        <div>
+                          <Label className="text-xs font-medium text-muted-foreground mb-1 block">Files</Label>
+                          <input
+                            id="idea-files"
+                            type="file"
+                            multiple
+                            accept="image/*,.pdf"
+                            onChange={handleIdeaFileUpload}
+                            className="hidden"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => document.getElementById('idea-files')?.click()}
+                            className="h-8 text-xs"
+                          >
+                            <Upload className="h-3 w-3 mr-1" />
+                            Upload Files
+                          </Button>
+                          {newIdeaFiles.length > 0 && (
+                            <div className="mt-2 space-y-1">
+                              {newIdeaFiles.map((file, index) => (
+                                <div key={index} className="flex items-center justify-between p-1 bg-muted/30 rounded-none">
+                                  <span className="text-xs truncate max-w-[200px]">{file.name}</span>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-5 w-5 p-0 hover:text-destructive"
+                                    onClick={() => removeIdeaFile(index)}
+                                  >
+                                    <X className="h-2 w-2" />
+                                  </Button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Form Actions */}
+                        <div className="flex gap-2 pt-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={saveDesignIdea}
+                            disabled={!newIdeaTitle.trim()}
+                            className="h-8 text-xs"
+                          >
+                            Save Idea
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setShowAddIdeaForm(false)
+                              setNewIdeaTitle('')
+                              setNewIdeaDescription('')
+                              setNewIdeaLinks([])
+                              setNewIdeaFiles([])
+                              setNewIdeaTags([])
+                            }}
+                            className="h-8 text-xs"
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Ideas Gallery */}
+                    {designIdeas.length > 0 ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {designIdeas.map((idea) => (
+                          <div key={idea.id} className="border rounded-none p-4 bg-muted/20">
+                            <div className="flex items-center justify-between mb-2">
+                              <h4 className="text-sm font-semibold">{idea.title}</h4>
+                              <div className="flex items-center gap-2">
+                                <Select
+                                  value={idea.status}
+                                  onValueChange={(status: 'new' | 'under-review' | 'approved' | 'archived') =>
+                                    updateIdeaStatus(idea.id, status)
+                                  }
+                                >
+                                  <SelectTrigger className="h-6 w-24 text-xs rounded-none">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="new">New</SelectItem>
+                                    <SelectItem value="under-review">Review</SelectItem>
+                                    <SelectItem value="approved">Approved</SelectItem>
+                                    <SelectItem value="archived">Archived</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 w-6 p-0 hover:text-destructive"
+                                  onClick={() => removeDesignIdea(idea.id)}
+                                >
+                                  <X className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </div>
+
+                            {idea.description && (
+                              <p className="text-xs text-muted-foreground mb-2">{idea.description}</p>
+                            )}
+
+                            <div className="flex items-center gap-2 mb-2">
+                              <Badge className={`text-xs ${getStatusColor(idea.status)}`}>
+                                {getStatusIcon(idea.status)}
+                                {idea.status.replace('-', ' ')}
+                              </Badge>
+                            </div>
+
+                            {idea.tags.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mb-2">
+                                {idea.tags.map((tag, index) => (
+                                  <Badge key={index} variant="outline" className="text-xs">
+                                    <Tag className="h-2 w-2 mr-1" />
+                                    {tag}
+                                  </Badge>
+                                ))}
+                              </div>
+                            )}
+
+                            {idea.links.length > 0 && (
+                              <div className="space-y-1 mb-2">
+                                {idea.links.map((link, index) => (
+                                  <a
+                                    key={index}
+                                    href={link}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="block text-xs text-blue-600 hover:underline truncate"
+                                  >
+                                    {extractDomainFromUrl(link)}
+                                  </a>
+                                ))}
+                              </div>
+                            )}
+
+                            {idea.files.length > 0 && (
+                              <div className="text-xs text-muted-foreground">
+                                <FileText className="h-3 w-3 inline mr-1" />
+                                {idea.files.length} file{idea.files.length > 1 ? 's' : ''}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 border-2 border-dashed border-muted rounded-none">
+                        <div className="flex flex-col items-center gap-2">
+                          <Archive className="h-8 w-8 text-muted-foreground" />
+                          <p className="text-sm text-muted-foreground">No design ideas yet</p>
+                          <p className="text-xs text-muted-foreground">Click "Add Idea" to start building your design repository</p>
+                        </div>
+                      </div>
+                    )}
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             </TabsContent>
 
             {/* Production Tab */}
             <TabsContent value="production" className="mt-0">
-              <div className="bg-card rounded-lg border shadow-sm p-6">
+              <div className="bg-card rounded-none border shadow-sm p-6">
                 <div className="space-y-6">
                   <div className="flex items-center gap-3 pb-4">
                     <div className="p-2 rounded-none bg-orange-50 dark:bg-orange-950">
@@ -691,9 +2103,30 @@ export default function ProductDetails() {
 
                   {/* Supplier & Pricing and Links - Two Columns */}
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    {/* Supplier & Pricing */}
-                    <div className="space-y-4">
-                      <Label className="text-sm font-medium text-foreground">Supplier & Pricing</Label>
+                    {/* Supplier & Pricing - Collapsible */}
+                    <div className="border rounded-none bg-background overflow-hidden">
+                      <div
+                        className={`flex items-center justify-between cursor-pointer p-3 bg-muted/10 hover:bg-muted/20 transition-colors ${
+                          showSupplierPricing ? 'border-b border-border' : ''
+                        }`}
+                        onClick={() => setShowSupplierPricing(!showSupplierPricing)}
+                      >
+                        <Label className="text-sm font-medium text-foreground cursor-pointer">Supplier & Pricing</Label>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">
+                            {showSupplierPricing ? 'Hide details' : 'Vendors, pricing, quality'}
+                          </span>
+                          <ChevronDown
+                            className={`h-4 w-4 text-muted-foreground transition-transform ${
+                              showSupplierPricing ? 'rotate-180' : ''
+                            }`}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Collapsible Content */}
+                      {showSupplierPricing && (
+                        <div className="space-y-4 p-4 bg-muted/5">
 
                       {/* Multiple Supplier Selection with Pricing & Quality */}
                       <div className="space-y-4">
@@ -742,7 +2175,7 @@ export default function ProductDetails() {
                         {selectedSuppliers.length > 0 ? (
                           <div className="space-y-4">
                             {selectedSuppliers.map((supplier, index) => (
-                              <div key={supplier.id} className="border rounded-lg p-4 space-y-3 bg-muted/20">
+                              <div key={supplier.id} className="border rounded-none p-4 space-y-3 bg-muted/20">
                                 {/* Supplier Header */}
                                 <div className="flex items-center justify-between">
                                   <div className="flex items-center gap-2">
@@ -828,7 +2261,7 @@ export default function ProductDetails() {
                             </p>
                           </div>
                         ) : (
-                          <div className="text-center py-8 border-2 border-dashed border-muted rounded-lg">
+                          <div className="text-center py-8 border-2 border-dashed border-muted rounded-none">
                             <p className="text-sm text-muted-foreground">No suppliers selected</p>
                             <p className="text-xs text-muted-foreground mt-1">
                               Add vendors from the dropdown above to compare pricing and quality
@@ -836,14 +2269,37 @@ export default function ProductDetails() {
                           </div>
                         )}
                       </div>
+                        </div>
+                      )}
                     </div>
 
-                    {/* Product Links */}
-                    <div className="space-y-4">
-                      <Label className="text-sm font-medium text-foreground">Product Links</Label>
+                    {/* Product Links - Collapsible */}
+                    <div className="border rounded-none bg-background overflow-hidden">
+                      <div
+                        className={`flex items-center justify-between cursor-pointer p-3 bg-muted/10 hover:bg-muted/20 transition-colors ${
+                          showProductLinks ? 'border-b border-border' : ''
+                        }`}
+                        onClick={() => setShowProductLinks(!showProductLinks)}
+                      >
+                        <Label className="text-sm font-medium text-foreground cursor-pointer">Product Links</Label>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">
+                            {showProductLinks ? 'Hide details' : 'References, competitors'}
+                          </span>
+                          <ChevronDown
+                            className={`h-4 w-4 text-muted-foreground transition-transform ${
+                              showProductLinks ? 'rotate-180' : ''
+                            }`}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Collapsible Content */}
+                      {showProductLinks && (
+                        <div className="space-y-4 p-4 bg-muted/5">
 
                       {/* Add New Link Form */}
-                      <div className="space-y-3 border rounded-lg p-4 bg-muted/10">
+                      <div className="space-y-3 border rounded-none p-4 bg-muted/10">
                         <Label className="text-xs font-medium text-muted-foreground">Add New Link</Label>
 
                         <div className="grid grid-cols-2 gap-3">
@@ -858,7 +2314,7 @@ export default function ProductDetails() {
                           <div>
                             <Select
                               value={newLinkType}
-                              onValueChange={(value) => setNewLinkType(value as any)}
+                              onValueChange={(value) => setNewLinkType(value as 'reference' | 'competitor' | 'inspiration' | 'documentation' | 'other')}
                             >
                               <SelectTrigger className="rounded-none h-8">
                                 <SelectValue />
@@ -938,12 +2394,14 @@ export default function ProductDetails() {
                           </p>
                         </div>
                       ) : (
-                        <div className="text-center py-8 border-2 border-dashed border-muted rounded-lg">
+                        <div className="text-center py-8 border-2 border-dashed border-muted rounded-none">
                           <Link className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
                           <p className="text-sm text-muted-foreground">No links added</p>
                           <p className="text-xs text-muted-foreground mt-1">
                             Add reference links, competitor analysis, or documentation
                           </p>
+                        </div>
+                      )}
                         </div>
                       )}
                     </div>
@@ -953,9 +2411,30 @@ export default function ProductDetails() {
 
                   {/* Sample Management & Production Timeline - Two Columns */}
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    {/* Sample Management */}
-                    <div className="space-y-4">
-                      <Label className="text-sm font-medium text-foreground">Sample Management</Label>
+                    {/* Sample Management - Collapsible */}
+                    <div className="border rounded-none bg-background overflow-hidden">
+                      <div
+                        className={`flex items-center justify-between cursor-pointer p-3 bg-muted/10 hover:bg-muted/20 transition-colors ${
+                          showSampleManagement ? 'border-b border-border' : ''
+                        }`}
+                        onClick={() => setShowSampleManagement(!showSampleManagement)}
+                      >
+                        <Label className="text-sm font-medium text-foreground cursor-pointer">Sample Management</Label>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">
+                            {showSampleManagement ? 'Hide details' : 'Dates, status, notes'}
+                          </span>
+                          <ChevronDown
+                            className={`h-4 w-4 text-muted-foreground transition-transform ${
+                              showSampleManagement ? 'rotate-180' : ''
+                            }`}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Collapsible Content */}
+                      {showSampleManagement && (
+                        <div className="space-y-4 p-4 bg-muted/5">
                       <div className="grid grid-cols-2 gap-4">
                         <div>
                           <Label className="text-xs font-medium text-muted-foreground mb-2 block">Sample Request Date</Label>
@@ -993,11 +2472,34 @@ export default function ProductDetails() {
                           className="rounded-none min-h-[80px]"
                         />
                       </div>
+                        </div>
+                      )}
                     </div>
 
-                    {/* Production Timeline */}
-                    <div className="space-y-4">
-                      <Label className="text-sm font-medium text-foreground">Production Timeline</Label>
+                    {/* Production Timeline - Collapsible */}
+                    <div className="border rounded-none bg-background overflow-hidden">
+                      <div
+                        className={`flex items-center justify-between cursor-pointer p-3 bg-muted/10 hover:bg-muted/20 transition-colors ${
+                          showProductionTimeline ? 'border-b border-border' : ''
+                        }`}
+                        onClick={() => setShowProductionTimeline(!showProductionTimeline)}
+                      >
+                        <Label className="text-sm font-medium text-foreground cursor-pointer">Production Timeline</Label>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">
+                            {showProductionTimeline ? 'Hide details' : 'Start, completion, milestones'}
+                          </span>
+                          <ChevronDown
+                            className={`h-4 w-4 text-muted-foreground transition-transform ${
+                              showProductionTimeline ? 'rotate-180' : ''
+                            }`}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Collapsible Content */}
+                      {showProductionTimeline && (
+                        <div className="space-y-4 p-4 bg-muted/5">
                       <div className="grid grid-cols-2 gap-4">
                         <div>
                           <Label className="text-xs font-medium text-muted-foreground mb-2 block">Production Start</Label>
@@ -1021,14 +2523,37 @@ export default function ProductDetails() {
                           className="rounded-none min-h-[100px]"
                         />
                       </div>
+                        </div>
+                      )}
                     </div>
                   </div>
 
                   <Separator className="my-6" />
 
-                  {/* Materials & Specifications */}
-                  <div className="space-y-4">
-                    <Label className="text-sm font-medium text-foreground">Materials & Specifications</Label>
+                  {/* Materials & Specifications - Collapsible */}
+                  <div className="border rounded-none bg-background overflow-hidden">
+                    <div
+                      className={`flex items-center justify-between cursor-pointer p-3 bg-muted/10 hover:bg-muted/20 transition-colors ${
+                        showMaterialsSpecs ? 'border-b border-border' : ''
+                      }`}
+                      onClick={() => setShowMaterialsSpecs(!showMaterialsSpecs)}
+                    >
+                      <Label className="text-sm font-medium text-foreground cursor-pointer">Materials & Specifications</Label>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">
+                          {showMaterialsSpecs ? 'Hide details' : 'Dimensions, materials'}
+                        </span>
+                        <ChevronDown
+                          className={`h-4 w-4 text-muted-foreground transition-transform ${
+                            showMaterialsSpecs ? 'rotate-180' : ''
+                          }`}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Collapsible Content */}
+                    {showMaterialsSpecs && (
+                      <div className="space-y-4 p-4 bg-muted/5">
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <Label className="text-xs font-medium text-muted-foreground mb-2 block">Dimensions</Label>
@@ -1047,11 +2572,16 @@ export default function ProductDetails() {
                     </div>
                     <div>
                       <Label className="text-xs font-medium text-muted-foreground mb-2 block">Materials</Label>
-                      <Textarea
+                      <RichTextEditor
+                        content={materialsSpecification}
+                        onChange={setMaterialsSpecification}
                         placeholder="Describe materials used..."
-                        className="rounded-none min-h-[80px]"
+                        className="rounded-none"
+                        minHeight="80px"
                       />
                     </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1059,7 +2589,7 @@ export default function ProductDetails() {
 
             {/* Content Tab */}
             <TabsContent value="content" className="mt-0">
-              <div className="bg-card rounded-lg border shadow-sm p-6">
+              <div className="bg-card rounded-none border shadow-sm p-6">
                 <div className="space-y-6">
                   <div className="flex items-center gap-3 pb-4">
                     <div className="p-2 rounded-none bg-blue-50 dark:bg-blue-950">
@@ -1174,7 +2704,7 @@ export default function ProductDetails() {
 
             {/* Scaling Tab */}
             <TabsContent value="scaling" className="mt-0">
-              <div className="bg-card rounded-lg border shadow-sm p-6">
+              <div className="bg-card rounded-none border shadow-sm p-6">
                 <div className="space-y-6">
                   <div className="flex items-center gap-3 pb-4">
                     <div className="p-2 rounded-none bg-green-50 dark:bg-green-950">
@@ -1186,9 +2716,30 @@ export default function ProductDetails() {
                     </div>
                   </div>
 
-                  {/* Launch Details */}
-                  <div className="space-y-4">
-                    <Label className="text-sm font-medium text-foreground">Launch Details</Label>
+                  {/* Launch Details - Collapsible */}
+                  <div className="border rounded-none bg-background overflow-hidden">
+                    <div
+                      className={`flex items-center justify-between cursor-pointer p-3 bg-muted/10 hover:bg-muted/20 transition-colors ${
+                        showLaunchDetails ? 'border-b border-border' : ''
+                      }`}
+                      onClick={() => setShowLaunchDetails(!showLaunchDetails)}
+                    >
+                      <Label className="text-sm font-medium text-foreground cursor-pointer">Launch Details</Label>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">
+                          {showLaunchDetails ? 'Hide details' : 'Date, channels'}
+                        </span>
+                        <ChevronDown
+                          className={`h-4 w-4 text-muted-foreground transition-transform ${
+                            showLaunchDetails ? 'rotate-180' : ''
+                          }`}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Collapsible Content */}
+                    {showLaunchDetails && (
+                      <div className="space-y-4 p-4 bg-muted/5">
                     <div>
                       <Label className="text-xs font-medium text-muted-foreground mb-2 block">Launch Date</Label>
                       <Input
@@ -1200,30 +2751,53 @@ export default function ProductDetails() {
                       <Label className="text-xs font-medium text-muted-foreground mb-2 block">Marketing Channels</Label>
                       <div className="grid grid-cols-2 gap-2">
                         <label className="flex items-center space-x-2">
-                          <input type="checkbox" className="rounded" />
+                          <input type="checkbox" className="rounded-none" />
                           <span className="text-sm">Facebook</span>
                         </label>
                         <label className="flex items-center space-x-2">
-                          <input type="checkbox" className="rounded" />
+                          <input type="checkbox" className="rounded-none" />
                           <span className="text-sm">Instagram</span>
                         </label>
                         <label className="flex items-center space-x-2">
-                          <input type="checkbox" className="rounded" />
+                          <input type="checkbox" className="rounded-none" />
                           <span className="text-sm">Google Ads</span>
                         </label>
                         <label className="flex items-center space-x-2">
-                          <input type="checkbox" className="rounded" />
+                          <input type="checkbox" className="rounded-none" />
                           <span className="text-sm">YouTube</span>
                         </label>
                       </div>
                     </div>
+                      </div>
+                    )}
                   </div>
 
                   <Separator className="my-6" />
 
-                  {/* Budget Allocation */}
-                  <div className="space-y-4">
-                    <Label className="text-sm font-medium text-foreground">Budget Allocation</Label>
+                  {/* Budget Allocation - Collapsible */}
+                  <div className="border rounded-none bg-background overflow-hidden">
+                    <div
+                      className={`flex items-center justify-between cursor-pointer p-3 bg-muted/10 hover:bg-muted/20 transition-colors ${
+                        showBudgetAllocation ? 'border-b border-border' : ''
+                      }`}
+                      onClick={() => setShowBudgetAllocation(!showBudgetAllocation)}
+                    >
+                      <Label className="text-sm font-medium text-foreground cursor-pointer">Budget Allocation</Label>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">
+                          {showBudgetAllocation ? 'Hide details' : 'Total, platform budgets'}
+                        </span>
+                        <ChevronDown
+                          className={`h-4 w-4 text-muted-foreground transition-transform ${
+                            showBudgetAllocation ? 'rotate-180' : ''
+                          }`}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Collapsible Content */}
+                    {showBudgetAllocation && (
+                      <div className="space-y-4 p-4 bg-muted/5">
                     <div>
                       <Label className="text-xs font-medium text-muted-foreground mb-2 block">Total Budget</Label>
                       <Input
@@ -1266,13 +2840,36 @@ export default function ProductDetails() {
                         />
                       </div>
                     </div>
+                      </div>
+                    )}
                   </div>
 
                   <Separator className="my-6" />
 
-                  {/* Performance Targets & Metrics */}
-                  <div className="space-y-4">
-                    <Label className="text-sm font-medium text-foreground">Performance Targets</Label>
+                  {/* Performance Targets - Collapsible */}
+                  <div className="border rounded-none bg-background overflow-hidden">
+                    <div
+                      className={`flex items-center justify-between cursor-pointer p-3 bg-muted/10 hover:bg-muted/20 transition-colors ${
+                        showPerformanceTargets ? 'border-b border-border' : ''
+                      }`}
+                      onClick={() => setShowPerformanceTargets(!showPerformanceTargets)}
+                    >
+                      <Label className="text-sm font-medium text-foreground cursor-pointer">Performance Targets</Label>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">
+                          {showPerformanceTargets ? 'Hide details' : 'Revenue, ROAS, conversions'}
+                        </span>
+                        <ChevronDown
+                          className={`h-4 w-4 text-muted-foreground transition-transform ${
+                            showPerformanceTargets ? 'rotate-180' : ''
+                          }`}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Collapsible Content */}
+                    {showPerformanceTargets && (
+                      <div className="space-y-4 p-4 bg-muted/5">
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <Label className="text-xs font-medium text-muted-foreground mb-2 block">Target Revenue</Label>
@@ -1324,18 +2921,46 @@ export default function ProductDetails() {
                       </div>
                     </div>
                   </div>
+                    )}
+                  </div>
 
                   <Separator className="my-6" />
 
-                  {/* Learnings & Notes */}
-                  <div className="space-y-4">
-                    <Label className="text-sm font-medium text-foreground">Learnings & Insights</Label>
+                  {/* Learnings & Notes - Collapsible */}
+                  <div className="border rounded-none bg-background overflow-hidden">
+                    <div
+                      className={`flex items-center justify-between cursor-pointer p-3 bg-muted/10 hover:bg-muted/20 transition-colors ${
+                        showLearningsInsights ? 'border-b border-border' : ''
+                      }`}
+                      onClick={() => setShowLearningsInsights(!showLearningsInsights)}
+                    >
+                      <Label className="text-sm font-medium text-foreground cursor-pointer">Learnings & Insights</Label>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">
+                          {showLearningsInsights ? 'Hide details' : 'Campaign insights'}
+                        </span>
+                        <ChevronDown
+                          className={`h-4 w-4 text-muted-foreground transition-transform ${
+                            showLearningsInsights ? 'rotate-180' : ''
+                          }`}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Collapsible Content */}
+                    {showLearningsInsights && (
+                      <div className="space-y-4 p-4 bg-muted/5">
                     <div>
-                      <Textarea
+                      <RichTextEditor
+                        content={learningsInsights}
+                        onChange={setLearningsInsights}
                         placeholder="Key learnings, insights, and notes from this campaign..."
-                        className="rounded-none min-h-[120px]"
+                        className="rounded-none"
+                        minHeight="120px"
                       />
                     </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

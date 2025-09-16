@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
-import { X, ImagePlus, VideoIcon } from 'lucide-react'
+import { X, ImagePlus, VideoIcon, ChevronDown } from 'lucide-react'
 
 interface FormContentProps {
   newIdeaForm: any
@@ -42,6 +42,13 @@ interface FormContentProps {
   onChangeProductImage?: (e: React.ChangeEvent<HTMLInputElement>) => void
   onRemoveCurrentImage?: () => void
   onRemoveUploadedImage?: () => void
+  // Toggle states for collapsible sections
+  showBasics?: boolean
+  setShowBasics?: (show: boolean) => void
+  showMarketResearch?: boolean
+  setShowMarketResearch?: (show: boolean) => void
+  showReferencesMedia?: boolean
+  setShowReferencesMedia?: (show: boolean) => void
 }
 
 export const FormContent: React.FC<FormContentProps> = ({
@@ -78,7 +85,14 @@ export const FormContent: React.FC<FormContentProps> = ({
   uploadedProductImage,
   onChangeProductImage,
   onRemoveCurrentImage,
-  onRemoveUploadedImage
+  onRemoveUploadedImage,
+  // Toggle states
+  showBasics = false,
+  setShowBasics,
+  showMarketResearch = false,
+  setShowMarketResearch,
+  showReferencesMedia = false,
+  setShowReferencesMedia
 }) => {
   const addTag = (tag: string) => {
     if (tag.trim() && !tags.includes(tag.trim())) {
@@ -122,17 +136,34 @@ export const FormContent: React.FC<FormContentProps> = ({
     <div className="space-y-6">
       {/* Section 1: Two-Column Grid - Basics & Market Research */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Left Column - Basics */}
+        {/* Left Column - Basics - Collapsible */}
         <div className="space-y-4">
-          <div className="pb-3 border-b border-border/30">
-            <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
+          <div
+            className="flex items-center justify-between cursor-pointer p-3 bg-muted/10 rounded-none border hover:bg-muted/20 transition-colors"
+            onClick={() => setShowBasics?.(!showBasics)}
+          >
+            <div className="flex items-center gap-2">
               <div className="w-1 h-4 bg-primary rounded-full"></div>
-              Basics
-            </h3>
-            <p className="text-sm text-muted-foreground mt-1">Core product information</p>
+              <div>
+                <h3 className="text-base font-semibold text-foreground">Basics</h3>
+                <p className="text-sm text-muted-foreground">Core product information</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">
+                {showBasics ? 'Hide details' : 'Name, category, priority'}
+              </span>
+              <ChevronDown
+                className={`h-4 w-4 text-muted-foreground transition-transform ${
+                  showBasics ? 'rotate-180' : ''
+                }`}
+              />
+            </div>
           </div>
 
-          <div className="space-y-4">
+          {/* Collapsible Content */}
+          {showBasics && (
+            <div className="space-y-4 p-4 border rounded-none bg-muted/5">
             {/* Product Name */}
             <div>
               <Label htmlFor="title" className="text-sm font-semibold text-foreground">Product Name *</Label>
@@ -250,21 +281,38 @@ export const FormContent: React.FC<FormContentProps> = ({
                 )}
               </div>
             </div>
-
-          </div>
+            </div>
+          )}
         </div>
 
-        {/* Right Column - Market Research */}
+        {/* Right Column - Market Research - Collapsible */}
         <div className="space-y-4">
-          <div className="pb-3 border-b border-border/30">
-            <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
+          <div
+            className="flex items-center justify-between cursor-pointer p-3 bg-muted/10 rounded-none border hover:bg-muted/20 transition-colors"
+            onClick={() => setShowMarketResearch?.(!showMarketResearch)}
+          >
+            <div className="flex items-center gap-2">
               <div className="w-1 h-4 bg-blue-500 rounded-full"></div>
-              Market Research
-            </h3>
-            <p className="text-sm text-muted-foreground mt-1">Analysis and insights</p>
+              <div>
+                <h3 className="text-base font-semibold text-foreground">Market Research</h3>
+                <p className="text-sm text-muted-foreground">Analysis and insights</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">
+                {showMarketResearch ? 'Hide details' : 'Problem, opportunity, notes'}
+              </span>
+              <ChevronDown
+                className={`h-4 w-4 text-muted-foreground transition-transform ${
+                  showMarketResearch ? 'rotate-180' : ''
+                }`}
+              />
+            </div>
           </div>
 
-          <div className="space-y-4">
+          {/* Collapsible Content */}
+          {showMarketResearch && (
+            <div className="space-y-4 p-4 border rounded-none bg-muted/5">
             {/* Problem Statement */}
             <div>
               <Label className="text-sm font-medium text-foreground">Problem Statement</Label>
@@ -306,22 +354,39 @@ export const FormContent: React.FC<FormContentProps> = ({
                 className="mt-2 min-h-[100px] resize-none rounded-none"
               />
             </div>
-
-          </div>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* References & Media Section - Full Width */}
+      {/* References & Media Section - Full Width - Collapsible */}
       <div className="mt-8 pt-8 border-t border-border/30">
-        <div className="pb-3 border-b border-border/30">
-          <h4 className="text-base font-semibold text-foreground flex items-center gap-2">
+        <div
+          className="flex items-center justify-between cursor-pointer p-3 bg-muted/10 rounded-none border hover:bg-muted/20 transition-colors"
+          onClick={() => setShowReferencesMedia?.(!showReferencesMedia)}
+        >
+          <div className="flex items-center gap-2">
             <div className="w-1 h-4 bg-amber-500 rounded-full"></div>
-            References & Media
-          </h4>
-          <p className="text-sm text-muted-foreground mt-1">Supporting materials and inspiration</p>
+            <div>
+              <h4 className="text-base font-semibold text-foreground">References & Media</h4>
+              <p className="text-sm text-muted-foreground">Supporting materials and inspiration</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">
+              {showReferencesMedia ? 'Hide details' : 'Links, photos, media'}
+            </span>
+            <ChevronDown
+              className={`h-4 w-4 text-muted-foreground transition-transform ${
+                showReferencesMedia ? 'rotate-180' : ''
+              }`}
+            />
+          </div>
         </div>
 
-        <div className="space-y-4 mt-6">
+        {/* Collapsible Content */}
+        {showReferencesMedia && (
+          <div className="space-y-4 mt-6 p-4 border rounded-none bg-muted/5">
           {/* Reference Links */}
           <div>
             <div className="flex items-center justify-between">
@@ -426,104 +491,52 @@ export const FormContent: React.FC<FormContentProps> = ({
             )}
           </div>
 
-          {/* Product Photo */}
+          {/* Product Photo - Minimal */}
           <div>
             <Label className="text-sm font-medium text-foreground">Product Photo</Label>
-            <p className="text-xs text-muted-foreground mb-3">Main image shown on product card</p>
 
-            {/* Current Image Display */}
-            {currentProductImage && !uploadedProductImage && (
-              <div className="mb-4 p-3 bg-muted/30 rounded-none">
-                <p className="text-xs font-medium text-muted-foreground mb-2">Current Image</p>
+            <div className="flex items-center gap-3 mt-2">
+              {/* Image Preview */}
+              {(currentProductImage || uploadedProductImage) && (
                 <div className="relative group">
                   <img
-                    src={currentProductImage}
-                    alt="Current product"
-                    className="w-32 h-32 object-cover rounded-none border border-border"
-                  />
-                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-none flex items-center justify-center gap-2">
-                    <input
-                      id="current-image-change"
-                      type="file"
-                      accept="image/*"
-                      onChange={onChangeProductImage}
-                      className="hidden"
-                    />
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="secondary"
-                      className="h-8 text-xs"
-                      onClick={() => document.getElementById('current-image-change')?.click()}
-                    >
-                      Change
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="destructive"
-                      className="h-8 text-xs"
-                      onClick={onRemoveCurrentImage}
-                    >
-                      Remove
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* New Image Upload Display */}
-            {uploadedProductImage && (
-              <div className="mb-4 p-3 bg-muted/30 rounded-none">
-                <p className="text-xs font-medium text-muted-foreground mb-2">New Image (will replace current)</p>
-                <div className="relative group">
-                  <img
-                    src={URL.createObjectURL(uploadedProductImage)}
-                    alt="New product"
-                    className="w-32 h-32 object-cover rounded-none border border-border"
-                  />
-                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-none flex items-center justify-center">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="destructive"
-                      className="h-8 text-xs"
-                      onClick={onRemoveUploadedImage}
-                    >
-                      Remove
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Upload New Image (when no current image or after removal) */}
-            {(!currentProductImage || (currentProductImage && !uploadedProductImage)) && (
-              <div className="border-2 border-dashed border-border rounded-none p-6 text-center">
-                <div className="flex flex-col items-center gap-2">
-                  <ImagePlus className="h-8 w-8 text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground">
-                    {currentProductImage ? 'Change product photo' : 'Add product photo'}
-                  </p>
-                  <input
-                    id="product-image-upload"
-                    type="file"
-                    accept="image/*"
-                    onChange={onChangeProductImage}
-                    className="hidden"
+                    src={uploadedProductImage ? URL.createObjectURL(uploadedProductImage) : currentProductImage || ''}
+                    alt="Product"
+                    className="w-16 h-16 object-cover rounded border border-border"
                   />
                   <Button
                     type="button"
-                    variant="outline"
                     size="sm"
-                    className="rounded-none"
-                    onClick={() => document.getElementById('product-image-upload')?.click()}
+                    variant="destructive"
+                    className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={uploadedProductImage ? onRemoveUploadedImage : onRemoveCurrentImage}
                   >
-                    Choose Image
+                    <X className="h-3 w-3" />
                   </Button>
                 </div>
+              )}
+
+              {/* Upload Button */}
+              <div>
+                <input
+                  id="product-image-upload"
+                  type="file"
+                  accept="image/*"
+                  onChange={onChangeProductImage}
+                  className="hidden"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs"
+                  onClick={() => document.getElementById('product-image-upload')?.click()}
+                >
+                  <ImagePlus className="h-3 w-3 mr-1" />
+                  {(currentProductImage || uploadedProductImage) ? 'Change' : 'Add Photo'}
+                </Button>
               </div>
-            )}
+            </div>
           </div>
 
           {/* Media Upload */}
@@ -641,6 +654,7 @@ export const FormContent: React.FC<FormContentProps> = ({
             )}
           </div>
         </div>
+        )}
       </div>
 
       {/* Bottom spacing */}

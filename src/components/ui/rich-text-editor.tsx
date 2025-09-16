@@ -4,23 +4,131 @@ import './rich-text-editor.css'
 import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
 import Link from '@tiptap/extension-link'
-import TaskList from '@tiptap/extension-task-list'
-import TaskItem from '@tiptap/extension-task-item'
 import Placeholder from '@tiptap/extension-placeholder'
+import { Node, mergeAttributes } from '@tiptap/core'
 import { Button } from './button'
-import { 
-  Bold, 
-  Italic, 
-  Underline as UnderlineIcon, 
-  List, 
-  ListOrdered, 
-  CheckSquare, 
-  Link as LinkIcon, 
-  Heading1, 
-  Heading2, 
+import {
+  Bold,
+  Italic,
+  Underline as UnderlineIcon,
+  List,
+  ListOrdered,
+  CheckSquare,
+  Link as LinkIcon,
+  Heading1,
+  Heading2,
   Heading3,
   MoreHorizontal
 } from 'lucide-react'
+
+// Custom Checkbox Extension
+const Checkbox = Node.create({
+  name: 'checkbox',
+  group: 'inline',
+  inline: true,
+  atom: true,
+
+  addAttributes() {
+    return {
+      checked: {
+        default: false,
+        parseHTML: element => element.getAttribute('data-checked') === 'true',
+        renderHTML: attributes => {
+          return {
+            'data-checked': attributes.checked,
+          }
+        },
+      },
+    }
+  },
+
+  parseHTML() {
+    return [
+      {
+        tag: 'span[data-type="checkbox"]',
+      },
+    ]
+  },
+
+  renderHTML({ HTMLAttributes }) {
+    return [
+      'span',
+      mergeAttributes(HTMLAttributes, {
+        'data-type': 'checkbox',
+        'class': 'checkbox-wrapper'
+      }),
+      ['input', {
+        type: 'checkbox',
+        checked: HTMLAttributes['data-checked'] === 'true' ? true : false,
+        'class': 'inline-checkbox'
+      }],
+      ' '
+    ]
+  },
+
+  addNodeView() {
+    return ({ node, getPos, editor }) => {
+      const dom = document.createElement('span')
+      dom.setAttribute('data-type', 'checkbox')
+      dom.className = 'checkbox-wrapper'
+      dom.style.display = 'inline-flex'
+      dom.style.alignItems = 'center'
+      dom.style.verticalAlign = 'top'
+
+      const checkbox = document.createElement('input')
+      checkbox.type = 'checkbox'
+      checkbox.className = 'inline-checkbox'
+      checkbox.checked = node.attrs.checked
+
+      const applyStrikethrough = (checked: boolean) => {
+        // Find the current paragraph that contains this checkbox
+        const paragraph = dom.closest('p')
+        if (paragraph) {
+          if (checked) {
+            paragraph.style.textDecoration = 'line-through'
+            paragraph.style.opacity = '0.6'
+          } else {
+            paragraph.style.textDecoration = 'none'
+            paragraph.style.opacity = '1'
+          }
+        }
+      }
+
+      checkbox.addEventListener('change', (e) => {
+        const target = e.target as HTMLInputElement
+        if (typeof getPos === 'function') {
+          editor.chain().focus().command(({ tr }) => {
+            tr.setNodeMarkup(getPos(), undefined, {
+              ...node.attrs,
+              checked: target.checked,
+            })
+            return true
+          }).run()
+
+          // Apply strikethrough after state update
+          setTimeout(() => applyStrikethrough(target.checked), 0)
+        }
+      })
+
+      dom.appendChild(checkbox)
+
+      // Apply initial strikethrough state
+      setTimeout(() => applyStrikethrough(node.attrs.checked), 0)
+
+      return {
+        dom,
+        update: (updatedNode) => {
+          if (updatedNode.type !== this.type) {
+            return false
+          }
+          checkbox.checked = updatedNode.attrs.checked
+          applyStrikethrough(updatedNode.attrs.checked)
+          return true
+        },
+      }
+    }
+  },
+})
 
 interface RichTextEditorProps {
   content?: string
@@ -54,6 +162,10 @@ const MenuBar = ({ editor, isMobile = false }) => {
     editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run()
   }
 
+  const insertCheckbox = () => {
+    editor.chain().focus().insertContent({ type: 'checkbox', attrs: { checked: false } }).insertContent(' ').run()
+  }
+
   const buttons = [
     {
       icon: Bold,
@@ -63,7 +175,7 @@ const MenuBar = ({ editor, isMobile = false }) => {
     },
     {
       icon: Italic,
-      label: 'Italic', 
+      label: 'Italic',
       onClick: () => editor.chain().focus().toggleItalic().run(),
       isActive: editor.isActive('italic'),
     },
@@ -105,29 +217,9 @@ const MenuBar = ({ editor, isMobile = false }) => {
     },
     {
       icon: CheckSquare,
-      label: 'Task List',
-      onClick: () => {
-        if (editor.isActive('taskList')) {
-          // If already in a task list, remove it
-          editor.chain().focus().toggleTaskList().run()
-        } else {
-          // Convert current paragraph to task list item
-          const { selection } = editor.state
-          const { $from } = selection
-          
-          // Check if we're in a paragraph
-          if ($from.parent.type.name === 'paragraph') {
-            editor.chain()
-              .focus()
-              .wrapInList('taskList')
-              .run()
-          } else {
-            // Fallback to toggleTaskList
-            editor.chain().focus().toggleTaskList().run()
-          }
-        }
-      },
-      isActive: editor.isActive('taskList'),
+      label: 'Checkbox',
+      onClick: insertCheckbox,
+      isActive: false,
     },
     {
       icon: LinkIcon,
@@ -151,8 +243,8 @@ const MenuBar = ({ editor, isMobile = false }) => {
               onClick={button.onClick}
               className={`
                 h-7 w-7 p-0 text-xs transition-all duration-200
-                ${button.isActive 
-                  ? 'bg-primary text-primary-foreground shadow-sm' 
+                ${button.isActive
+                  ? 'bg-primary text-primary-foreground shadow-sm'
                   : 'hover:bg-accent hover:text-accent-foreground'
                 }
               `}
@@ -182,8 +274,8 @@ const MenuBar = ({ editor, isMobile = false }) => {
             onClick={button.onClick}
             className={`
               h-8 w-8 p-0 transition-all duration-200 hover:scale-105
-              ${button.isActive 
-                ? 'bg-primary text-primary-foreground shadow-sm' 
+              ${button.isActive
+                ? 'bg-primary text-primary-foreground shadow-sm'
                 : 'hover:bg-accent hover:text-accent-foreground'
               }
             `}
@@ -197,12 +289,12 @@ const MenuBar = ({ editor, isMobile = false }) => {
   )
 }
 
-export function RichTextEditor({ 
-  content = '', 
-  onChange, 
-  placeholder = 'Start writing...', 
-  className = '', 
-  minHeight = '120px' 
+export function RichTextEditor({
+  content = '',
+  onChange,
+  placeholder = 'Start writing...',
+  className = '',
+  minHeight = '120px'
 }: RichTextEditorProps) {
   const editor = useEditor({
     extensions: [
@@ -215,10 +307,7 @@ export function RichTextEditor({
       Link.configure({
         openOnClick: false,
       }),
-      TaskList,
-      TaskItem.configure({
-        nested: true,
-      }),
+      Checkbox,
       Placeholder.configure({
         placeholder,
       }),
@@ -238,12 +327,12 @@ export function RichTextEditor({
 
   // Check if we're on mobile (simple check)
   const [isMobile, setIsMobile] = React.useState(false)
-  
+
   React.useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 640) // sm breakpoint
     }
-    
+
     checkMobile()
     window.addEventListener('resize', checkMobile)
     return () => window.removeEventListener('resize', checkMobile)
@@ -260,15 +349,15 @@ export function RichTextEditor({
   if (!editor) {
     return (
       <div className={`
-        border border-border rounded-lg bg-background shadow-sm ${className}
+        border border-border rounded-none bg-background shadow-sm ${className}
       `}>
         <div className="border-b border-border p-3 bg-muted/30">
           <div className="flex items-center gap-2">
-            <div className="h-8 w-8 bg-muted animate-pulse rounded-md" />
-            <div className="h-8 w-8 bg-muted animate-pulse rounded-md" />
-            <div className="h-8 w-8 bg-muted animate-pulse rounded-md" />
-            <div className="h-8 w-8 bg-muted animate-pulse rounded-md" />
-            <div className="h-8 w-8 bg-muted animate-pulse rounded-md" />
+            <div className="h-8 w-8 bg-muted animate-pulse rounded-none" />
+            <div className="h-8 w-8 bg-muted animate-pulse rounded-none" />
+            <div className="h-8 w-8 bg-muted animate-pulse rounded-none" />
+            <div className="h-8 w-8 bg-muted animate-pulse rounded-none" />
+            <div className="h-8 w-8 bg-muted animate-pulse rounded-none" />
           </div>
         </div>
         <div className="p-4 flex items-center justify-center" style={{ minHeight }}>
@@ -283,15 +372,15 @@ export function RichTextEditor({
 
   return (
     <div className={`
-      border border-border rounded-lg bg-background shadow-sm 
+      border border-border rounded-none bg-background shadow-sm
       hover:shadow-md transition-shadow duration-200
       focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/50
       ${className}
     `}>
       <MenuBar editor={editor} isMobile={isMobile} />
       <div className="relative">
-        <EditorContent 
-          editor={editor} 
+        <EditorContent
+          editor={editor}
           className="rich-text-editor-content"
         />
       </div>

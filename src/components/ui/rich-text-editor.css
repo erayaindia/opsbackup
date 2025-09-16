@@ -164,3 +164,35 @@
 .rich-text-editor-content .ProseMirror ol ul {
   margin: 0.25rem 0;
 }
+
+/* Custom Checkbox Extension Styles */
+.rich-text-editor-content .checkbox-wrapper {
+  display: inline-flex !important;
+  align-items: center !important;
+  margin-right: 4px;
+  vertical-align: top !important;
+  line-height: 1.5;
+}
+
+.rich-text-editor-content .checkbox-wrapper .inline-checkbox {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  margin-right: 6px;
+  cursor: pointer;
+  accent-color: hsl(var(--primary));
+  border-radius: 2px;
+  vertical-align: top;
+  border: 1px solid hsl(var(--border));
+  background-color: hsl(var(--background));
+  flex-shrink: 0;
+}
+
+.rich-text-editor-content .checkbox-wrapper .inline-checkbox:checked {
+  background-color: hsl(var(--primary));
+  border-color: hsl(var(--primary));
+}
+
+.rich-text-editor-content .checkbox-wrapper .inline-checkbox:hover {
+  border-color: hsl(var(--primary));
+}
