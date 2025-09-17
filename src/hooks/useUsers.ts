@@ -26,15 +26,22 @@ export function useUsers() {
         .order('full_name', { ascending: true })
 
       if (fetchError) {
+        // Handle specific 406 Not Acceptable error
+        if (fetchError.code === '406' || fetchError.message?.includes('406') || fetchError.message?.includes('Not Acceptable')) {
+          console.warn('Users query returned 406 Not Acceptable - likely due to RLS policies or missing permissions')
+          setUsers([])
+          setError('Access restricted - unable to load users')
+          return
+        }
         throw new Error(`Failed to fetch users: ${fetchError.message}`)
       }
 
       // Transform to the expected User format
       const transformedUsers: User[] = (data || []).map(user => ({
         id: user.id,
-        name: user.full_name,
-        email: user.company_email,
-        avatar: `https://api.dicebear.com/7.x/avatars/svg?seed=${user.full_name.replace(/\s+/g, '')}`
+        name: user.full_name || 'Unknown User',
+        email: user.company_email || 'No email',
+        avatar: `https://api.dicebear.com/7.x/avatars/svg?seed=${(user.full_name || 'user').replace(/\s+/g, '')}`
       }))
 
       setUsers(transformedUsers)

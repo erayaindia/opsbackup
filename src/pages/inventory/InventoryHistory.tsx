@@ -149,8 +149,8 @@ export default function InventoryHistory() {
       const testUserId = '384c0dad-f79b-44cb-a752-3b289902fa9e';
       const { data: testUser, error: testError } = await supabase
         .from('app_users')
-        .select('auth_user_id, full_name, company_email')
-        .eq('auth_user_id', testUserId)
+        .select('id, full_name, company_email')
+        .eq('id', testUserId)
         .single();
 
       console.log('Test query for specific user:', testUserId);
@@ -159,8 +159,8 @@ export default function InventoryHistory() {
       // Fetch user details from app_users table first
       const { data: appUsers, error: appUsersError } = await supabase
         .from('app_users')
-        .select('auth_user_id, full_name, company_email')
-        .in('auth_user_id', userIds);
+        .select('id, full_name, company_email')
+        .in('id', userIds);
 
       if (appUsersError) {
         console.warn('Error fetching app_users:', appUsersError);
@@ -191,7 +191,7 @@ export default function InventoryHistory() {
 
       // First, add app_users (preferred source for names)
       appUsers?.forEach(user => {
-        usersMap.set(user.auth_user_id, {
+        usersMap.set(user.id, {
           full_name: user.full_name,
           email: user.company_email,
           source: 'app_users'

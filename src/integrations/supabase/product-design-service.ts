@@ -107,9 +107,17 @@ class ProductDesignService {
   // Create new product design
   async createProductDesign(designData: CreateProductDesignData): Promise<ProductDesign | null> {
     try {
+      // Sanitize the data to handle empty string dates
+      const sanitizedData = { ...designData }
+
+      // Convert empty string dates to null for timestamp fields
+      if ('packaging_approval_date' in sanitizedData && sanitizedData.packaging_approval_date === '') {
+        sanitizedData.packaging_approval_date = null as any
+      }
+
       const { data, error } = await supabase
         .from('product_design')
-        .insert([designData])
+        .insert([sanitizedData])
         .select()
         .single()
 
@@ -130,9 +138,17 @@ class ProductDesignService {
     try {
       const { id, ...updateData } = designData
 
+      // Sanitize the update data to handle empty string dates
+      const sanitizedData = { ...updateData }
+
+      // Convert empty string dates to null for timestamp fields
+      if ('packaging_approval_date' in sanitizedData && sanitizedData.packaging_approval_date === '') {
+        sanitizedData.packaging_approval_date = null as any
+      }
+
       const { data, error } = await supabase
         .from('product_design')
-        .update(updateData)
+        .update(sanitizedData)
         .eq('id', id)
         .select()
         .single()
@@ -152,9 +168,17 @@ class ProductDesignService {
   // Update product design by product ID
   async updateProductDesignByProductId(productId: string, updateData: Partial<CreateProductDesignData>): Promise<ProductDesign | null> {
     try {
+      // Sanitize the update data to handle empty string dates
+      const sanitizedData = { ...updateData }
+
+      // Convert empty string dates to null for timestamp fields
+      if ('packaging_approval_date' in sanitizedData && sanitizedData.packaging_approval_date === '') {
+        sanitizedData.packaging_approval_date = null as any
+      }
+
       const { data, error } = await supabase
         .from('product_design')
-        .update(updateData)
+        .update(sanitizedData)
         .eq('product_id', productId)
         .select()
         .single()
