@@ -70,7 +70,8 @@ import {
   Building,
   Lock,
   ScrollText,
-  Grid3X3
+  Grid3X3,
+  BookText
 } from "lucide-react";
 import {
   Sidebar,
@@ -86,7 +87,7 @@ import {
   SidebarMenuSubItem,
   useSidebar,
 } from "@/components/ui/sidebar";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
 import { useModuleAccess } from "@/hooks/useModuleAccess";
@@ -94,6 +95,9 @@ import { usePermissionsContext } from "@/contexts/PermissionsContext";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { RippleEffect } from "@/components/ui/ripple-effect";
 import { SkeletonMenu, SkeletonCollapsible } from "@/components/ui/skeleton-menu";
+import { SearchInput } from "@/components/ui/search-input";
+import { SearchResults } from "@/components/ui/search-results";
+import { searchMenuItems, debounce, MenuSection } from "@/lib/search-utils";
 
 // Operations Section
 const operationsItems = [
@@ -237,6 +241,100 @@ export function AppSidebar() {
   const [alertsOpen, setAlertsOpen] = useState(currentPath.startsWith('/alerts'));
   const [hoverExpanded, setHoverExpanded] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Search functionality
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+
+  // Memoized menu sections for search
+  const menuSections = useMemo((): { [key: string]: MenuSection } => ({
+    operations: { title: "Dashboard", items: operationsItems },
+    orders: { title: "Orders", items: ordersItems },
+    fulfillment: {
+      title: "Fulfillment",
+      items: [],
+      subsections: [
+        { title: "Processing", items: processingItems },
+        { title: "Exceptions", items: exceptionsItems },
+        { title: "Inventory", items: inventoryItems },
+      ]
+    },
+    support: { title: "Customer Support", items: customerSupportItems },
+    teamHub: { title: "Team Hub", items: teamHubItems },
+    content: { title: "Content", items: contentItems },
+    marketing: { title: "Marketing & Growth", items: marketingGrowthItems },
+    products: { title: "Product Management", items: productManagementItems },
+    accounts: { title: "Accounts", items: accountsItems },
+    training: { title: "Training", items: trainingItems },
+    analytics: { title: "Analytics", items: analyticsItems },
+    admin: { title: "Admin", items: managementAdminItems },
+    alerts: { title: "Alerts", items: alertsItems },
+  }), []);
+
+  // Debounced search function
+  const debouncedSearch = useCallback(
+    debounce((query: string) => {
+      const results = searchMenuItems(menuSections, query);
+      setSearchResults(results);
+    }, 200),
+    [menuSections]
+  );
+
+  // Handle search query changes
+  useEffect(() => {
+    if (searchQuery.trim()) {
+      debouncedSearch(searchQuery);
+    } else {
+      setSearchResults([]);
+    }
+  }, [searchQuery, debouncedSearch]);
+
+  // Clear search when route changes
+  useEffect(() => {
+    setSearchQuery("");
+    setSearchResults([]);
+  }, [currentPath]);
+
+  // Handle search input change
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchQuery(value);
+  }, []);
+
+  // Handle search clear
+  const handleSearchClear = useCallback(() => {
+    setSearchQuery("");
+    setSearchResults([]);
+  }, []);
+
+  // Handle search result click
+  const handleSearchResultClick = useCallback(() => {
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+    setSearchQuery("");
+    setSearchResults([]);
+  }, [isMobile, setOpenMobile]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+K or Cmd+K to focus search
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        const searchInput = document.querySelector('input[placeholder*="Search"]') as HTMLInputElement;
+        if (searchInput) {
+          searchInput.focus();
+          // Auto-expand sidebar if collapsed
+          if (isCollapsed && !isMobile) {
+            setOpen(true);
+          }
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isCollapsed, isMobile, setOpen]);
 
   // Force re-render when permissions change
   useEffect(() => {
@@ -513,7 +611,7 @@ export function AppSidebar() {
         
         <SidebarContent className="bg-sidebar/95 backdrop-blur supports-[backdrop-filter]:bg-sidebar/95 relative z-50">
           <div className={`p-4 border-b border-sidebar-border transition-all duration-500 ease-in-out ${isCollapsed && !hoverExpanded ? 'px-2' : ''}`}>
-            <div className="flex items-center justify-between w-full">
+            <div className="flex items-center justify-between w-full mb-3">
               {/* Toggle Button - Always visible */}
               <Button
                 variant="ghost"
@@ -529,7 +627,7 @@ export function AppSidebar() {
               >
                 <Menu className="h-4 w-4 text-sidebar-foreground" />
               </Button>
-              
+
               {/* Logo and Title - Show when expanded */}
               {shouldShowLabels && (
                 <div className="flex items-center gap-3 flex-1 ml-3">
@@ -542,11 +640,35 @@ export function AppSidebar() {
                 </div>
               )}
             </div>
+
+            {/* Search Input */}
+            <div className={`transition-all duration-500 ease-in-out ${isCollapsed && !hoverExpanded ? 'px-0' : ''}`}>
+              <SearchInput
+                value={searchQuery}
+                onChange={handleSearchChange}
+                onClear={handleSearchClear}
+                isCollapsed={isCollapsed && !hoverExpanded}
+                placeholder="Search menu items..."
+              />
+            </div>
           </div>
 
           <div className="flex-1 overflow-y-auto overflow-x-hidden">
-            {/* 1. Dashboard */}
-            {renderMenuSection(operationsItems, "")}
+            {/* Search Results */}
+            {searchQuery.trim() && (
+              <SearchResults
+                results={searchResults}
+                query={searchQuery}
+                onItemClick={handleSearchResultClick}
+                isCollapsed={isCollapsed && !hoverExpanded}
+              />
+            )}
+
+            {/* Regular Menu - Hidden when searching */}
+            {!searchQuery.trim() && (
+              <>
+                {/* 1. Dashboard */}
+                {renderMenuSection(operationsItems, "")}
             
             {/* 2. Orders - Collapsible */}
             {renderCollapsibleSection(
@@ -1023,6 +1145,11 @@ export function AppSidebar() {
             
             {/* 14. Logs - Standalone */}
             {renderMenuSection([{ title: "Logs", url: "/logs", icon: ScrollText }], "", "management")}
+
+            {/* 15. Notion - Standalone */}
+            {renderMenuSection([{ title: "Notion", url: "/notion", icon: BookText }], "", "management")}
+              </>
+            )}
           </div>
         </SidebarContent>
       </Sidebar>
