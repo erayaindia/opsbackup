@@ -337,10 +337,24 @@ export default function ProductDetails() {
         setPackagingApprovalDate(design.packaging_approval_date || '')
         setDesignIdeas(design.design_ideas || [])
         console.log('✅ Design data loaded successfully:', {
+          product_vision: design.product_vision ? 'has data' : 'empty',
+          target_audience: design.target_audience ? 'has data' : 'empty',
+          design_style: design.design_style ? 'has data' : 'empty',
+          primary_colors: design.primary_colors ? 'has data' : 'empty',
+          secondary_colors: design.secondary_colors ? 'has data' : 'empty',
           material_preferences: design.material_preferences ? 'has data' : 'empty',
+          mood_board_url: design.mood_board_url ? 'has data' : 'empty',
+          design_files_url: design.design_files_url ? 'has data' : 'empty',
+          technical_drawings: design.technical_drawings ? 'has data' : 'empty',
+          cad_files: design.cad_files ? 'has data' : 'empty',
+          design_status: design.design_status ? 'has data' : 'empty',
+          current_phase: design.current_phase ? 'has data' : 'empty',
+          completion_percentage: design.completion_percentage || 0,
+          next_milestone: design.next_milestone ? 'has data' : 'empty',
           design_feedback: design.design_feedback ? 'has data' : 'empty',
           packaging_concept: design.packaging_concept ? 'has data' : 'empty'
         })
+        console.log('🔍 Raw design data from database:', design)
       } else {
         console.log('❌ Design data not loaded')
       }
@@ -537,10 +551,19 @@ export default function ProductDetails() {
       const timer = setTimeout(async () => {
         try {
           console.log('💾 Auto-saving design data for product:', product.id)
+          console.log('📝 Data being saved:', {
+            product_vision: productVision,
+            target_audience: targetAudience,
+            design_style: designStyle,
+            primary_colors: primaryColors,
+            secondary_colors: secondaryColors,
+            material_preferences: materialPreferences,
+            design_status: designStatus
+          })
           // Always try to get or create the design record first, then update
           const designRecord = await productDesignService.getOrCreateProductDesign(product.id)
           if (designRecord) {
-            await productDesignService.updateProductDesignByProductId(product.id, {
+            const updateData = {
               // Design Brief fields
               product_vision: productVision,
               target_audience: targetAudience,
@@ -565,7 +588,8 @@ export default function ProductDetails() {
               packaging_approval_status: packagingApprovalStatus,
               packaging_approval_date: packagingApprovalDate,
               design_ideas: designIdeas
-            })
+            }
+            await productDesignService.updateProductDesignByProductId(product.id, updateData)
             console.log('✅ Auto-saved design data successfully')
           } else {
             console.log('❌ Could not create design record for auto-save')
@@ -1381,7 +1405,7 @@ export default function ProductDetails() {
                         <div>
                           <Label className="text-xs font-medium text-muted-foreground mb-2 block">Product Vision</Label>
                           <RichTextEditor
-                            value={productVision}
+                            content={productVision}
                             onChange={setProductVision}
                             placeholder="Describe the overall design vision and aesthetic goals..."
                             className="min-h-[100px]"
@@ -1582,6 +1606,7 @@ export default function ProductDetails() {
                                 <SelectValue placeholder="Select status" />
                               </SelectTrigger>
                               <SelectContent>
+                                <SelectItem value="not_started">Not Started</SelectItem>
                                 <SelectItem value="concept">Concept Phase</SelectItem>
                                 <SelectItem value="sketching">Sketching</SelectItem>
                                 <SelectItem value="prototyping">Prototyping</SelectItem>
