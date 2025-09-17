@@ -184,8 +184,48 @@ export default function ProductDetails() {
   // Design Feedback state - connecting to product_design table
   const [designFeedback, setDesignFeedback] = useState('')
 
-  // Production Materials & Specifications state
+  // Production state - connecting to product_production table
+  // Supplier & Pricing state
+  const [supplierComparisonNotes, setSupplierComparisonNotes] = useState('')
+  const [preferredSupplierId, setPreferredSupplierId] = useState('')
+
+  // Sample Management state
+  const [sampleRequestDate, setSampleRequestDate] = useState('')
+  const [sampleReceivedDate, setSampleReceivedDate] = useState('')
+  const [sampleStatus, setSampleStatus] = useState('')
+  const [sampleNotes, setSampleNotes] = useState('')
+  const [sampleQualityRating, setSampleQualityRating] = useState(0)
+
+  // Production Timeline state
+  const [productionStartDate, setProductionStartDate] = useState('')
+  const [productionCompletionDate, setProductionCompletionDate] = useState('')
+  const [productionMilestones, setProductionMilestones] = useState('')
+  const [productionStatus, setProductionStatus] = useState('')
+
+  // Materials & Specifications state
+  const [dimensions, setDimensions] = useState('')
+  const [weight, setWeight] = useState('')
   const [materialsSpecification, setMaterialsSpecification] = useState('')
+
+  // Manufacturing details state
+  const [manufacturingMethod, setManufacturingMethod] = useState('')
+  const [qualityStandards, setQualityStandards] = useState('')
+  const [complianceRequirements, setComplianceRequirements] = useState('')
+
+  // Cost tracking state
+  const [estimatedUnitCost, setEstimatedUnitCost] = useState(0)
+  const [actualUnitCost, setActualUnitCost] = useState(0)
+  const [toolingCost, setToolingCost] = useState(0)
+  const [setupCost, setSetupCost] = useState(0)
+
+  // Quality control state
+  const [qcRequirements, setQcRequirements] = useState('')
+  const [qcStatus, setQcStatus] = useState('')
+  const [qcNotes, setQcNotes] = useState('')
+
+  // Lead times state
+  const [leadTimeDays, setLeadTimeDays] = useState(0)
+  const [minimumOrderQuantity, setMinimumOrderQuantity] = useState(0)
 
   // Scaling Learning & Insights state
   const [learningsInsights, setLearningsInsights] = useState('')
@@ -364,11 +404,59 @@ export default function ProductDetails() {
       const production = await productProductionService.getOrCreateProductProduction(productId)
       if (production) {
         setProductionData(production)
-        // Update state with production data
+        // Update state with production data - Supplier & Pricing
         setSelectedSuppliers(production.selected_suppliers || [])
+        setSupplierComparisonNotes(production.supplier_comparison_notes || '')
+        setPreferredSupplierId(production.preferred_supplier_id || '')
+
+        // Product Links
         setProductLinks(production.product_links || [])
+
+        // Sample Management
+        setSampleRequestDate(production.sample_request_date || '')
+        setSampleReceivedDate(production.sample_received_date || '')
+        setSampleStatus(production.sample_status || '')
+        setSampleNotes(production.sample_notes || '')
+        setSampleQualityRating(production.sample_quality_rating || 0)
+
+        // Production Timeline
+        setProductionStartDate(production.production_start_date || '')
+        setProductionCompletionDate(production.production_completion_date || '')
+        setProductionMilestones(production.production_milestones || '')
+        setProductionStatus(production.production_status || '')
+
+        // Materials & Specifications
+        setDimensions(production.dimensions || '')
+        setWeight(production.weight || '')
         setMaterialsSpecification(production.materials_specification || '')
-        console.log('✅ Production data loaded successfully')
+
+        // Manufacturing details
+        setManufacturingMethod(production.manufacturing_method || '')
+        setQualityStandards(production.quality_standards || '')
+        setComplianceRequirements(production.compliance_requirements || '')
+
+        // Cost tracking
+        setEstimatedUnitCost(production.estimated_unit_cost || 0)
+        setActualUnitCost(production.actual_unit_cost || 0)
+        setToolingCost(production.tooling_cost || 0)
+        setSetupCost(production.setup_cost || 0)
+
+        // Quality control
+        setQcRequirements(production.qc_requirements || '')
+        setQcStatus(production.qc_status || '')
+        setQcNotes(production.qc_notes || '')
+
+        // Lead times
+        setLeadTimeDays(production.lead_time_days || 0)
+        setMinimumOrderQuantity(production.minimum_order_quantity || 0)
+
+        console.log('✅ Production data loaded successfully:', {
+          supplier_comparison_notes: production.supplier_comparison_notes ? 'has data' : 'empty',
+          sample_status: production.sample_status ? 'has data' : 'empty',
+          production_status: production.production_status ? 'has data' : 'empty',
+          materials_specification: production.materials_specification ? 'has data' : 'empty'
+        })
+        console.log('🔍 Raw production data from database:', production)
       } else {
         console.log('❌ Production data not loaded')
       }
@@ -439,11 +527,46 @@ export default function ProductDetails() {
       }
 
       // Save production data
-      if (productionData) {
+      const productionRecord = await productProductionService.getOrCreateProductProduction(product.id)
+      if (productionRecord) {
         await productProductionService.updateProductProductionByProductId(product.id, {
+          // Supplier & Pricing fields
           selected_suppliers: selectedSuppliers,
+          supplier_comparison_notes: supplierComparisonNotes,
+          preferred_supplier_id: preferredSupplierId,
+          // Product Links
           product_links: productLinks,
-          materials_specification: materialsSpecification
+          // Sample Management fields
+          sample_request_date: sampleRequestDate,
+          sample_received_date: sampleReceivedDate,
+          sample_status: sampleStatus,
+          sample_notes: sampleNotes,
+          sample_quality_rating: sampleQualityRating,
+          // Production Timeline fields
+          production_start_date: productionStartDate,
+          production_completion_date: productionCompletionDate,
+          production_milestones: productionMilestones,
+          production_status: productionStatus,
+          // Materials & Specifications fields
+          dimensions: dimensions,
+          weight: weight,
+          materials_specification: materialsSpecification,
+          // Manufacturing details fields
+          manufacturing_method: manufacturingMethod,
+          quality_standards: qualityStandards,
+          compliance_requirements: complianceRequirements,
+          // Cost tracking fields
+          estimated_unit_cost: estimatedUnitCost,
+          actual_unit_cost: actualUnitCost,
+          tooling_cost: toolingCost,
+          setup_cost: setupCost,
+          // Quality control fields
+          qc_requirements: qcRequirements,
+          qc_status: qcStatus,
+          qc_notes: qcNotes,
+          // Lead times fields
+          lead_time_days: leadTimeDays,
+          minimum_order_quantity: minimumOrderQuantity
         })
       }
 
@@ -623,15 +746,57 @@ export default function ProductDetails() {
     if (product?.id) {
       const timer = setTimeout(async () => {
         try {
+          console.log('💾 Auto-saving production data for product:', product.id)
+          console.log('📝 Production data being saved:', {
+            supplier_comparison_notes: supplierComparisonNotes,
+            sample_status: sampleStatus,
+            production_status: productionStatus,
+            materials_specification: materialsSpecification
+          })
           // Always try to get or create the production record first, then update
           const productionRecord = await productProductionService.getOrCreateProductProduction(product.id)
           if (productionRecord) {
-            await productProductionService.updateProductProductionByProductId(product.id, {
+            const updateData = {
+              // Supplier & Pricing fields
               selected_suppliers: selectedSuppliers,
+              supplier_comparison_notes: supplierComparisonNotes,
+              preferred_supplier_id: preferredSupplierId,
+              // Product Links
               product_links: productLinks,
-              materials_specification: materialsSpecification
-            })
-            console.log('✅ Auto-saved production data')
+              // Sample Management fields
+              sample_request_date: sampleRequestDate,
+              sample_received_date: sampleReceivedDate,
+              sample_status: sampleStatus,
+              sample_notes: sampleNotes,
+              sample_quality_rating: sampleQualityRating,
+              // Production Timeline fields
+              production_start_date: productionStartDate,
+              production_completion_date: productionCompletionDate,
+              production_milestones: productionMilestones,
+              production_status: productionStatus,
+              // Materials & Specifications fields
+              dimensions: dimensions,
+              weight: weight,
+              materials_specification: materialsSpecification,
+              // Manufacturing details fields
+              manufacturing_method: manufacturingMethod,
+              quality_standards: qualityStandards,
+              compliance_requirements: complianceRequirements,
+              // Cost tracking fields
+              estimated_unit_cost: estimatedUnitCost,
+              actual_unit_cost: actualUnitCost,
+              tooling_cost: toolingCost,
+              setup_cost: setupCost,
+              // Quality control fields
+              qc_requirements: qcRequirements,
+              qc_status: qcStatus,
+              qc_notes: qcNotes,
+              // Lead times fields
+              lead_time_days: leadTimeDays,
+              minimum_order_quantity: minimumOrderQuantity
+            }
+            await productProductionService.updateProductProductionByProductId(product.id, updateData)
+            console.log('✅ Auto-saved production data successfully')
           }
         } catch (error) {
           console.error('Error auto-saving production data:', error)
@@ -640,7 +805,27 @@ export default function ProductDetails() {
 
       return () => clearTimeout(timer)
     }
-  }, [selectedSuppliers, productLinks, materialsSpecification, product?.id])
+  }, [
+    // Supplier & Pricing fields
+    selectedSuppliers, supplierComparisonNotes, preferredSupplierId,
+    // Product Links
+    productLinks,
+    // Sample Management fields
+    sampleRequestDate, sampleReceivedDate, sampleStatus, sampleNotes, sampleQualityRating,
+    // Production Timeline fields
+    productionStartDate, productionCompletionDate, productionMilestones, productionStatus,
+    // Materials & Specifications fields
+    dimensions, weight, materialsSpecification,
+    // Manufacturing details fields
+    manufacturingMethod, qualityStandards, complianceRequirements,
+    // Cost tracking fields
+    estimatedUnitCost, actualUnitCost, toolingCost, setupCost,
+    // Quality control fields
+    qcRequirements, qcStatus, qcNotes,
+    // Lead times fields
+    leadTimeDays, minimumOrderQuantity,
+    product?.id
+  ])
 
   // Auto-save scaling data when it changes
   useEffect(() => {
