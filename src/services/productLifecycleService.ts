@@ -485,6 +485,29 @@ class ProductLifecycleService {
       // Create inventory records for the new product
       await this.createInventoryRecords(product.id, product.internal_code)
 
+      // Create design, production, and scaling records for the new product
+      try {
+        const { productDesignService } = await import('@/integrations/supabase/product-design-service')
+        const { productProductionService } = await import('@/integrations/supabase/product-production-service')
+        const { productScalingService } = await import('@/integrations/supabase/product-scaling-service')
+
+        // Create initial design record
+        await productDesignService.getOrCreateProductDesign(product.id)
+        console.log('✅ Created product_design record for new product:', product.id)
+
+        // Create initial production record
+        await productProductionService.getOrCreateProductProduction(product.id)
+        console.log('✅ Created product_production record for new product:', product.id)
+
+        // Create initial scaling record
+        await productScalingService.getOrCreateProductScaling(product.id)
+        console.log('✅ Created product_scaling record for new product:', product.id)
+
+      } catch (error) {
+        console.warn('Warning: Could not create related records for new product:', error)
+        // Don't fail product creation if related records fail
+      }
+
       // Return the created product by fetching it with all relations
       const products = await this.listProducts()
       const createdProduct = products.find(p => p.id === product.id)

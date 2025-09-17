@@ -159,8 +159,29 @@ export default function ProductDetails() {
   const [packingFiles, setPackingFiles] = useState<File[]>([])
   const [packingInstructions, setPackingInstructions] = useState('')
 
-  // Visual Identity and Design Feedback state
+  // Design Brief state - connecting to product_design table
+  const [productVision, setProductVision] = useState('')
+  const [targetAudience, setTargetAudience] = useState('')
+  const [designStyle, setDesignStyle] = useState('')
+
+  // Visual Identity state - connecting to product_design table
+  const [primaryColors, setPrimaryColors] = useState('')
+  const [secondaryColors, setSecondaryColors] = useState('')
   const [materialPreferences, setMaterialPreferences] = useState('')
+
+  // Design Assets state - connecting to product_design table
+  const [moodBoardUrl, setMoodBoardUrl] = useState('')
+  const [designFilesUrl, setDesignFilesUrl] = useState('')
+  const [technicalDrawings, setTechnicalDrawings] = useState('')
+  const [cadFiles, setCadFiles] = useState('')
+
+  // Design Progress state - connecting to product_design table
+  const [designStatus, setDesignStatus] = useState('')
+  const [currentPhase, setCurrentPhase] = useState('')
+  const [completionPercentage, setCompletionPercentage] = useState(0)
+  const [nextMilestone, setNextMilestone] = useState('')
+
+  // Design Feedback state - connecting to product_design table
   const [designFeedback, setDesignFeedback] = useState('')
 
   // Production Materials & Specifications state
@@ -287,8 +308,29 @@ export default function ProductDetails() {
       const design = await productDesignService.getOrCreateProductDesign(productId)
       if (design) {
         setDesignData(design)
-        // Update state with design data
+        // Update state with design data - Design Brief
+        setProductVision(design.product_vision || '')
+        setTargetAudience(design.target_audience || '')
+        setDesignStyle(design.design_style || '')
+
+        // Visual Identity
+        setPrimaryColors(design.primary_colors || '')
+        setSecondaryColors(design.secondary_colors || '')
         setMaterialPreferences(design.material_preferences || '')
+
+        // Design Assets
+        setMoodBoardUrl(design.mood_board_url || '')
+        setDesignFilesUrl(design.design_files_url || '')
+        setTechnicalDrawings(design.technical_drawings || '')
+        setCadFiles(design.cad_files || '')
+
+        // Design Progress
+        setDesignStatus(design.design_status || '')
+        setCurrentPhase(design.current_phase || '')
+        setCompletionPercentage(design.completion_percentage || 0)
+        setNextMilestone(design.next_milestone || '')
+
+        // Design Feedback & Other
         setDesignFeedback(design.design_feedback || '')
         setPackagingConcept(design.packaging_concept || '')
         setPackagingApprovalStatus(design.packaging_approval_status || 'pending')
@@ -352,9 +394,28 @@ export default function ProductDetails() {
 
     try {
       // Save design data
-      if (designData) {
+      const designRecord = await productDesignService.getOrCreateProductDesign(product.id)
+      if (designRecord) {
         await productDesignService.updateProductDesignByProductId(product.id, {
+          // Design Brief fields
+          product_vision: productVision,
+          target_audience: targetAudience,
+          design_style: designStyle,
+          // Visual Identity fields
+          primary_colors: primaryColors,
+          secondary_colors: secondaryColors,
           material_preferences: materialPreferences,
+          // Design Assets fields
+          mood_board_url: moodBoardUrl,
+          design_files_url: designFilesUrl,
+          technical_drawings: technicalDrawings,
+          cad_files: cadFiles,
+          // Design Progress fields
+          design_status: designStatus,
+          current_phase: currentPhase,
+          completion_percentage: completionPercentage,
+          next_milestone: nextMilestone,
+          // Design Feedback & Other fields
           design_feedback: designFeedback,
           packaging_concept: packagingConcept,
           packaging_approval_status: packagingApprovalStatus,
@@ -480,7 +541,25 @@ export default function ProductDetails() {
           const designRecord = await productDesignService.getOrCreateProductDesign(product.id)
           if (designRecord) {
             await productDesignService.updateProductDesignByProductId(product.id, {
+              // Design Brief fields
+              product_vision: productVision,
+              target_audience: targetAudience,
+              design_style: designStyle,
+              // Visual Identity fields
+              primary_colors: primaryColors,
+              secondary_colors: secondaryColors,
               material_preferences: materialPreferences,
+              // Design Assets fields
+              mood_board_url: moodBoardUrl,
+              design_files_url: designFilesUrl,
+              technical_drawings: technicalDrawings,
+              cad_files: cadFiles,
+              // Design Progress fields
+              design_status: designStatus,
+              current_phase: currentPhase,
+              completion_percentage: completionPercentage,
+              next_milestone: nextMilestone,
+              // Design Feedback & Other fields
               design_feedback: designFeedback,
               packaging_concept: packagingConcept,
               packaging_approval_status: packagingApprovalStatus,
@@ -501,7 +580,19 @@ export default function ProductDetails() {
 
       return () => clearTimeout(timer)
     }
-  }, [materialPreferences, designFeedback, packagingConcept, packagingApprovalStatus, packagingApprovalDate, designIdeas, product?.id])
+  }, [
+    // Design Brief fields
+    productVision, targetAudience, designStyle,
+    // Visual Identity fields
+    primaryColors, secondaryColors, materialPreferences,
+    // Design Assets fields
+    moodBoardUrl, designFilesUrl, technicalDrawings, cadFiles,
+    // Design Progress fields
+    designStatus, currentPhase, completionPercentage, nextMilestone,
+    // Design Feedback & Other fields
+    designFeedback, packagingConcept, packagingApprovalStatus, packagingApprovalDate, designIdeas,
+    product?.id
+  ])
 
   // Auto-save production data when it changes
   useEffect(() => {
@@ -1290,8 +1381,8 @@ export default function ProductDetails() {
                         <div>
                           <Label className="text-xs font-medium text-muted-foreground mb-2 block">Product Vision</Label>
                           <RichTextEditor
-                            value=""
-                            onChange={(value) => {}}
+                            value={productVision}
+                            onChange={setProductVision}
                             placeholder="Describe the overall design vision and aesthetic goals..."
                             className="min-h-[100px]"
                           />
@@ -1300,13 +1391,15 @@ export default function ProductDetails() {
                           <div>
                             <Label className="text-xs font-medium text-muted-foreground mb-2 block">Target Audience</Label>
                             <Input
+                              value={targetAudience}
+                              onChange={(e) => setTargetAudience(e.target.value)}
                               placeholder="e.g., Young professionals, families..."
                               className="rounded-none"
                             />
                           </div>
                           <div>
                             <Label className="text-xs font-medium text-muted-foreground mb-2 block">Design Style</Label>
-                            <Select>
+                            <Select value={designStyle} onValueChange={setDesignStyle}>
                               <SelectTrigger className="rounded-none">
                                 <SelectValue placeholder="Select design style" />
                               </SelectTrigger>
@@ -1355,6 +1448,8 @@ export default function ProductDetails() {
                           <div>
                             <Label className="text-xs font-medium text-muted-foreground mb-2 block">Primary Colors</Label>
                             <Input
+                              value={primaryColors}
+                              onChange={(e) => setPrimaryColors(e.target.value)}
                               placeholder="e.g., Navy Blue, White, Gold..."
                               className="rounded-none"
                             />
@@ -1362,6 +1457,8 @@ export default function ProductDetails() {
                           <div>
                             <Label className="text-xs font-medium text-muted-foreground mb-2 block">Secondary Colors</Label>
                             <Input
+                              value={secondaryColors}
+                              onChange={(e) => setSecondaryColors(e.target.value)}
                               placeholder="e.g., Light Gray, Accent Blue..."
                               className="rounded-none"
                             />
@@ -1411,6 +1508,8 @@ export default function ProductDetails() {
                           <div>
                             <Label className="text-xs font-medium text-muted-foreground mb-2 block">Mood Board</Label>
                             <Input
+                              value={moodBoardUrl}
+                              onChange={(e) => setMoodBoardUrl(e.target.value)}
                               placeholder="https://... (Pinterest, Figma, etc.)"
                               className="rounded-none"
                             />
@@ -1418,6 +1517,8 @@ export default function ProductDetails() {
                           <div>
                             <Label className="text-xs font-medium text-muted-foreground mb-2 block">Design Files</Label>
                             <Input
+                              value={designFilesUrl}
+                              onChange={(e) => setDesignFilesUrl(e.target.value)}
                               placeholder="https://... (Figma, Sketch, etc.)"
                               className="rounded-none"
                             />
@@ -1425,8 +1526,10 @@ export default function ProductDetails() {
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                           <div>
-                            <Label className="text-xs font-medium text-muted-foreground mb-2 block">3D Models</Label>
+                            <Label className="text-xs font-medium text-muted-foreground mb-2 block">CAD Files</Label>
                             <Input
+                              value={cadFiles}
+                              onChange={(e) => setCadFiles(e.target.value)}
                               placeholder="https://... (3D files, renderings)"
                               className="rounded-none"
                             />
@@ -1434,6 +1537,8 @@ export default function ProductDetails() {
                           <div>
                             <Label className="text-xs font-medium text-muted-foreground mb-2 block">Technical Drawings</Label>
                             <Input
+                              value={technicalDrawings}
+                              onChange={(e) => setTechnicalDrawings(e.target.value)}
                               placeholder="https://... (CAD files, blueprints)"
                               className="rounded-none"
                             />
@@ -1469,10 +1574,10 @@ export default function ProductDetails() {
                     {/* Collapsible Content */}
                     {showDesignProgress && (
                       <div className="space-y-4 p-4 bg-muted/5">
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-3 gap-4">
                           <div>
                             <Label className="text-xs font-medium text-muted-foreground mb-2 block">Design Status</Label>
-                            <Select>
+                            <Select value={designStatus} onValueChange={setDesignStatus}>
                               <SelectTrigger className="rounded-none">
                                 <SelectValue placeholder="Select status" />
                               </SelectTrigger>
@@ -1487,36 +1592,35 @@ export default function ProductDetails() {
                             </Select>
                           </div>
                           <div>
-                            <Label className="text-xs font-medium text-muted-foreground mb-2 block">Designer</Label>
-                            <Select>
-                              <SelectTrigger className="rounded-none">
-                                <SelectValue placeholder="Assign designer" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {availableUsers && availableUsers.map((user) => (
-                                  <SelectItem key={user.id} value={user.id}>
-                                    {user.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                            <Label className="text-xs font-medium text-muted-foreground mb-2 block">Current Phase</Label>
+                            <Input
+                              value={currentPhase}
+                              onChange={(e) => setCurrentPhase(e.target.value)}
+                              placeholder="e.g., Wireframing, Mockups"
+                              className="rounded-none"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs font-medium text-muted-foreground mb-2 block">Completion %</Label>
+                            <Input
+                              type="number"
+                              value={completionPercentage}
+                              onChange={(e) => setCompletionPercentage(Number(e.target.value))}
+                              placeholder="0-100"
+                              min="0"
+                              max="100"
+                              className="rounded-none"
+                            />
                           </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <Label className="text-xs font-medium text-muted-foreground mb-2 block">Design Start Date</Label>
-                            <Input
-                              type="date"
-                              className="rounded-none"
-                            />
-                          </div>
-                          <div>
-                            <Label className="text-xs font-medium text-muted-foreground mb-2 block">Target Completion</Label>
-                            <Input
-                              type="date"
-                              className="rounded-none"
-                            />
-                          </div>
+                        <div>
+                          <Label className="text-xs font-medium text-muted-foreground mb-2 block">Next Milestone</Label>
+                          <Input
+                            value={nextMilestone}
+                            onChange={(e) => setNextMilestone(e.target.value)}
+                            placeholder="e.g., Complete prototype, Final review"
+                            className="rounded-none"
+                          />
                         </div>
                       </div>
                     )}
