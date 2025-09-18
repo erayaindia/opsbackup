@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
-import { X, ImagePlus, VideoIcon, ChevronDown } from 'lucide-react'
+import { X, ImagePlus, VideoIcon } from 'lucide-react'
 
 interface FormContentProps {
   newIdeaForm: any
@@ -42,13 +42,6 @@ interface FormContentProps {
   onChangeProductImage?: (e: React.ChangeEvent<HTMLInputElement>) => void
   onRemoveCurrentImage?: () => void
   onRemoveUploadedImage?: () => void
-  // Toggle states for collapsible sections
-  showBasics?: boolean
-  setShowBasics?: (show: boolean) => void
-  showMarketResearch?: boolean
-  setShowMarketResearch?: (show: boolean) => void
-  showReferencesMedia?: boolean
-  setShowReferencesMedia?: (show: boolean) => void
 }
 
 export const FormContent: React.FC<FormContentProps> = ({
@@ -85,14 +78,7 @@ export const FormContent: React.FC<FormContentProps> = ({
   uploadedProductImage,
   onChangeProductImage,
   onRemoveCurrentImage,
-  onRemoveUploadedImage,
-  // Toggle states
-  showBasics = false,
-  setShowBasics,
-  showMarketResearch = false,
-  setShowMarketResearch,
-  showReferencesMedia = false,
-  setShowReferencesMedia
+  onRemoveUploadedImage
 }) => {
   const addTag = (tag: string) => {
     if (tag.trim() && !tags.includes(tag.trim())) {
@@ -136,525 +122,477 @@ export const FormContent: React.FC<FormContentProps> = ({
     <div className="space-y-6">
       {/* Section 1: Two-Column Grid - Basics & Market Research */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Left Column - Basics - Collapsible */}
+        {/* Left Column - Basics */}
         <div className="space-y-4">
-          <div
-            className="flex items-center justify-between cursor-pointer p-3 bg-muted/10 rounded-none border hover:bg-muted/20 transition-colors"
-            onClick={() => setShowBasics?.(!showBasics)}
-          >
-            <div className="flex items-center gap-2">
+          <div className="p-3 bg-muted/10 rounded-none border">
+            <div className="flex items-center gap-2 mb-4">
               <div className="w-1 h-4 bg-primary rounded-full"></div>
               <div>
                 <h3 className="text-base font-semibold text-foreground">Basics</h3>
                 <p className="text-sm text-muted-foreground">Core product information</p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">
-                {showBasics ? 'Hide details' : 'Name, category, priority'}
-              </span>
-              <ChevronDown
-                className={`h-4 w-4 text-muted-foreground transition-transform ${
-                  showBasics ? 'rotate-180' : ''
-                }`}
-              />
-            </div>
-          </div>
 
-          {/* Collapsible Content */}
-          {showBasics && (
-            <div className="space-y-4 p-4 border rounded-none bg-muted/5">
-            {/* Product Name */}
-            <div>
-              <Label htmlFor="title" className="text-sm font-semibold text-foreground">Product Name *</Label>
-              <Input
-                id="title"
-                value={newIdeaForm.title}
-                onChange={(e) => setNewIdeaForm(prev => ({ ...prev, title: e.target.value }))}
-                placeholder="e.g., Eraya Smart Home Diffuser"
-                className="mt-2 text-base font-medium h-11 rounded-none"
-              />
-            </div>
-
-            {/* Category */}
-            <div>
-              <Label className="text-sm font-medium text-foreground">Category</Label>
-              <Select
-                value={selectedCategories[0] || ''}
-                onValueChange={(value) => setSelectedCategories([value])}
-                disabled={categoriesLoading}
-              >
-                <SelectTrigger className="mt-2 h-10 rounded-none">
-                  <SelectValue placeholder={categoriesLoading ? "Loading categories..." : "Select category..."} />
-                </SelectTrigger>
-                <SelectContent>
-                  {categoriesLoading ? (
-                    <SelectItem value="loading" disabled>Loading categories...</SelectItem>
-                  ) : availableCategories.length === 0 ? (
-                    <SelectItem value="no-categories" disabled>No categories available</SelectItem>
-                  ) : (
-                    availableCategories.map((category) => (
-                      <SelectItem key={category} value={category}>
-                        {category}
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
-              {!categoriesLoading && availableCategories.length === 0 && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  No categories found. <a href="/categories" target="_blank" className="text-primary hover:underline">Manage categories</a>
-                </p>
-              )}
-            </div>
-
-            {/* Priority */}
-            <div>
-              <Label className="text-sm font-medium text-foreground">Priority *</Label>
-              <Select
-                value={newIdeaForm.priority || 'medium'}
-                onValueChange={(value) => setNewIdeaForm(prev => ({ ...prev, priority: value }))}
-              >
-                <SelectTrigger className="mt-2 h-10 rounded-none">
-                  <SelectValue placeholder="Select priority..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="high">High Priority</SelectItem>
-                  <SelectItem value="medium">Medium Priority</SelectItem>
-                  <SelectItem value="low">Low Priority</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Stage */}
-            <div>
-              <Label className="text-sm font-medium text-foreground">Stage *</Label>
-              <Select
-                value={newIdeaForm.stage || 'idea'}
-                onValueChange={(value) => setNewIdeaForm(prev => ({ ...prev, stage: value }))}
-              >
-                <SelectTrigger className="mt-2 h-10 rounded-none">
-                  <SelectValue placeholder="Select stage..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="idea">Idea</SelectItem>
-                  <SelectItem value="production">Production</SelectItem>
-                  <SelectItem value="content">Content</SelectItem>
-                  <SelectItem value="scaling">Scaling</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Tags */}
-            <div>
-              <Label className="text-sm font-medium text-foreground">Tags</Label>
-              <div className="mt-2">
+            <div className="space-y-4">
+              {/* Product Name */}
+              <div>
+                <Label htmlFor="title" className="text-sm font-semibold text-foreground">Product Name *</Label>
                 <Input
-                  placeholder="Type and press Enter to add tags..."
-                  value={tagInput}
-                  onChange={(e) => setTagInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault()
-                      addTag(tagInput)
-                    }
-                  }}
-                  className="h-10 rounded-none"
+                  id="title"
+                  value={newIdeaForm.title}
+                  onChange={(e) => setNewIdeaForm(prev => ({ ...prev, title: e.target.value }))}
+                  placeholder="e.g., Eraya Smart Home Diffuser"
+                  className="mt-2 text-base font-medium h-11 rounded-none"
                 />
-                {tags.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mt-2">
-                    {tags.map((tag, index) => (
-                      <Badge key={index} variant="secondary" className="text-xs">
-                        {tag}
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="ml-1 h-auto p-0 text-muted-foreground hover:text-foreground"
-                          onClick={() => removeTag(index)}
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
-                      </Badge>
-                    ))}
-                  </div>
+              </div>
+
+              {/* Category */}
+              <div>
+                <Label className="text-sm font-medium text-foreground">Category</Label>
+                <Select
+                  value={selectedCategories[0] || ''}
+                  onValueChange={(value) => setSelectedCategories([value])}
+                  disabled={categoriesLoading}
+                >
+                  <SelectTrigger className="mt-2 h-10 rounded-none">
+                    <SelectValue placeholder={categoriesLoading ? "Loading categories..." : "Select category..."} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categoriesLoading ? (
+                      <SelectItem value="loading" disabled>Loading categories...</SelectItem>
+                    ) : availableCategories.length === 0 ? (
+                      <SelectItem value="no-categories" disabled>No categories available</SelectItem>
+                    ) : (
+                      availableCategories.map((category) => (
+                        <SelectItem key={category} value={category}>
+                          {category}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+                {!categoriesLoading && availableCategories.length === 0 && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    No categories found. <a href="/categories" target="_blank" className="text-primary hover:underline">Manage categories</a>
+                  </p>
                 )}
               </div>
+
+              {/* Priority */}
+              <div>
+                <Label className="text-sm font-medium text-foreground">Priority *</Label>
+                <Select
+                  value={newIdeaForm.priority || 'medium'}
+                  onValueChange={(value) => setNewIdeaForm(prev => ({ ...prev, priority: value }))}
+                >
+                  <SelectTrigger className="mt-2 h-10 rounded-none">
+                    <SelectValue placeholder="Select priority..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="high">High Priority</SelectItem>
+                    <SelectItem value="medium">Medium Priority</SelectItem>
+                    <SelectItem value="low">Low Priority</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Stage */}
+              <div>
+                <Label className="text-sm font-medium text-foreground">Stage *</Label>
+                <Select
+                  value={newIdeaForm.stage || 'idea'}
+                  onValueChange={(value) => setNewIdeaForm(prev => ({ ...prev, stage: value }))}
+                >
+                  <SelectTrigger className="mt-2 h-10 rounded-none">
+                    <SelectValue placeholder="Select stage..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="idea">Idea</SelectItem>
+                    <SelectItem value="production">Production</SelectItem>
+                    <SelectItem value="content">Content</SelectItem>
+                    <SelectItem value="scaling">Scaling</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Tags */}
+              <div>
+                <Label className="text-sm font-medium text-foreground">Tags</Label>
+                <div className="mt-2">
+                  <Input
+                    placeholder="Type and press Enter to add tags..."
+                    value={tagInput}
+                    onChange={(e) => setTagInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        addTag(tagInput)
+                      }
+                    }}
+                    className="h-10 rounded-none"
+                  />
+                  {tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {tags.map((tag, index) => (
+                        <Badge key={index} variant="secondary" className="text-xs">
+                          {tag}
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="ml-1 h-auto p-0 text-muted-foreground hover:text-foreground"
+                            onClick={() => removeTag(index)}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
-            </div>
-          )}
+          </div>
         </div>
 
-        {/* Right Column - Market Research - Collapsible */}
+        {/* Right Column - Market Research */}
         <div className="space-y-4">
-          <div
-            className="flex items-center justify-between cursor-pointer p-3 bg-muted/10 rounded-none border hover:bg-muted/20 transition-colors"
-            onClick={() => setShowMarketResearch?.(!showMarketResearch)}
-          >
-            <div className="flex items-center gap-2">
+          <div className="p-3 bg-muted/10 rounded-none border">
+            <div className="flex items-center gap-2 mb-4">
               <div className="w-1 h-4 bg-blue-500 rounded-full"></div>
               <div>
                 <h3 className="text-base font-semibold text-foreground">Market Research</h3>
                 <p className="text-sm text-muted-foreground">Analysis and insights</p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">
-                {showMarketResearch ? 'Hide details' : 'Problem, opportunity, notes'}
-              </span>
-              <ChevronDown
-                className={`h-4 w-4 text-muted-foreground transition-transform ${
-                  showMarketResearch ? 'rotate-180' : ''
-                }`}
-              />
+
+            <div className="space-y-4">
+              {/* Problem Statement */}
+              <div>
+                <Label className="text-sm font-medium text-foreground">Problem Statement</Label>
+                <Textarea
+                  value={newIdeaForm.problemStatement}
+                  onChange={(e) => {
+                    setNewIdeaForm(prev => ({ ...prev, problemStatement: e.target.value }))
+                    autoResizeTextarea(e)
+                  }}
+                  placeholder="What customer problem does this product solve?"
+                  className="mt-2 min-h-[72px] resize-none rounded-none"
+                />
+              </div>
+
+              {/* Opportunity Statement */}
+              <div>
+                <Label className="text-sm font-medium text-foreground">Market Opportunity</Label>
+                <Textarea
+                  value={newIdeaForm.opportunityStatement}
+                  onChange={(e) => {
+                    setNewIdeaForm(prev => ({ ...prev, opportunityStatement: e.target.value }))
+                    autoResizeTextarea(e)
+                  }}
+                  placeholder="Describe the market opportunity and potential..."
+                  className="mt-2 min-h-[72px] resize-none rounded-none"
+                />
+              </div>
+
+              {/* Additional Notes */}
+              <div>
+                <Label className="text-sm font-medium text-foreground">Additional Notes</Label>
+                <Textarea
+                  value={newIdeaForm.notes}
+                  onChange={(e) => {
+                    setNewIdeaForm(prev => ({ ...prev, notes: e.target.value }))
+                    autoResizeTextarea(e)
+                  }}
+                  placeholder="Key features, target audience, concept notes..."
+                  className="mt-2 min-h-[100px] resize-none rounded-none"
+                />
+              </div>
             </div>
           </div>
-
-          {/* Collapsible Content */}
-          {showMarketResearch && (
-            <div className="space-y-4 p-4 border rounded-none bg-muted/5">
-            {/* Problem Statement */}
-            <div>
-              <Label className="text-sm font-medium text-foreground">Problem Statement</Label>
-              <Textarea
-                value={newIdeaForm.problemStatement}
-                onChange={(e) => {
-                  setNewIdeaForm(prev => ({ ...prev, problemStatement: e.target.value }))
-                  autoResizeTextarea(e)
-                }}
-                placeholder="What customer problem does this product solve?"
-                className="mt-2 min-h-[72px] resize-none rounded-none"
-              />
-            </div>
-
-            {/* Opportunity Statement */}
-            <div>
-              <Label className="text-sm font-medium text-foreground">Market Opportunity</Label>
-              <Textarea
-                value={newIdeaForm.opportunityStatement}
-                onChange={(e) => {
-                  setNewIdeaForm(prev => ({ ...prev, opportunityStatement: e.target.value }))
-                  autoResizeTextarea(e)
-                }}
-                placeholder="Describe the market opportunity and potential..."
-                className="mt-2 min-h-[72px] resize-none rounded-none"
-              />
-            </div>
-
-            {/* Additional Notes */}
-            <div>
-              <Label className="text-sm font-medium text-foreground">Additional Notes</Label>
-              <Textarea
-                value={newIdeaForm.notes}
-                onChange={(e) => {
-                  setNewIdeaForm(prev => ({ ...prev, notes: e.target.value }))
-                  autoResizeTextarea(e)
-                }}
-                placeholder="Key features, target audience, concept notes..."
-                className="mt-2 min-h-[100px] resize-none rounded-none"
-              />
-            </div>
-            </div>
-          )}
         </div>
       </div>
 
-      {/* References & Media Section - Full Width - Collapsible */}
+      {/* References & Media Section - Full Width */}
       <div className="mt-8 pt-8 border-t border-border/30">
-        <div
-          className="flex items-center justify-between cursor-pointer p-3 bg-muted/10 rounded-none border hover:bg-muted/20 transition-colors"
-          onClick={() => setShowReferencesMedia?.(!showReferencesMedia)}
-        >
-          <div className="flex items-center gap-2">
+        <div className="p-3 bg-muted/10 rounded-none border">
+          <div className="flex items-center gap-2 mb-4">
             <div className="w-1 h-4 bg-amber-500 rounded-full"></div>
             <div>
               <h4 className="text-base font-semibold text-foreground">References & Media</h4>
               <p className="text-sm text-muted-foreground">Supporting materials and inspiration</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">
-              {showReferencesMedia ? 'Hide details' : 'Links, photos, media'}
-            </span>
-            <ChevronDown
-              className={`h-4 w-4 text-muted-foreground transition-transform ${
-                showReferencesMedia ? 'rotate-180' : ''
-              }`}
-            />
-          </div>
-        </div>
 
-        {/* Collapsible Content */}
-        {showReferencesMedia && (
-          <div className="space-y-4 mt-6 p-4 border rounded-none bg-muted/5">
-          {/* Reference Links */}
-          <div>
-            <div className="flex items-center justify-between">
-              <Label className="text-sm font-medium text-foreground">Reference Links</Label>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={addReferenceLink}
-                className="h-7 text-xs"
-              >
-                Add Link
-              </Button>
-            </div>
-
-            {/* Add Link Input */}
-            {showLinkInput && (
-              <div className="space-y-3 mt-3 p-3 border border-border/50 rounded-none bg-muted/20">
-                <div>
-                  <Label className="text-xs font-medium text-foreground">Link Type</Label>
-                  <Select value={newLinkType} onValueChange={(value: 'competitor' | 'ad') => setNewLinkType(value)}>
-                    <SelectTrigger className="mt-1 h-8 rounded-none">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="competitor">Competitor</SelectItem>
-                      <SelectItem value="ad">Advertisement</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label className="text-xs font-medium text-foreground">URL</Label>
-                  <Input
-                    value={newLinkUrl}
-                    onChange={(e) => setNewLinkUrl(e.target.value)}
-                    placeholder="https://example.com"
-                    className="mt-1 h-8 rounded-none"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault()
-                        saveLinkInput()
-                      }
-                      if (e.key === 'Escape') {
-                        e.preventDefault()
-                        cancelLinkInput()
-                      }
-                    }}
-                  />
-                </div>
-
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={saveLinkInput}
-                    className="h-7 text-xs"
-                  >
-                    Add Link
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={cancelLinkInput}
-                    className="h-7 text-xs"
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {referenceLinks.length > 0 && (
-              <div className="space-y-2 mt-3">
-                {referenceLinks.map((link, index) => (
-                  <div key={index} className="flex items-center gap-2 p-2 bg-muted/30 rounded-none">
-                    <Badge variant={link.type === 'competitor' ? 'destructive' : 'default'} className="text-xs">
-                      {link.type}
-                    </Badge>
-                    <a
-                      href={link.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-blue-600 hover:text-blue-800 underline flex-1 truncate cursor-pointer"
-                      title={link.url}
-                    >
-                      {extractDomainFromUrl(link.url)}
-                    </a>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeReferenceLink(index)}
-                      className="h-5 w-5 p-0 text-muted-foreground hover:text-destructive"
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Product Photo - Minimal */}
-          <div>
-            <Label className="text-sm font-medium text-foreground">Product Photo</Label>
-
-            <div className="flex items-center gap-3 mt-2">
-              {/* Image Preview */}
-              {(currentProductImage || uploadedProductImage) && (
-                <div className="relative group">
-                  <img
-                    src={uploadedProductImage ? URL.createObjectURL(uploadedProductImage) : currentProductImage || ''}
-                    alt="Product"
-                    className="w-16 h-16 object-cover rounded border border-border"
-                  />
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="destructive"
-                    className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={uploadedProductImage ? onRemoveUploadedImage : onRemoveCurrentImage}
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
-                </div>
-              )}
-
-              {/* Upload Button */}
-              <div>
-                <input
-                  id="product-image-upload"
-                  type="file"
-                  accept="image/*"
-                  onChange={onChangeProductImage}
-                  className="hidden"
-                />
+          <div className="space-y-4">
+            {/* Reference Links */}
+            <div>
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium text-foreground">Reference Links</Label>
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="h-8 text-xs"
-                  onClick={() => document.getElementById('product-image-upload')?.click()}
+                  onClick={addReferenceLink}
+                  className="h-7 text-xs"
                 >
-                  <ImagePlus className="h-3 w-3 mr-1" />
-                  {(currentProductImage || uploadedProductImage) ? 'Change' : 'Add Photo'}
+                  Add Link
                 </Button>
               </div>
-            </div>
-          </div>
 
-          {/* Media Upload */}
-          <div>
-            <Label className="text-sm font-medium text-foreground">Media Upload</Label>
-
-            <div
-              onDrop={handleDrop}
-              onDragOver={handleDragOver}
-              onDragEnter={handleDragEnter}
-              onDragLeave={handleDragLeave}
-              className={`border-2 border-dashed rounded-none p-4 text-center transition-colors mt-2 ${
-                dragActive
-                  ? 'border-primary bg-primary/5'
-                  : 'border-muted-foreground/25 hover:border-muted-foreground/50'
-              }`}
-            >
-              <div className="flex flex-col items-center gap-2">
-                <div className="flex gap-2">
-                  <ImagePlus className="h-6 w-6 text-muted-foreground" />
-                  <VideoIcon className="h-6 w-6 text-muted-foreground" />
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Drop files here or click to upload
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Images (max 10) or Videos (max 5)
-                </p>
-                <div className="flex gap-2 mt-2">
-                  <label>
-                    <input
-                      type="file"
-                      multiple
-                      accept="image/*"
-                      onChange={handleImageUpload}
-                      className="hidden"
-                    />
-                    <Button type="button" variant="outline" size="sm" className="text-xs" asChild>
-                      <span>Images</span>
-                    </Button>
-                  </label>
-                  <label>
-                    <input
-                      type="file"
-                      multiple
-                      accept="video/*"
-                      onChange={handleVideoUpload}
-                      className="hidden"
-                    />
-                    <Button type="button" variant="outline" size="sm" className="text-xs" asChild>
-                      <span>Videos</span>
-                    </Button>
-                  </label>
-                </div>
-              </div>
-            </div>
-
-            {/* Media Preview */}
-            {(uploadedImages.length > 0 || uploadedVideos.length > 0) && (
-              <div className="mt-3 p-3 bg-muted/30 rounded-none">
-                {uploadedImages.length > 0 && (
-                  <div className="mb-3">
-                    <p className="text-xs font-medium text-muted-foreground mb-2">
-                      Images ({uploadedImages.length}/10)
-                    </p>
-                    <div className="grid grid-cols-6 gap-2">
-                      {uploadedImages.map((file, index) => (
-                        <div key={index} className="relative group">
-                          <img
-                            src={URL.createObjectURL(file)}
-                            alt={`Upload ${index + 1}`}
-                            className="w-full h-12 object-cover rounded-none border"
-                          />
-                          <Button
-                            type="button"
-                            variant="destructive"
-                            size="sm"
-                            className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                            onClick={() => removeImage(index)}
-                          >
-                            <X className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {uploadedVideos.length > 0 && (
+              {/* Add Link Input */}
+              {showLinkInput && (
+                <div className="space-y-3 mt-3 p-3 border border-border/50 rounded-none bg-muted/20">
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground mb-2">
-                      Videos ({uploadedVideos.length}/5)
-                    </p>
-                    <div className="grid grid-cols-4 gap-2">
-                      {uploadedVideos.map((file, index) => (
-                        <div key={index} className="relative group">
-                          <div className="w-full h-12 bg-muted/60 rounded-none border flex items-center justify-center">
-                            <VideoIcon className="h-4 w-4 text-muted-foreground" />
-                          </div>
-                          <Button
-                            type="button"
-                            variant="destructive"
-                            size="sm"
-                            className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                            onClick={() => removeVideo(index)}
-                          >
-                            <X className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      ))}
+                    <Label className="text-xs font-medium text-foreground">Link Type</Label>
+                    <Select value={newLinkType} onValueChange={(value: 'competitor' | 'ad') => setNewLinkType(value)}>
+                      <SelectTrigger className="mt-1 h-8 rounded-none">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="competitor">Competitor</SelectItem>
+                        <SelectItem value="ad">Advertisement</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label className="text-xs font-medium text-foreground">URL</Label>
+                    <Input
+                      value={newLinkUrl}
+                      onChange={(e) => setNewLinkUrl(e.target.value)}
+                      placeholder="https://example.com"
+                      className="mt-1 h-8 rounded-none"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          saveLinkInput()
+                        }
+                        if (e.key === 'Escape') {
+                          e.preventDefault()
+                          cancelLinkInput()
+                        }
+                      }}
+                    />
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={saveLinkInput}
+                      className="h-7 text-xs"
+                    >
+                      Add Link
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={cancelLinkInput}
+                      className="h-7 text-xs"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {referenceLinks.length > 0 && (
+                <div className="space-y-2 mt-3">
+                  {referenceLinks.map((link, index) => (
+                    <div key={index} className="flex items-center gap-2 p-2 bg-muted/30 rounded-none">
+                      <Badge variant={link.type === 'competitor' ? 'destructive' : 'default'} className="text-xs">
+                        {link.type}
+                      </Badge>
+                      <a
+                        href={link.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-blue-600 hover:text-blue-800 underline flex-1 truncate cursor-pointer"
+                        title={link.url}
+                      >
+                        {extractDomainFromUrl(link.url)}
+                      </a>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeReferenceLink(index)}
+                        className="h-5 w-5 p-0 text-muted-foreground hover:text-destructive"
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
                     </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Product Photo - Minimal */}
+            <div>
+              <Label className="text-sm font-medium text-foreground">Product Photo</Label>
+
+              <div className="flex items-center gap-3 mt-2">
+                {/* Image Preview */}
+                {(currentProductImage || uploadedProductImage) && (
+                  <div className="relative group">
+                    <img
+                      src={uploadedProductImage ? URL.createObjectURL(uploadedProductImage) : currentProductImage || ''}
+                      alt="Product"
+                      className="w-16 h-16 object-cover rounded border border-border"
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="destructive"
+                      className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={uploadedProductImage ? onRemoveUploadedImage : onRemoveCurrentImage}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
                   </div>
                 )}
+
+                {/* Upload Button */}
+                <div>
+                  <input
+                    id="product-image-upload"
+                    type="file"
+                    accept="image/*"
+                    onChange={onChangeProductImage}
+                    className="hidden"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs"
+                    onClick={() => document.getElementById('product-image-upload')?.click()}
+                  >
+                    <ImagePlus className="h-3 w-3 mr-1" />
+                    {(currentProductImage || uploadedProductImage) ? 'Change' : 'Add Photo'}
+                  </Button>
+                </div>
               </div>
-            )}
+            </div>
+
+            {/* Media Upload */}
+            <div>
+              <Label className="text-sm font-medium text-foreground">Media Upload</Label>
+
+              <div
+                onDrop={handleDrop}
+                onDragOver={handleDragOver}
+                onDragEnter={handleDragEnter}
+                onDragLeave={handleDragLeave}
+                className={`border-2 border-dashed rounded-none p-4 text-center transition-colors mt-2 ${
+                  dragActive
+                    ? 'border-primary bg-primary/5'
+                    : 'border-muted-foreground/25 hover:border-muted-foreground/50'
+                }`}
+              >
+                <div className="flex flex-col items-center gap-2">
+                  <div className="flex gap-2">
+                    <ImagePlus className="h-6 w-6 text-muted-foreground" />
+                    <VideoIcon className="h-6 w-6 text-muted-foreground" />
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Drop files here or click to upload
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Images (max 10) or Videos (max 5)
+                  </p>
+                  <div className="flex gap-2 mt-2">
+                    <label>
+                      <input
+                        type="file"
+                        multiple
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        className="hidden"
+                      />
+                      <Button type="button" variant="outline" size="sm" className="text-xs" asChild>
+                        <span>Images</span>
+                      </Button>
+                    </label>
+                    <label>
+                      <input
+                        type="file"
+                        multiple
+                        accept="video/*"
+                        onChange={handleVideoUpload}
+                        className="hidden"
+                      />
+                      <Button type="button" variant="outline" size="sm" className="text-xs" asChild>
+                        <span>Videos</span>
+                      </Button>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Media Preview */}
+              {(uploadedImages.length > 0 || uploadedVideos.length > 0) && (
+                <div className="mt-3 p-3 bg-muted/30 rounded-none">
+                  {uploadedImages.length > 0 && (
+                    <div className="mb-3">
+                      <p className="text-xs font-medium text-muted-foreground mb-2">
+                        Images ({uploadedImages.length}/10)
+                      </p>
+                      <div className="grid grid-cols-6 gap-2">
+                        {uploadedImages.map((file, index) => (
+                          <div key={index} className="relative group">
+                            <img
+                              src={URL.createObjectURL(file)}
+                              alt={`Upload ${index + 1}`}
+                              className="w-full h-12 object-cover rounded-none border"
+                            />
+                            <Button
+                              type="button"
+                              variant="destructive"
+                              size="sm"
+                              className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={() => removeImage(index)}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {uploadedVideos.length > 0 && (
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground mb-2">
+                        Videos ({uploadedVideos.length}/5)
+                      </p>
+                      <div className="grid grid-cols-4 gap-2">
+                        {uploadedVideos.map((file, index) => (
+                          <div key={index} className="relative group">
+                            <div className="w-full h-12 bg-muted/60 rounded-none border flex items-center justify-center">
+                              <VideoIcon className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                            <Button
+                              type="button"
+                              variant="destructive"
+                              size="sm"
+                              className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={() => removeVideo(index)}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
-        )}
       </div>
 
       {/* Bottom spacing */}

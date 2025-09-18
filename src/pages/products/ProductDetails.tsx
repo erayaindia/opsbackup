@@ -227,8 +227,79 @@ export default function ProductDetails() {
   const [leadTimeDays, setLeadTimeDays] = useState(0)
   const [minimumOrderQuantity, setMinimumOrderQuantity] = useState(0)
 
-  // Scaling Learning & Insights state
+  // Scaling state - connecting to product_scaling table
+  // Launch Details state
+  const [launchDate, setLaunchDate] = useState('')
+  const [marketingChannels, setMarketingChannels] = useState<string[]>([])
+  const [launchStatus, setLaunchStatus] = useState('')
+  const [launchNotes, setLaunchNotes] = useState('')
+
+  // Budget Allocation state
+  const [totalBudget, setTotalBudget] = useState(0)
+  const [facebookBudget, setFacebookBudget] = useState(0)
+  const [instagramBudget, setInstagramBudget] = useState(0)
+  const [googleBudget, setGoogleBudget] = useState(0)
+  const [youtubeBudget, setYoutubeBudget] = useState(0)
+  const [budgetAllocationNotes, setBudgetAllocationNotes] = useState('')
+  const [otherBudget, setOtherBudget] = useState(0)
+  const [budgetPeriod, setBudgetPeriod] = useState('')
+  const [budgetStartDate, setBudgetStartDate] = useState('')
+  const [budgetEndDate, setBudgetEndDate] = useState('')
+
+  // Performance Targets state
+  const [targetRevenue, setTargetRevenue] = useState(0)
+  const [actualRevenue, setActualRevenue] = useState(0)
+  const [targetRoas, setTargetRoas] = useState(0)
+  const [actualRoas, setActualRoas] = useState(0)
+  const [targetConversions, setTargetConversions] = useState(0)
+  const [actualConversions, setActualConversions] = useState(0)
+  const [targetCpc, setTargetCpc] = useState(0)
+  const [actualCpc, setActualCpc] = useState(0)
+  const [targetCtr, setTargetCtr] = useState(0)
+  const [actualCtr, setActualCtr] = useState(0)
+  const [performanceNotes, setPerformanceNotes] = useState('')
+
+  // Additional Performance Metrics state
+  const [targetCpa, setTargetCpa] = useState(0)
+  const [actualCpa, setActualCpa] = useState(0)
+  const [targetAov, setTargetAov] = useState(0)
+  const [actualAov, setActualAov] = useState(0)
+  const [targetLtv, setTargetLtv] = useState(0)
+  const [actualLtv, setActualLtv] = useState(0)
+
+  // Campaign Data state
+  const [campaignDuration, setCampaignDuration] = useState(0)
+  const [campaignStatus, setCampaignStatus] = useState('')
+  const [actualSpend, setActualSpend] = useState(0)
+  const [impressions, setImpressions] = useState(0)
+  const [clicks, setClicks] = useState(0)
+  const [conversions, setConversions] = useState(0)
+  const [adSpendTotal, setAdSpendTotal] = useState(0)
+  const [impressionsTotal, setImpressionsTotal] = useState(0)
+  const [clicksTotal, setClicksTotal] = useState(0)
+  const [ordersTotal, setOrdersTotal] = useState(0)
+
+  // Learnings & Insights state
   const [learningsInsights, setLearningsInsights] = useState('')
+  const [campaignNotes, setCampaignNotes] = useState('')
+  const [optimizationNotes, setOptimizationNotes] = useState('')
+  const [recommendations, setRecommendations] = useState('')
+
+  // Scaling Strategy state
+  const [scalingStage, setScalingStage] = useState('')
+  const [nextScalingAction, setNextScalingAction] = useState('')
+  const [scalingConstraints, setScalingConstraints] = useState('')
+
+  // Market Analysis state
+  const [marketSizeEstimate, setMarketSizeEstimate] = useState('')
+  const [marketPenetration, setMarketPenetration] = useState('')
+  const [competitiveAdvantage, setCompetitiveAdvantage] = useState('')
+  const [marketFeedback, setMarketFeedback] = useState('')
+
+  // Growth Strategy state
+  const [growthStrategy, setGrowthStrategy] = useState('')
+  const [expansionPlans, setExpansionPlans] = useState('')
+  const [optimizationOpportunities, setOptimizationOpportunities] = useState('')
 
   // Packing Design Section state
   const [packagingConcept, setPackagingConcept] = useState('')
@@ -279,6 +350,10 @@ export default function ProductDetails() {
   const [showSampleManagement, setShowSampleManagement] = useState(false)
   const [showProductionTimeline, setShowProductionTimeline] = useState(false)
   const [showMaterialsSpecs, setShowMaterialsSpecs] = useState(false)
+  const [showManufacturingDetails, setShowManufacturingDetails] = useState(false)
+  const [showCostTracking, setShowCostTracking] = useState(false)
+  const [showQualityControl, setShowQualityControl] = useState(false)
+  const [showLeadTimes, setShowLeadTimes] = useState(false)
 
   // Idea tab toggles state
   const [showBasics, setShowBasics] = useState(false)
@@ -466,9 +541,66 @@ export default function ProductDetails() {
       const scaling = await productScalingService.getOrCreateProductScaling(productId)
       if (scaling) {
         setScalingData(scaling)
-        // Update state with scaling data
+
+        // Update state with scaling data - Launch Details
+        setLaunchDate(scaling.launch_date || '')
+        setMarketingChannels(scaling.launch_channels || [])
+        setLaunchStatus(scaling.launch_status || '')
+        setLaunchNotes(scaling.launch_notes || '')
+
+        // Budget Allocation
+        setFacebookBudget(scaling.facebook_budget || 0)
+        setInstagramBudget(scaling.instagram_budget || 0)
+        setGoogleBudget(scaling.google_budget || 0)
+        setYoutubeBudget(scaling.youtube_budget || 0)
+        setTotalBudget(scaling.total_budget || 0)
+        setBudgetAllocationNotes(scaling.budget_allocation_notes || '')
+
+        // Performance Targets
+        setTargetRevenue(scaling.revenue_target || 0)
+        setTargetRoas(scaling.roas_target || 0)
+        setTargetConversions(scaling.conversions_target || 0)
+        setTargetCpc(scaling.cpc_target || 0)
+        setTargetCtr(scaling.ctr_target || 0)
+        setPerformanceNotes(scaling.performance_notes || '')
+
+        // Campaign Performance
+        setCampaignDuration(scaling.campaign_duration || 0)
+        setCampaignStatus(scaling.campaign_status || '')
+        setActualSpend(scaling.actual_spend || 0)
+        setImpressions(scaling.impressions || 0)
+        setClicks(scaling.clicks || 0)
+        setConversions(scaling.conversions || 0)
+        setActualRoas(scaling.actual_roas || 0)
+        setActualCpc(scaling.actual_cpc || 0)
+        setActualCtr(scaling.actual_ctr || 0)
+
+        // Market Analysis
+        setMarketSizeEstimate(scaling.market_size_estimate || '')
+        setMarketPenetration(scaling.market_penetration || '')
+        setCompetitiveAdvantage(scaling.competitive_advantage || '')
+        setMarketFeedback(scaling.market_feedback || '')
+
+        // Growth Strategy
+        setGrowthStrategy(scaling.growth_strategy || '')
+        setExpansionPlans(scaling.expansion_plans || '')
+        setOptimizationOpportunities(scaling.optimization_opportunities || '')
         setLearningsInsights(scaling.learnings_insights || '')
-        console.log('✅ Scaling data loaded successfully')
+
+        console.log('✅ Scaling data loaded successfully:', {
+          launch_status: scaling.launch_status ? 'has data' : 'empty',
+          launch_channels: scaling.launch_channels ? `${scaling.launch_channels.length} channels` : 'empty',
+          campaign_status: scaling.campaign_status ? 'has data' : 'empty',
+          total_budget: scaling.total_budget || 0,
+          facebook_budget: scaling.facebook_budget || 0,
+          revenue_target: scaling.revenue_target || 0,
+          roas_target: scaling.roas_target || 0,
+          conversions_target: scaling.conversions_target || 0,
+          market_size_estimate: scaling.market_size_estimate ? 'has data' : 'empty',
+          growth_strategy: scaling.growth_strategy ? 'has data' : 'empty',
+          learnings_insights: scaling.learnings_insights ? 'has data' : 'empty'
+        })
+        console.log('🔍 Raw scaling data from database:', scaling)
       } else {
         console.log('❌ Scaling data not loaded')
       }
@@ -832,22 +964,93 @@ export default function ProductDetails() {
     if (product?.id) {
       const timer = setTimeout(async () => {
         try {
+          console.log('💾 Auto-saving scaling data for product:', product.id)
+          console.log('📝 Scaling data being saved:', {
+            launch_date: launchDate,
+            launch_status: launchStatus,
+            launch_channels: marketingChannels,
+            campaign_status: campaignStatus,
+            total_budget: totalBudget,
+            facebook_budget: facebookBudget,
+            instagram_budget: instagramBudget,
+            google_budget: googleBudget,
+            youtube_budget: youtubeBudget,
+            revenue_target: targetRevenue,
+            roas_target: targetRoas,
+            conversions_target: targetConversions,
+            market_size_estimate: marketSizeEstimate,
+            growth_strategy: growthStrategy,
+            learnings_insights: learningsInsights
+          })
           // Always try to get or create the scaling record first, then update
           const scalingRecord = await productScalingService.getOrCreateProductScaling(product.id)
           if (scalingRecord) {
-            await productScalingService.updateProductScalingByProductId(product.id, {
+            const updateData = {
+              // Launch Details fields
+              launch_date: launchDate,
+              launch_channels: marketingChannels,
+              launch_status: launchStatus,
+              launch_notes: launchNotes,
+              // Budget Allocation fields
+              facebook_budget: facebookBudget,
+              instagram_budget: instagramBudget,
+              google_budget: googleBudget,
+              youtube_budget: youtubeBudget,
+              total_budget: totalBudget,
+              budget_allocation_notes: budgetAllocationNotes,
+              // Performance Targets fields
+              revenue_target: targetRevenue,
+              roas_target: targetRoas,
+              conversions_target: targetConversions,
+              cpc_target: targetCpc,
+              ctr_target: targetCtr,
+              performance_notes: performanceNotes,
+              // Campaign Performance fields
+              campaign_duration: campaignDuration,
+              campaign_status: campaignStatus,
+              actual_spend: actualSpend,
+              impressions: impressions,
+              clicks: clicks,
+              conversions: conversions,
+              actual_roas: actualRoas,
+              actual_cpc: actualCpc,
+              actual_ctr: actualCtr,
+              // Market Analysis fields
+              market_size_estimate: marketSizeEstimate,
+              market_penetration: marketPenetration,
+              competitive_advantage: competitiveAdvantage,
+              market_feedback: marketFeedback,
+              // Growth Strategy fields
+              growth_strategy: growthStrategy,
+              expansion_plans: expansionPlans,
+              optimization_opportunities: optimizationOpportunities,
               learnings_insights: learningsInsights
-            })
-            console.log('✅ Auto-saved scaling data')
+            }
+            await productScalingService.updateProductScalingByProductId(product.id, updateData)
+            console.log('✅ Auto-saved scaling data successfully')
           }
         } catch (error) {
-          console.error('Error auto-saving scaling data:', error)
+          console.error('❌ Error auto-saving scaling data:', error)
         }
       }, 1000)
 
       return () => clearTimeout(timer)
     }
-  }, [learningsInsights, product?.id])
+  }, [
+    // Launch Details fields
+    launchDate, marketingChannels, launchStatus, launchNotes,
+    // Budget Allocation fields
+    facebookBudget, instagramBudget, googleBudget, youtubeBudget, totalBudget, budgetAllocationNotes,
+    // Performance Targets fields
+    targetRevenue, targetRoas, targetConversions, targetCpc, targetCtr, performanceNotes,
+    // Campaign Performance fields
+    campaignDuration, campaignStatus, actualSpend, impressions, clicks, conversions, actualRoas, actualCpc, actualCtr,
+    // Market Analysis fields
+    marketSizeEstimate, marketPenetration, competitiveAdvantage, marketFeedback,
+    // Growth Strategy fields
+    growthStrategy, expansionPlans, optimizationOpportunities, learningsInsights,
+    product?.id
+  ])
 
   if (loading) {
     return (
@@ -2754,6 +2957,8 @@ export default function ProductDetails() {
                           <Label className="text-xs font-medium text-muted-foreground mb-2 block">Sample Request Date</Label>
                           <Input
                             type="date"
+                            value={sampleRequestDate}
+                            onChange={(e) => setSampleRequestDate(e.target.value)}
                             className="rounded-none"
                           />
                         </div>
@@ -2761,13 +2966,15 @@ export default function ProductDetails() {
                           <Label className="text-xs font-medium text-muted-foreground mb-2 block">Sample Received Date</Label>
                           <Input
                             type="date"
+                            value={sampleReceivedDate}
+                            onChange={(e) => setSampleReceivedDate(e.target.value)}
                             className="rounded-none"
                           />
                         </div>
                       </div>
                       <div>
                         <Label className="text-xs font-medium text-muted-foreground mb-2 block">Sample Status</Label>
-                        <Select>
+                        <Select value={sampleStatus} onValueChange={setSampleStatus}>
                           <SelectTrigger className="rounded-none">
                             <SelectValue placeholder="Select status" />
                           </SelectTrigger>
@@ -2782,6 +2989,8 @@ export default function ProductDetails() {
                       <div>
                         <Label className="text-xs font-medium text-muted-foreground mb-2 block">Sample Notes</Label>
                         <Textarea
+                          value={sampleNotes}
+                          onChange={(e) => setSampleNotes(e.target.value)}
                           placeholder="Notes about sample quality, feedback..."
                           className="rounded-none min-h-[80px]"
                         />
@@ -2819,6 +3028,8 @@ export default function ProductDetails() {
                           <Label className="text-xs font-medium text-muted-foreground mb-2 block">Production Start</Label>
                           <Input
                             type="date"
+                            value={productionStartDate}
+                            onChange={(e) => setProductionStartDate(e.target.value)}
                             className="rounded-none"
                           />
                         </div>
@@ -2826,6 +3037,8 @@ export default function ProductDetails() {
                           <Label className="text-xs font-medium text-muted-foreground mb-2 block">Expected Completion</Label>
                           <Input
                             type="date"
+                            value={productionCompletionDate}
+                            onChange={(e) => setProductionCompletionDate(e.target.value)}
                             className="rounded-none"
                           />
                         </div>
@@ -2833,6 +3046,8 @@ export default function ProductDetails() {
                       <div>
                         <Label className="text-xs font-medium text-muted-foreground mb-2 block">Production Milestones</Label>
                         <Textarea
+                          value={productionMilestones}
+                          onChange={(e) => setProductionMilestones(e.target.value)}
                           placeholder="Key milestones and deadlines..."
                           className="rounded-none min-h-[100px]"
                         />
@@ -2872,6 +3087,8 @@ export default function ProductDetails() {
                       <div>
                         <Label className="text-xs font-medium text-muted-foreground mb-2 block">Dimensions</Label>
                         <Input
+                          value={dimensions}
+                          onChange={(e) => setDimensions(e.target.value)}
                           placeholder="L x W x H"
                           className="rounded-none"
                         />
@@ -2879,6 +3096,8 @@ export default function ProductDetails() {
                       <div>
                         <Label className="text-xs font-medium text-muted-foreground mb-2 block">Weight</Label>
                         <Input
+                          value={weight}
+                          onChange={(e) => setWeight(e.target.value)}
                           placeholder="kg"
                           className="rounded-none"
                         />
@@ -2894,6 +3113,254 @@ export default function ProductDetails() {
                         minHeight="80px"
                       />
                     </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <Separator className="my-6" />
+
+                  {/* Manufacturing Details - Collapsible */}
+                  <div className="border rounded-none bg-background overflow-hidden">
+                    <div
+                      className={`flex items-center justify-between cursor-pointer p-3 bg-muted/10 hover:bg-muted/20 transition-colors ${
+                        showManufacturingDetails ? 'border-b border-border' : ''
+                      }`}
+                      onClick={() => setShowManufacturingDetails(!showManufacturingDetails)}
+                    >
+                      <Label className="text-sm font-medium text-foreground cursor-pointer">Manufacturing Details</Label>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">
+                          {showManufacturingDetails ? 'Hide details' : 'Methods, standards, compliance'}
+                        </span>
+                        <ChevronDown
+                          className={`h-4 w-4 text-muted-foreground transition-transform ${
+                            showManufacturingDetails ? 'rotate-180' : ''
+                          }`}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Collapsible Content */}
+                    {showManufacturingDetails && (
+                      <div className="space-y-4 p-4 bg-muted/5">
+                        <div>
+                          <Label className="text-xs font-medium text-muted-foreground mb-2 block">Manufacturing Method</Label>
+                          <Input
+                            value={manufacturingMethod}
+                            onChange={(e) => setManufacturingMethod(e.target.value)}
+                            placeholder="e.g., Injection molding, CNC machining..."
+                            className="rounded-none"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs font-medium text-muted-foreground mb-2 block">Quality Standards</Label>
+                          <RichTextEditor
+                            content={qualityStandards}
+                            onChange={setQualityStandards}
+                            placeholder="ISO standards, quality requirements..."
+                            className="rounded-none"
+                            minHeight="80px"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs font-medium text-muted-foreground mb-2 block">Compliance Requirements</Label>
+                          <RichTextEditor
+                            content={complianceRequirements}
+                            onChange={setComplianceRequirements}
+                            placeholder="Safety standards, regulatory compliance..."
+                            className="rounded-none"
+                            minHeight="80px"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <Separator className="my-6" />
+
+                  {/* Cost Tracking & Quality Control - Two Columns */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    {/* Cost Tracking - Collapsible */}
+                    <div className="border rounded-none bg-background overflow-hidden">
+                      <div
+                        className={`flex items-center justify-between cursor-pointer p-3 bg-muted/10 hover:bg-muted/20 transition-colors ${
+                          showCostTracking ? 'border-b border-border' : ''
+                        }`}
+                        onClick={() => setShowCostTracking(!showCostTracking)}
+                      >
+                        <Label className="text-sm font-medium text-foreground cursor-pointer">Cost Tracking</Label>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">
+                            {showCostTracking ? 'Hide details' : 'Unit costs, tooling'}
+                          </span>
+                          <ChevronDown
+                            className={`h-4 w-4 text-muted-foreground transition-transform ${
+                              showCostTracking ? 'rotate-180' : ''
+                            }`}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Collapsible Content */}
+                      {showCostTracking && (
+                        <div className="space-y-4 p-4 bg-muted/5">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <Label className="text-xs font-medium text-muted-foreground mb-2 block">Estimated Unit Cost</Label>
+                              <Input
+                                type="number"
+                                value={estimatedUnitCost}
+                                onChange={(e) => setEstimatedUnitCost(Number(e.target.value))}
+                                placeholder="0.00"
+                                className="rounded-none"
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs font-medium text-muted-foreground mb-2 block">Actual Unit Cost</Label>
+                              <Input
+                                type="number"
+                                value={actualUnitCost}
+                                onChange={(e) => setActualUnitCost(Number(e.target.value))}
+                                placeholder="0.00"
+                                className="rounded-none"
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs font-medium text-muted-foreground mb-2 block">Tooling Cost</Label>
+                              <Input
+                                type="number"
+                                value={toolingCost}
+                                onChange={(e) => setToolingCost(Number(e.target.value))}
+                                placeholder="0.00"
+                                className="rounded-none"
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs font-medium text-muted-foreground mb-2 block">Setup Cost</Label>
+                              <Input
+                                type="number"
+                                value={setupCost}
+                                onChange={(e) => setSetupCost(Number(e.target.value))}
+                                placeholder="0.00"
+                                className="rounded-none"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Quality Control - Collapsible */}
+                    <div className="border rounded-none bg-background overflow-hidden">
+                      <div
+                        className={`flex items-center justify-between cursor-pointer p-3 bg-muted/10 hover:bg-muted/20 transition-colors ${
+                          showQualityControl ? 'border-b border-border' : ''
+                        }`}
+                        onClick={() => setShowQualityControl(!showQualityControl)}
+                      >
+                        <Label className="text-sm font-medium text-foreground cursor-pointer">Quality Control</Label>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">
+                            {showQualityControl ? 'Hide details' : 'QC requirements, status'}
+                          </span>
+                          <ChevronDown
+                            className={`h-4 w-4 text-muted-foreground transition-transform ${
+                              showQualityControl ? 'rotate-180' : ''
+                            }`}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Collapsible Content */}
+                      {showQualityControl && (
+                        <div className="space-y-4 p-4 bg-muted/5">
+                          <div>
+                            <Label className="text-xs font-medium text-muted-foreground mb-2 block">QC Requirements</Label>
+                            <RichTextEditor
+                              content={qcRequirements}
+                              onChange={setQcRequirements}
+                              placeholder="Quality control procedures and requirements..."
+                              className="rounded-none"
+                              minHeight="80px"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs font-medium text-muted-foreground mb-2 block">QC Status</Label>
+                            <Select value={qcStatus} onValueChange={setQcStatus}>
+                              <SelectTrigger className="rounded-none">
+                                <SelectValue placeholder="Select QC status" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="pending">Pending</SelectItem>
+                                <SelectItem value="in-progress">In Progress</SelectItem>
+                                <SelectItem value="passed">Passed</SelectItem>
+                                <SelectItem value="failed">Failed</SelectItem>
+                                <SelectItem value="needs-review">Needs Review</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label className="text-xs font-medium text-muted-foreground mb-2 block">QC Notes</Label>
+                            <Textarea
+                              value={qcNotes}
+                              onChange={(e) => setQcNotes(e.target.value)}
+                              placeholder="Quality control notes and observations..."
+                              className="rounded-none min-h-[80px]"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <Separator className="my-6" />
+
+                  {/* Lead Times - Collapsible */}
+                  <div className="border rounded-none bg-background overflow-hidden">
+                    <div
+                      className={`flex items-center justify-between cursor-pointer p-3 bg-muted/10 hover:bg-muted/20 transition-colors ${
+                        showLeadTimes ? 'border-b border-border' : ''
+                      }`}
+                      onClick={() => setShowLeadTimes(!showLeadTimes)}
+                    >
+                      <Label className="text-sm font-medium text-foreground cursor-pointer">Lead Times</Label>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">
+                          {showLeadTimes ? 'Hide details' : 'Production time, MOQ'}
+                        </span>
+                        <ChevronDown
+                          className={`h-4 w-4 text-muted-foreground transition-transform ${
+                            showLeadTimes ? 'rotate-180' : ''
+                          }`}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Collapsible Content */}
+                    {showLeadTimes && (
+                      <div className="space-y-4 p-4 bg-muted/5">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label className="text-xs font-medium text-muted-foreground mb-2 block">Lead Time (Days)</Label>
+                            <Input
+                              type="number"
+                              value={leadTimeDays}
+                              onChange={(e) => setLeadTimeDays(Number(e.target.value))}
+                              placeholder="0"
+                              className="rounded-none"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs font-medium text-muted-foreground mb-2 block">Minimum Order Quantity</Label>
+                            <Input
+                              type="number"
+                              value={minimumOrderQuantity}
+                              onChange={(e) => setMinimumOrderQuantity(Number(e.target.value))}
+                              placeholder="0"
+                              className="rounded-none"
+                            />
+                          </div>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -3058,6 +3525,8 @@ export default function ProductDetails() {
                       <Label className="text-xs font-medium text-muted-foreground mb-2 block">Launch Date</Label>
                       <Input
                         type="date"
+                        value={launchDate}
+                        onChange={(e) => setLaunchDate(e.target.value)}
                         className="rounded-none"
                       />
                     </div>
@@ -3065,19 +3534,63 @@ export default function ProductDetails() {
                       <Label className="text-xs font-medium text-muted-foreground mb-2 block">Marketing Channels</Label>
                       <div className="grid grid-cols-2 gap-2">
                         <label className="flex items-center space-x-2">
-                          <input type="checkbox" className="rounded-none" />
+                          <input
+                            type="checkbox"
+                            className="rounded-none"
+                            checked={marketingChannels.includes('Facebook')}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setMarketingChannels([...marketingChannels, 'Facebook'])
+                              } else {
+                                setMarketingChannels(marketingChannels.filter(ch => ch !== 'Facebook'))
+                              }
+                            }}
+                          />
                           <span className="text-sm">Facebook</span>
                         </label>
                         <label className="flex items-center space-x-2">
-                          <input type="checkbox" className="rounded-none" />
+                          <input
+                            type="checkbox"
+                            className="rounded-none"
+                            checked={marketingChannels.includes('Instagram')}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setMarketingChannels([...marketingChannels, 'Instagram'])
+                              } else {
+                                setMarketingChannels(marketingChannels.filter(ch => ch !== 'Instagram'))
+                              }
+                            }}
+                          />
                           <span className="text-sm">Instagram</span>
                         </label>
                         <label className="flex items-center space-x-2">
-                          <input type="checkbox" className="rounded-none" />
+                          <input
+                            type="checkbox"
+                            className="rounded-none"
+                            checked={marketingChannels.includes('Google Ads')}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setMarketingChannels([...marketingChannels, 'Google Ads'])
+                              } else {
+                                setMarketingChannels(marketingChannels.filter(ch => ch !== 'Google Ads'))
+                              }
+                            }}
+                          />
                           <span className="text-sm">Google Ads</span>
                         </label>
                         <label className="flex items-center space-x-2">
-                          <input type="checkbox" className="rounded-none" />
+                          <input
+                            type="checkbox"
+                            className="rounded-none"
+                            checked={marketingChannels.includes('YouTube')}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setMarketingChannels([...marketingChannels, 'YouTube'])
+                              } else {
+                                setMarketingChannels(marketingChannels.filter(ch => ch !== 'YouTube'))
+                              }
+                            }}
+                          />
                           <span className="text-sm">YouTube</span>
                         </label>
                       </div>
@@ -3116,6 +3629,8 @@ export default function ProductDetails() {
                       <Label className="text-xs font-medium text-muted-foreground mb-2 block">Total Budget</Label>
                       <Input
                         type="number"
+                        value={totalBudget}
+                        onChange={(e) => setTotalBudget(Number(e.target.value))}
                         placeholder="0.00"
                         className="rounded-none"
                       />
@@ -3125,6 +3640,8 @@ export default function ProductDetails() {
                         <Label className="text-xs font-medium text-muted-foreground mb-2 block">Facebook Budget</Label>
                         <Input
                           type="number"
+                          value={facebookBudget}
+                          onChange={(e) => setFacebookBudget(Number(e.target.value))}
                           placeholder="0.00"
                           className="rounded-none"
                         />
@@ -3133,6 +3650,8 @@ export default function ProductDetails() {
                         <Label className="text-xs font-medium text-muted-foreground mb-2 block">Instagram Budget</Label>
                         <Input
                           type="number"
+                          value={instagramBudget}
+                          onChange={(e) => setInstagramBudget(Number(e.target.value))}
                           placeholder="0.00"
                           className="rounded-none"
                         />
@@ -3141,6 +3660,8 @@ export default function ProductDetails() {
                         <Label className="text-xs font-medium text-muted-foreground mb-2 block">Google Budget</Label>
                         <Input
                           type="number"
+                          value={googleBudget}
+                          onChange={(e) => setGoogleBudget(Number(e.target.value))}
                           placeholder="0.00"
                           className="rounded-none"
                         />
@@ -3149,6 +3670,8 @@ export default function ProductDetails() {
                         <Label className="text-xs font-medium text-muted-foreground mb-2 block">YouTube Budget</Label>
                         <Input
                           type="number"
+                          value={youtubeBudget}
+                          onChange={(e) => setYoutubeBudget(Number(e.target.value))}
                           placeholder="0.00"
                           className="rounded-none"
                         />
@@ -3189,6 +3712,8 @@ export default function ProductDetails() {
                         <Label className="text-xs font-medium text-muted-foreground mb-2 block">Target Revenue</Label>
                         <Input
                           type="number"
+                          value={targetRevenue}
+                          onChange={(e) => setTargetRevenue(Number(e.target.value))}
                           placeholder="0.00"
                           className="rounded-none"
                         />
@@ -3199,12 +3724,15 @@ export default function ProductDetails() {
                           type="number"
                           placeholder="0.00"
                           className="rounded-none"
+                          readOnly
                         />
                       </div>
                       <div>
                         <Label className="text-xs font-medium text-muted-foreground mb-2 block">Target ROAS</Label>
                         <Input
                           type="number"
+                          value={targetRoas}
+                          onChange={(e) => setTargetRoas(Number(e.target.value))}
                           placeholder="0.00"
                           className="rounded-none"
                         />
@@ -3213,6 +3741,8 @@ export default function ProductDetails() {
                         <Label className="text-xs font-medium text-muted-foreground mb-2 block">Actual ROAS</Label>
                         <Input
                           type="number"
+                          value={actualRoas}
+                          onChange={(e) => setActualRoas(Number(e.target.value))}
                           placeholder="0.00"
                           className="rounded-none"
                         />
@@ -3221,6 +3751,8 @@ export default function ProductDetails() {
                         <Label className="text-xs font-medium text-muted-foreground mb-2 block">Target Conversions</Label>
                         <Input
                           type="number"
+                          value={targetConversions}
+                          onChange={(e) => setTargetConversions(Number(e.target.value))}
                           placeholder="0"
                           className="rounded-none"
                         />
@@ -3229,12 +3761,14 @@ export default function ProductDetails() {
                         <Label className="text-xs font-medium text-muted-foreground mb-2 block">Actual Conversions</Label>
                         <Input
                           type="number"
+                          value={actualConversions}
+                          onChange={(e) => setActualConversions(Number(e.target.value))}
                           placeholder="0"
                           className="rounded-none"
                         />
                       </div>
                     </div>
-                  </div>
+                    </div>
                     )}
                   </div>
 

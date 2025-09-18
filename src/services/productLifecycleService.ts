@@ -430,7 +430,7 @@ class ProductLifecycleService {
         throw new Error('Invalid creator user ID')
       }
 
-      const assignedTo = payload.assignedTo && this.validateUserId(payload.assignedTo)
+      const assignedTo = payload.assignedTo && payload.assignedTo.trim() !== '' && this.validateUserId(payload.assignedTo)
         ? payload.assignedTo
         : user.id
 
@@ -457,7 +457,7 @@ class ProductLifecycleService {
         estimated_source_price_min: payload.estimatedSourcePriceMin ? parseFloat(payload.estimatedSourcePriceMin) : null,
         estimated_source_price_max: payload.estimatedSourcePriceMax ? parseFloat(payload.estimatedSourcePriceMax) : null,
         estimated_selling_price: payload.estimatedSellingPrice ? parseFloat(payload.estimatedSellingPrice) : null,
-        selected_supplier_id: payload.selectedSupplierId,
+        selected_supplier_id: payload.selectedSupplierId && payload.selectedSupplierId.trim() !== '' ? payload.selectedSupplierId : null,
 
         // Reference links as JSON arrays
         competitor_links: payload.competitorLinks ? JSON.stringify(payload.competitorLinks) : '[]',
