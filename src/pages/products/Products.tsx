@@ -61,6 +61,14 @@ import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Separator } from '@/components/ui/separator'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 
 import {
   productLifecycleService,
@@ -94,10 +102,10 @@ const STORAGE_KEYS = {
 }
 
 const STAGE_CONFIG = {
-  idea: { name: 'Idea', icon: Lightbulb, color: 'text-purple-600', bgColor: 'bg-purple-50 dark:bg-purple-950' },
-  production: { name: 'Production', icon: Factory, color: 'text-orange-600', bgColor: 'bg-orange-50 dark:bg-orange-950' },
-  content: { name: 'Content', icon: Camera, color: 'text-blue-600', bgColor: 'bg-blue-50 dark:bg-blue-950' },
-  scaling: { name: 'Scaling', icon: TrendingUp, color: 'text-green-600', bgColor: 'bg-green-50 dark:bg-green-950' }
+  idea: { name: 'Idea', icon: Lightbulb, color: 'text-purple-600 dark:text-purple-400', bgColor: 'bg-purple-50 dark:bg-purple-950/50' },
+  production: { name: 'Production', icon: Factory, color: 'text-orange-600 dark:text-orange-400', bgColor: 'bg-orange-50 dark:bg-orange-950/50' },
+  content: { name: 'Content', icon: Camera, color: 'text-blue-600 dark:text-blue-400', bgColor: 'bg-blue-50 dark:bg-blue-950/50' },
+  scaling: { name: 'Scaling', icon: TrendingUp, color: 'text-green-600 dark:text-green-400', bgColor: 'bg-green-50 dark:bg-green-950/50' }
 }
 
 // Generate URL-friendly slug from product title
@@ -1023,44 +1031,175 @@ export default function Lifecycle() {
         
         {/* Main Content Based on View */}
         {selectedView === 'table' && (
-          <div className="bg-white rounded-none border">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b">
-                  <tr>
-                    <th className="text-left p-4 font-medium">Title</th>
-                    <th className="text-left p-4 font-medium">Stage</th>
-                    <th className="text-left p-4 font-medium">Category</th>
-                    <th className="text-left p-4 font-medium">Created</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredCards.map((card, index) => {
-                    return (
-                      <tr
-                        key={card.id}
-                        className="border-b hover:bg-gray-50 cursor-pointer"
-                        onClick={() => handleProductClick(card)}
-                      >
-                        <td className="p-4">
-                          <div>
-                            <div className="font-medium">{card.workingTitle || card.name || `Product ${card.internalCode}`}</div>
-                            <div className="text-xs text-gray-500">{card.internalCode}</div>
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="border-r border-border/50 whitespace-nowrap min-w-[300px]">Product</TableHead>
+                  <TableHead className="border-r border-border/50 whitespace-nowrap min-w-[120px]">Stage</TableHead>
+                  <TableHead className="border-r border-border/50 whitespace-nowrap min-w-[100px]">Priority</TableHead>
+                  <TableHead className="border-r border-border/50 whitespace-nowrap min-w-[150px]">Category</TableHead>
+                  <TableHead className="border-r border-border/50 whitespace-nowrap min-w-[120px]">Assigned To</TableHead>
+                  <TableHead className="border-r border-border/50 whitespace-nowrap min-w-[100px]">Created</TableHead>
+                  <TableHead className="whitespace-nowrap min-w-[80px]">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredCards.map((card) => {
+                  const priorityVariant = card.priority === 'high' ? 'destructive' :
+                                      card.priority === 'medium' ? 'default' :
+                                      'secondary' as const;
+                  const stageConfig = STAGE_CONFIG[card.stage];
+                  const StageIcon = stageConfig?.icon || Package;
+
+                  return (
+                    <TableRow
+                      key={card.id}
+                      className="cursor-pointer hover:bg-muted/50 transition-colors group"
+                      onClick={() => handleProductClick(card)}
+                    >
+                      {/* Product Info with Thumbnail */}
+                      <TableCell className="border-r border-border/50">
+                        <div className="flex items-center gap-3">
+                          {/* Product Thumbnail */}
+                          <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden">
+                            {card.thumbnail || card.thumbnailUrl || card.ideaData?.thumbnail ? (
+                              <img
+                                src={card.thumbnail || card.thumbnailUrl || card.ideaData?.thumbnail}
+                                alt={card.workingTitle || card.name}
+                                className="w-full h-full object-cover"
+                                loading="lazy"
+                              />
+                            ) : (
+                              <Package className="h-5 w-5 text-muted-foreground" />
+                            )}
                           </div>
-                        </td>
-                        <td className="p-4">
-                          <Badge variant="secondary">{card.stage}</Badge>
-                        </td>
-                        <td className="p-4">{card.category.join(', ')}</td>
-                        <td className="p-4 text-sm text-gray-500">
-                          {card.createdAt.toLocaleDateString()}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                          {/* Product Details */}
+                          <div className="min-w-0 flex-1">
+                            <div className="font-medium truncate group-hover:text-primary transition-colors">
+                              {card.workingTitle || card.name || `Product ${card.internalCode}`}
+                            </div>
+                            <div className="text-sm text-muted-foreground font-mono">{card.internalCode}</div>
+                            {/* Tags */}
+                            {card.tags && card.tags.length > 0 && (
+                              <div className="flex items-center gap-1 mt-1 overflow-hidden">
+                                {card.tags.slice(0, 2).map((tag, tagIndex) => (
+                                  <Badge key={tagIndex} variant="secondary" className="text-xs">
+                                    {tag}
+                                  </Badge>
+                                ))}
+                                {card.tags.length > 2 && (
+                                  <span className="text-xs text-muted-foreground">+{card.tags.length - 2}</span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </TableCell>
+
+                      {/* Stage */}
+                      <TableCell className="border-r border-border/50">
+                        <div className="flex items-center gap-2">
+                          <div className={`p-1.5 rounded-lg ${stageConfig?.bgColor || 'bg-muted'}`}>
+                            <StageIcon className={`h-4 w-4 ${stageConfig?.color || 'text-muted-foreground'}`} />
+                          </div>
+                          <span className="font-medium">{stageConfig?.name || card.stage}</span>
+                        </div>
+                      </TableCell>
+
+                      {/* Priority */}
+                      <TableCell className="border-r border-border/50">
+                        <Badge variant={priorityVariant}>
+                          {(card.priority || 'medium').charAt(0).toUpperCase() + (card.priority || 'medium').slice(1)}
+                        </Badge>
+                      </TableCell>
+
+                      {/* Category */}
+                      <TableCell className="border-r border-border/50">
+                        <div className="flex flex-wrap gap-1">
+                          {card.category.slice(0, 2).map((cat, catIndex) => (
+                            <Badge key={catIndex} variant="secondary" className="text-xs">
+                              {cat}
+                            </Badge>
+                          ))}
+                          {card.category.length > 2 && (
+                            <span className="text-xs text-muted-foreground">+{card.category.length - 2}</span>
+                          )}
+                        </div>
+                      </TableCell>
+
+                      {/* Assigned To */}
+                      <TableCell className="border-r border-border/50">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-medium text-primary">
+                            {card.teamLead.name.charAt(0)}
+                          </div>
+                          <div>
+                            <div className="font-medium">{card.teamLead.name.split(' ')[0]}</div>
+                            <div className="text-xs text-muted-foreground">{card.teamLead.name.split(' ').slice(1).join(' ')}</div>
+                          </div>
+                        </div>
+                      </TableCell>
+
+                      {/* Created Date */}
+                      <TableCell className="border-r border-border/50">
+                        <div className="text-sm">
+                          {card.createdAt.toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric'
+                          })}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {card.idleDays} days ago
+                        </div>
+                      </TableCell>
+
+                      {/* Actions */}
+                      <TableCell>
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleProductClick(card)
+                            }}
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              // Edit functionality can be added here
+                            }}
+                          >
+                            <Edit3 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+
+            {/* Empty State */}
+            {filteredCards.length === 0 && (
+              <div className="text-center py-12">
+                <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-medium mb-2">No products found</h3>
+                <p className="text-muted-foreground mb-4">Try adjusting your search or filters</p>
+                <Button onClick={() => setShowNewIdeaModal(true)} className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  Add New Product
+                </Button>
+              </div>
+            )}
           </div>
         )}
         {selectedView === 'gallery' && (
