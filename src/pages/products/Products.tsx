@@ -87,7 +87,6 @@ import { useUsers } from '@/hooks/useUsers'
 import { useCategories } from '@/hooks/useCategories'
 import { ActivityPanel, type StageKey, type TimelineEntry, type NowNextBlocked, saveTimelineEntry, updateStage, setNowNextBlocked } from '@/components/products/ActivityPanel'
 import { FormContent } from '@/components/products/FormContent'
-import { ProductDetailsModal } from '@/components/products/ProductDetailsModal'
 import { debugProductsRLS } from '@/utils/debugProductsRLS'
 
 const STORAGE_KEYS = {
@@ -268,8 +267,6 @@ export default function Lifecycle() {
   
   // Modal state
   const [showNewIdeaModal, setShowNewIdeaModal] = useState(false)
-  const [showProductDetailsModal, setShowProductDetailsModal] = useState(false)
-  const [selectedProduct, setSelectedProduct] = useState<LifecycleCard | null>(null)
   const [isCreatingIdea, setIsCreatingIdea] = useState(false)
   const [isUpdating, setIsUpdating] = useState(false)
   const [showSuccessAnimation, setShowSuccessAnimation] = useState(false)
@@ -512,11 +509,11 @@ export default function Lifecycle() {
       .replace(/(^-|-$)/g, '')
   }, [])
 
-  // Memoize product click handler for instant modal opening
+  // Navigate to product page with all tabs
   const handleProductClick = useCallback((card: LifecycleCard) => {
-    setSelectedProduct(card)
-    setShowProductDetailsModal(true)
-  }, [])
+    const slug = generateSlug(card.workingTitle || card.name || `product-${card.internalCode}`)
+    navigate(`/products/${slug}`)
+  }, [navigate, generateSlug])
 
   // Auto-resize textarea function
   const autoResize = (textarea: HTMLTextAreaElement) => {
@@ -660,69 +657,6 @@ export default function Lifecycle() {
     setNowNextBlockedState(prev => ({ ...prev, ...values }))
   }
 
-  // Product modal handlers
-  const handleProductUpdate = useCallback(async (productId: string, updates: Partial<CreateProductPayload>): Promise<LifecycleCard> => {
-    try {
-      const updatedProduct = await productLifecycleService.updateProduct(productId, updates)
-
-      // Update the cards list
-      setCards(prevCards =>
-        prevCards.map(card =>
-          card.id === productId ? updatedProduct : card
-        )
-      )
-
-      toast({
-        title: 'Product updated successfully!',
-        description: 'Changes have been saved.'
-      })
-
-      return updatedProduct
-    } catch (error) {
-      console.error('Failed to update product:', error)
-      toast({
-        title: 'Failed to update product',
-        description: 'Please try again.',
-        variant: 'destructive'
-      })
-      throw error
-    }
-  }, [])
-
-  const handleProductDelete = useCallback(async (productId: string): Promise<void> => {
-    try {
-      await productLifecycleService.deleteProduct(productId)
-
-      // Remove from cards list
-      setCards(prevCards => prevCards.filter(card => card.id !== productId))
-
-      // Close modal
-      setShowProductDetailsModal(false)
-      setSelectedProduct(null)
-
-      toast({
-        title: 'Product deleted successfully!',
-        description: 'The product has been removed.'
-      })
-    } catch (error) {
-      console.error('Failed to delete product:', error)
-      toast({
-        title: 'Failed to delete product',
-        description: 'Please try again.',
-        variant: 'destructive'
-      })
-      throw error
-    }
-  }, [])
-
-  const handleProductUpdated = useCallback((updatedProduct: LifecycleCard) => {
-    setCards(prevCards =>
-      prevCards.map(card =>
-        card.id === updatedProduct.id ? updatedProduct : card
-      )
-    )
-    setSelectedProduct(updatedProduct)
-  }, [])
 
   // Animated "Create Idea" button handler
   const handleCreateIdeaClick = useCallback(() => {
@@ -1400,16 +1334,6 @@ export default function Lifecycle() {
             </div>
           </DialogContent>
         </Dialog>
-
-        {/* Product Details Modal */}
-        <ProductDetailsModal
-          product={selectedProduct}
-          open={showProductDetailsModal}
-          onOpenChange={setShowProductDetailsModal}
-          onUpdate={handleProductUpdated}
-          onUpdateProduct={handleProductUpdate}
-          onDeleteProduct={handleProductDelete}
-        />
       </div>
     </div>
     )
