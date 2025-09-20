@@ -155,7 +155,7 @@ class ProductLifecycleService {
   }
 
   /**
-   * Fetch all products with related data
+   * Fetch all products with related data - optimized for performance
    */
   async listProducts(options?: {
     filters?: FilterOptions
@@ -217,66 +217,87 @@ class ProductLifecycleService {
 
       if (!products) return []
 
-      // Transform data to match UI expectations
-      const transformedProducts: LifecycleProduct[] = []
+      // OPTIMIZATION: Batch fetch all unique user IDs instead of individual calls
+      const userIds = new Set<string>()
+      products.forEach(product => {
+        if (product.assigned_to) userIds.add(product.assigned_to)
+        if (product.created_by) userIds.add(product.created_by)
+      })
 
-      for (const product of products) {
-        // Get user details
-        const teamLead = product.assigned_to ? await this.getUserById(product.assigned_to) : null
-        const owner = product.created_by ? await this.getUserById(product.created_by) : null
+      // Fetch all users in one batch call
+      const usersMap = new Map<string, { id: string; name: string; email: string }>()
+      if (userIds.size > 0) {
+        try {
+          const { data: appUsers } = await supabase
+            .from('app_users')
+            .select('id, full_name, company_email')
+            .in('id', Array.from(userIds))
 
-        // Extract categories and tags from JSONB columns
-        const categories = product.categories
-          ? (typeof product.categories === 'string' ? JSON.parse(product.categories) : product.categories)
-          : []
+          if (appUsers) {
+            appUsers.forEach(appUser => {
+              usersMap.set(appUser.id, {
+                id: appUser.id,
+                name: appUser.full_name || 'Unknown User',
+                email: appUser.company_email || ''
+              })
+            })
+          }
 
-        const tags = product.tags
-          ? (typeof product.tags === 'string' ? JSON.parse(product.tags) : product.tags)
-          : []
-
-        // Get idea data from consolidated columns
-        const ideaData = {
-          notes: product.notes,
-          thumbnail: product.thumbnail_url,
-          problemStatement: product.problem_statement,
-          opportunityStatement: product.opportunity_statement,
-          estimatedSourcePriceMin: product.estimated_source_price_min,
-          estimatedSourcePriceMax: product.estimated_source_price_max,
-          estimatedSellingPrice: product.estimated_selling_price,
-          selectedSupplierId: product.selected_supplier_id,
-          competitorLinks: product.competitor_links
-            ? (typeof product.competitor_links === 'string' ? JSON.parse(product.competitor_links) : product.competitor_links)
-            : [],
-          adLinks: product.ad_links
-            ? (typeof product.ad_links === 'string' ? JSON.parse(product.ad_links) : product.ad_links)
-            : []
+          // Add current user if not found in app_users
+          const currentUser = await supabase.auth.getUser()
+          if (currentUser.data.user && userIds.has(currentUser.data.user.id) && !usersMap.has(currentUser.data.user.id)) {
+            usersMap.set(currentUser.data.user.id, {
+              id: currentUser.data.user.id,
+              name: currentUser.data.user.user_metadata?.full_name || currentUser.data.user.email || 'Current User',
+              email: currentUser.data.user.email || ''
+            })
+          }
+        } catch (error) {
+          console.warn('Error fetching user details:', error)
         }
+      }
 
-        // Activities table was dropped during consolidation
-        // For now, provide empty activities array
-        const activities: Array<{
-          id: string
-          action: string
-          timestamp: Date
-          actorName?: string
-        }> = []
+      // Transform data to match UI expectations - optimized
+      const transformedProducts: LifecycleProduct[] = products.map(product => {
+        // Get user details from cache
+        const teamLead = product.assigned_to && usersMap.has(product.assigned_to)
+          ? usersMap.get(product.assigned_to)!
+          : { id: product.assigned_to || '', name: 'Unassigned', email: '' }
 
-        // Get thumbnail - use direct thumbnail_url or first uploaded image
-        let thumbnailUrl = product.thumbnail_url
-        if (!thumbnailUrl && product.uploaded_images) {
+        const owner = product.created_by && usersMap.has(product.created_by)
+          ? usersMap.get(product.created_by)!
+          : null
+
+        // OPTIMIZATION: Safe JSON parsing with error handling and caching
+        const parseJsonSafely = (value: any, fallback: any[] = []) => {
+          if (!value) return fallback
+          if (Array.isArray(value)) return value
           try {
-            const uploadedImages = typeof product.uploaded_images === 'string'
-              ? JSON.parse(product.uploaded_images)
-              : product.uploaded_images
-            if (Array.isArray(uploadedImages) && uploadedImages.length > 0) {
-              thumbnailUrl = uploadedImages[0]
-            }
-          } catch (parseError) {
-            console.warn('Error parsing uploaded_images:', parseError)
+            return typeof value === 'string' ? JSON.parse(value) : fallback
+          } catch {
+            return fallback
           }
         }
 
-        const lifecycleProduct: LifecycleProduct = {
+        const categories = parseJsonSafely(product.categories)
+        const tags = parseJsonSafely(product.tags)
+        const competitorLinks = parseJsonSafely(product.competitor_links)
+        const adLinks = parseJsonSafely(product.ad_links)
+
+        // Get thumbnail - optimized
+        let thumbnailUrl = product.thumbnail_url
+        if (!thumbnailUrl && product.uploaded_images) {
+          const uploadedImages = parseJsonSafely(product.uploaded_images)
+          if (uploadedImages.length > 0) {
+            thumbnailUrl = uploadedImages[0]
+          }
+        }
+
+        // Pre-calculate dates to avoid repeated Date constructor calls
+        const createdAt = new Date(product.created_at)
+        const updatedAt = new Date(product.updated_at)
+
+        return {
           id: product.id,
           internalCode: product.internal_code || this.generateInternalCode(),
           workingTitle: product.working_title || product.name || 'Untitled Product',
@@ -286,19 +307,28 @@ class ProductLifecycleService {
           tags,
           category: categories.length > 0 ? categories : ['General'],
           owner,
-          teamLead: teamLead || { id: '', name: 'Unassigned', email: '' },
+          teamLead,
           priority: (product.priority as 'low' | 'medium' | 'high') || 'medium',
           stage: (product.stage as 'idea' | 'production' | 'content' | 'scaling' | 'inventory') || 'idea',
-          createdAt: new Date(product.created_at),
-          updatedAt: new Date(product.updated_at),
-          idleDays: this.calculateIdleDays(product.updated_at),
+          createdAt,
+          updatedAt,
+          idleDays: this.calculateIdleDays(updatedAt),
           potentialScore: product.potential_score || 0,
-          ideaData,
-          activities
+          ideaData: {
+            notes: product.notes,
+            thumbnail: product.thumbnail_url,
+            problemStatement: product.problem_statement,
+            opportunityStatement: product.opportunity_statement,
+            estimatedSourcePriceMin: product.estimated_source_price_min,
+            estimatedSourcePriceMax: product.estimated_source_price_max,
+            estimatedSellingPrice: product.estimated_selling_price,
+            selectedSupplierId: product.selected_supplier_id,
+            competitorLinks,
+            adLinks
+          },
+          activities: [] // Activities table was dropped during consolidation
         }
-
-        transformedProducts.push(lifecycleProduct)
-      }
+      })
 
       return transformedProducts
     } catch (error) {

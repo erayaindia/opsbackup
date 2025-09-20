@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react'
+import React, { useState, useEffect, useMemo, useCallback, memo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -8,6 +8,8 @@ import {
   Search,
   Filter,
   Plus,
+  Loader2,
+  CheckCircle,
   HelpCircle,
   LayoutGrid,
   Table as TableIcon,
@@ -85,6 +87,7 @@ import { useUsers } from '@/hooks/useUsers'
 import { useCategories } from '@/hooks/useCategories'
 import { ActivityPanel, type StageKey, type TimelineEntry, type NowNextBlocked, saveTimelineEntry, updateStage, setNowNextBlocked } from '@/components/products/ActivityPanel'
 import { FormContent } from '@/components/products/FormContent'
+import { ProductDetailsModal } from '@/components/products/ProductDetailsModal'
 import { debugProductsRLS } from '@/utils/debugProductsRLS'
 
 const STORAGE_KEYS = {
@@ -106,6 +109,130 @@ const generateSlug = (title: string): string => {
     .replace(/(^-|-$)/g, '')
 }
 
+// Memoized ProductCard component for better performance
+const ProductCard = memo(({ card, onClick }: { card: LifecycleCard; onClick: (card: LifecycleCard) => void }) => {
+  const priorityColor = card.priority === 'high' ? 'bg-red-100 text-red-700 border border-red-200' :
+                      card.priority === 'medium' ? 'bg-yellow-100 text-yellow-700 border border-yellow-200' :
+                      'bg-green-100 text-green-700 border border-green-200';
+  const stageConfig = STAGE_CONFIG[card.stage];
+  const StageIcon = stageConfig?.icon || Package;
+
+  return (
+    <Card
+      onClick={() => onClick(card)}
+      className="enhanced-card hover:shadow-elegant transition-all duration-300 cursor-pointer border-border/50 backdrop-blur-sm animate-fade-in overflow-hidden"
+    >
+      {/* Product Image - 65% of card height */}
+      <div className="relative h-[200px] bg-muted flex items-center justify-center">
+        {card.thumbnail || card.thumbnailUrl || card.ideaData?.thumbnail ? (
+          <img
+            src={card.thumbnail || card.thumbnailUrl || card.ideaData?.thumbnail}
+            alt={card.workingTitle || card.name}
+            className="w-full h-full object-cover"
+            loading="lazy"
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              const parent = target.parentElement;
+              if (parent) {
+                parent.innerHTML = `
+                  <div class="flex items-center justify-center w-full h-full">
+                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="text-muted-foreground/40">
+                      <path d="M20 7h-3V6a3 3 0 0 0-3-3H10a3 3 0 0 0-3 3v1H4a1 1 0 0 0-1 1v11a3 3 0 0 0 3 3h12a3 3 0 0 0 3-3V8a1 1 0 0 0-1-1zM9 6a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1H9V6zm9 13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V9h2v1a1 1 0 0 0 2 0V9h6v1a1 1 0 0 0 2 0V9h2v10z" fill="currentColor"/>
+                      <circle cx="9" cy="13" r="1" fill="currentColor"/>
+                      <circle cx="15" cy="13" r="1" fill="currentColor"/>
+                      <path d="M12 15.5c-1.1 0-2-.9-2-2h4c0 1.1-.9 2-2 2z" fill="currentColor"/>
+                    </svg>
+                  </div>
+                `;
+              }
+            }}
+          />
+        ) : (
+          // Default themed SVG icon for products without images
+          <div className="flex items-center justify-center w-full h-full">
+            <svg
+              width="64"
+              height="64"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              className="text-muted-foreground/40"
+            >
+              <path
+                d="M20 7h-3V6a3 3 0 0 0-3-3H10a3 3 0 0 0-3 3v1H4a1 1 0 0 0-1 1v11a3 3 0 0 0 3 3h12a3 3 0 0 0 3-3V8a1 1 0 0 0-1-1zM9 6a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1H9V6zm9 13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V9h2v1a1 1 0 0 0 2 0V9h6v1a1 1 0 0 0 2 0V9h2v10z"
+                fill="currentColor"
+              />
+              <circle cx="9" cy="13" r="1" fill="currentColor" />
+              <circle cx="15" cy="13" r="1" fill="currentColor" />
+              <path d="M12 15.5c-1.1 0-2-.9-2-2h4c0 1.1-.9 2-2 2z" fill="currentColor" />
+            </svg>
+          </div>
+        )}
+      </div>
+
+      {/* Card Content - 35% of card height */}
+      <CardContent className="p-4">
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span className="font-mono text-xs">{card.internalCode}</span>
+            <span>{new Date(card.createdAt).toLocaleDateString('en-US', {
+              month: 'short',
+              day: 'numeric'
+            })}</span>
+          </div>
+
+          {/* Product Name */}
+          <div className="text-sm font-bold text-foreground truncate">
+            {card.workingTitle || card.name || `Product ${card.internalCode}`}
+          </div>
+
+          {/* Priority and Stage */}
+          <div className="flex items-center gap-2">
+            <span className={`px-2 py-1 rounded-none text-xs font-medium ${priorityColor}`}>
+              {(card.priority || 'medium').charAt(0).toUpperCase() + (card.priority || 'medium').slice(1)}
+            </span>
+            <div className="flex items-center gap-1 px-2 py-1 bg-muted text-muted-foreground rounded-none text-xs">
+              <StageIcon className="h-3 w-3" />
+              <span className="font-medium">{stageConfig?.name || card.stage}</span>
+            </div>
+          </div>
+
+          {/* Category and Assigned User */}
+          <div className="flex items-center justify-between gap-2">
+            <span className="px-2 py-0.5 bg-muted text-muted-foreground rounded-none text-xs">
+              {card.category[0] || 'Uncategorized'}
+            </span>
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <div className="w-4 h-4 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium">
+                {card.teamLead.name.charAt(0)}
+              </div>
+              <span className="text-xs">{card.teamLead.name.split(' ')[0]}</span>
+            </div>
+          </div>
+
+          {/* Tags at bottom */}
+          {(card.tags && card.tags.length > 0) && (
+            <div className="pt-2 border-t border-gray-200">
+              <div className="flex items-center gap-1 overflow-hidden">
+                {card.tags.slice(0, 3).map((tag, index) => (
+                  <span key={index} className="px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded-none text-[10px] font-normal whitespace-nowrap flex-shrink-0">
+                    {tag}
+                  </span>
+                ))}
+                {card.tags.length > 3 && (
+                  <span className="px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded-none text-[10px] font-normal flex-shrink-0">
+                    +{card.tags.length - 3}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  )
+})
+
 export default function Lifecycle() {
   // Hooks
   const navigate = useNavigate()
@@ -115,7 +242,6 @@ export default function Lifecycle() {
   
   // State management
   const [cards, setCards] = useState<LifecycleCard[]>([])
-  const [filteredCards, setFilteredCards] = useState<LifecycleCard[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedView, setSelectedView] = useState<ViewType>(() => {
@@ -142,6 +268,11 @@ export default function Lifecycle() {
   
   // Modal state
   const [showNewIdeaModal, setShowNewIdeaModal] = useState(false)
+  const [showProductDetailsModal, setShowProductDetailsModal] = useState(false)
+  const [selectedProduct, setSelectedProduct] = useState<LifecycleCard | null>(null)
+  const [isCreatingIdea, setIsCreatingIdea] = useState(false)
+  const [isUpdating, setIsUpdating] = useState(false)
+  const [showSuccessAnimation, setShowSuccessAnimation] = useState(false)
   const [newIdeaForm, setNewIdeaForm] = useState({
     title: '',
     tags: '',
@@ -199,7 +330,7 @@ export default function Lifecycle() {
     return availableUsers.filter(user => leadSet.has(user.id))
   }, [cards, availableUsers])
   
-  // Load initial data
+  // Load initial data - optimized to not depend on availableUsers
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -209,9 +340,7 @@ export default function Lifecycle() {
         setCards(cardsData)
         setSavedViews([]) // TODO: Implement saved views in database
 
-        console.log('Loaded data:')
-        console.log('Cards:', cardsData.length)
-        console.log('Available users:', availableUsers)
+        console.log('Loaded data:', cardsData.length, 'products')
       } catch (error) {
         console.error('Failed to load lifecycle data:', error)
         toast({
@@ -225,31 +354,60 @@ export default function Lifecycle() {
     }
 
     loadData()
-  }, [availableUsers])
+  }, []) // Removed availableUsers dependency to prevent unnecessary reloads
   
-  // Filter and search cards
-  useEffect(() => {
-    const applyFilters = async () => {
-      try {
-        // Apply stage filter to the filters object
-        const stageFilters = activeStageFilter === 'all' ? filters : {
-          ...filters,
-          stages: [activeStageFilter]
-        }
+  // Optimized filtering using useMemo instead of useEffect + API calls
+  const filteredCards = useMemo(() => {
+    if (!cards.length) return []
 
-        const filtered = await productLifecycleService.listProducts({
-          filters: stageFilters,
-          search: searchQuery,
-          sort: { field: 'updated_at', direction: 'desc' }
-        })
-        setFilteredCards(filtered)
-      } catch (error) {
-        console.error('Filter error:', error)
-        setFilteredCards(cards)
-      }
+    let filtered = cards
+
+    // Apply stage filter
+    if (activeStageFilter !== 'all') {
+      filtered = filtered.filter(card => card.stage === activeStageFilter)
     }
 
-    applyFilters()
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim()
+      filtered = filtered.filter(card =>
+        card.workingTitle.toLowerCase().includes(query) ||
+        card.name?.toLowerCase().includes(query) ||
+        card.internalCode.toLowerCase().includes(query) ||
+        card.tags.some(tag => tag.toLowerCase().includes(query)) ||
+        card.category.some(cat => cat.toLowerCase().includes(query))
+      )
+    }
+
+    // Apply other filters
+    if (filters.stages?.length) {
+      filtered = filtered.filter(card => filters.stages!.includes(card.stage))
+    }
+
+    if (filters.priority?.length) {
+      filtered = filtered.filter(card => filters.priority!.includes(card.priority))
+    }
+
+    if (filters.teamLeads?.length) {
+      filtered = filtered.filter(card => filters.teamLeads!.includes(card.teamLead.id))
+    }
+
+    if (filters.categories?.length) {
+      filtered = filtered.filter(card =>
+        card.category.some(cat => filters.categories!.includes(cat))
+      )
+    }
+
+    if (filters.tags?.length) {
+      filtered = filtered.filter(card =>
+        card.tags.some(tag => filters.tags!.includes(tag))
+      )
+    }
+
+    // Sort by updated date (most recent first)
+    filtered.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
+
+    return filtered
   }, [cards, filters, searchQuery, activeStageFilter])
   
   // Persist view selection
@@ -347,12 +505,18 @@ export default function Lifecycle() {
   }
 
   // Generate slug from product name
-  const generateSlug = (text: string) => {
+  const generateSlug = useCallback((text: string) => {
     return text
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/(^-|-$)/g, '')
-  }
+  }, [])
+
+  // Memoize product click handler for instant modal opening
+  const handleProductClick = useCallback((card: LifecycleCard) => {
+    setSelectedProduct(card)
+    setShowProductDetailsModal(true)
+  }, [])
 
   // Auto-resize textarea function
   const autoResize = (textarea: HTMLTextAreaElement) => {
@@ -496,6 +660,81 @@ export default function Lifecycle() {
     setNowNextBlockedState(prev => ({ ...prev, ...values }))
   }
 
+  // Product modal handlers
+  const handleProductUpdate = useCallback(async (productId: string, updates: Partial<CreateProductPayload>): Promise<LifecycleCard> => {
+    try {
+      const updatedProduct = await productLifecycleService.updateProduct(productId, updates)
+
+      // Update the cards list
+      setCards(prevCards =>
+        prevCards.map(card =>
+          card.id === productId ? updatedProduct : card
+        )
+      )
+
+      toast({
+        title: 'Product updated successfully!',
+        description: 'Changes have been saved.'
+      })
+
+      return updatedProduct
+    } catch (error) {
+      console.error('Failed to update product:', error)
+      toast({
+        title: 'Failed to update product',
+        description: 'Please try again.',
+        variant: 'destructive'
+      })
+      throw error
+    }
+  }, [])
+
+  const handleProductDelete = useCallback(async (productId: string): Promise<void> => {
+    try {
+      await productLifecycleService.deleteProduct(productId)
+
+      // Remove from cards list
+      setCards(prevCards => prevCards.filter(card => card.id !== productId))
+
+      // Close modal
+      setShowProductDetailsModal(false)
+      setSelectedProduct(null)
+
+      toast({
+        title: 'Product deleted successfully!',
+        description: 'The product has been removed.'
+      })
+    } catch (error) {
+      console.error('Failed to delete product:', error)
+      toast({
+        title: 'Failed to delete product',
+        description: 'Please try again.',
+        variant: 'destructive'
+      })
+      throw error
+    }
+  }, [])
+
+  const handleProductUpdated = useCallback((updatedProduct: LifecycleCard) => {
+    setCards(prevCards =>
+      prevCards.map(card =>
+        card.id === updatedProduct.id ? updatedProduct : card
+      )
+    )
+    setSelectedProduct(updatedProduct)
+  }, [])
+
+  // Animated "Create Idea" button handler
+  const handleCreateIdeaClick = useCallback(() => {
+    setIsCreatingIdea(true)
+
+    // Add a slight delay for the animation effect
+    setTimeout(() => {
+      setShowNewIdeaModal(true)
+      setIsCreatingIdea(false)
+    }, 300)
+  }, [])
+
   // Utility functions
   const extractDomainFromUrl = (url: string): string => {
     try {
@@ -515,6 +754,7 @@ export default function Lifecycle() {
 
   const handleCreateIdea = async () => {
     try {
+      setIsUpdating(true) // Add loading state for the actual creation
       // Validate all mandatory fields
       if (!newIdeaForm.title.trim()) {
         toast({
@@ -627,7 +867,14 @@ export default function Lifecycle() {
       setReferenceLinks([])
       setDragActive(false)
 
-      setShowNewIdeaModal(false)
+      // Show success animation
+      setShowSuccessAnimation(true)
+
+      // Close modal after success animation
+      setTimeout(() => {
+        setShowNewIdeaModal(false)
+        setShowSuccessAnimation(false)
+      }, 1500)
 
       toast({
         title: 'Product created successfully!',
@@ -641,10 +888,13 @@ export default function Lifecycle() {
         description: 'Please try again.',
         variant: 'destructive'
       })
+    } finally {
+      setIsUpdating(false)
     }
   }
   
-  const getFilteredCount = () => {
+  // Memoize filtered count calculation
+  const { count: filteredCount, activeFilters } = useMemo(() => {
     const activeFilters = [
       ...filters.stages,
       ...filters.tags,
@@ -661,13 +911,11 @@ export default function Lifecycle() {
       ...(filters.updatedDateRange ? ['updated-date'] : []),
       ...(filters.marginRange ? ['margin-range'] : [])
     ].length + (searchQuery ? 1 : 0)
-    
+
     return { count: filteredCards.length, activeFilters }
-  }
+  }, [filteredCards.length, filters, searchQuery])
   
-  const { count: filteredCount, activeFilters } = getFilteredCount()
-  
-  // Get stage statistics
+  // Get stage statistics - optimized to use all cards, not filtered
   const stageStats = useMemo(() => {
     const stats = {
       idea: 0,
@@ -675,13 +923,15 @@ export default function Lifecycle() {
       content: 0,
       scaling: 0
     }
-    
-    filteredCards.forEach(card => {
-      stats[card.stage]++
+
+    cards.forEach(card => {
+      if (stats.hasOwnProperty(card.stage)) {
+        stats[card.stage as keyof typeof stats]++
+      }
     })
-    
+
     return stats
-  }, [filteredCards])
+  }, [cards])
   
   if (loading) {
     return (
@@ -755,11 +1005,20 @@ export default function Lifecycle() {
             
             <div className="flex items-center gap-2">
               <Button
-                onClick={() => setShowNewIdeaModal(true)}
-                className="gap-2 rounded-none"
+                onClick={handleCreateIdeaClick}
+                disabled={isCreatingIdea}
+                className={`gap-2 rounded-none transition-all duration-300 relative overflow-hidden ${
+                  isCreatingIdea
+                    ? 'bg-primary/80 scale-105 shadow-lg animate-pulse'
+                    : 'hover:scale-105 hover:shadow-md active:scale-95'
+                }`}
               >
-                <Plus className="h-4 w-4" />
-                New Idea
+                {isCreatingIdea ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Plus className="h-4 w-4" />
+                )}
+                {isCreatingIdea ? 'Creating...' : 'New Idea'}
               </Button>
               <Button
                 variant="outline"
@@ -847,10 +1106,7 @@ export default function Lifecycle() {
                       <tr
                         key={card.id}
                         className="border-b hover:bg-gray-50 cursor-pointer"
-                        onClick={() => {
-                          const slug = generateSlug(card.workingTitle || card.name || `product-${card.internalCode}`)
-                          navigate(`/products/${slug}`)
-                        }}
+                        onClick={() => handleProductClick(card)}
                       >
                         <td className="p-4">
                           <div>
@@ -875,144 +1131,26 @@ export default function Lifecycle() {
         )}
         {selectedView === 'gallery' && (
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-6">
-            {filteredCards.map((card, index) => {
-              const priorityColor = card.priority === 'high' ? 'bg-red-100 text-red-700 border border-red-200' :
-                                  card.priority === 'medium' ? 'bg-yellow-100 text-yellow-700 border border-yellow-200' :
-                                  'bg-green-100 text-green-700 border border-green-200';
-              const stageConfig = STAGE_CONFIG[card.stage];
-              const StageIcon = stageConfig?.icon || Package;
-
-              return (
-                <Card
-                  key={card.id}
-                  onClick={() => {
-                    const slug = generateSlug(card.workingTitle || card.name || `product-${card.internalCode}`)
-                    navigate(`/products/${slug}`)
-                  }}
-                  className="enhanced-card hover:shadow-elegant transition-all duration-300 cursor-pointer border-border/50 backdrop-blur-sm animate-fade-in overflow-hidden"
-                >
-                  {/* Product Image - 65% of card height */}
-                  <div className="relative h-[200px] bg-muted flex items-center justify-center">
-                    {card.thumbnail || card.thumbnailUrl || card.ideaData?.thumbnail ? (
-                      <img
-                        src={card.thumbnail || card.thumbnailUrl || card.ideaData?.thumbnail}
-                        alt={card.workingTitle || card.name}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          const parent = target.parentElement;
-                          if (parent) {
-                            parent.innerHTML = `
-                              <div class="flex items-center justify-center w-full h-full">
-                                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="text-muted-foreground/40">
-                                  <path d="M20 7h-3V6a3 3 0 0 0-3-3H10a3 3 0 0 0-3 3v1H4a1 1 0 0 0-1 1v11a3 3 0 0 0 3 3h12a3 3 0 0 0 3-3V8a1 1 0 0 0-1-1zM9 6a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1H9V6zm9 13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V9h2v1a1 1 0 0 0 2 0V9h6v1a1 1 0 0 0 2 0V9h2v10z" fill="currentColor"/>
-                                  <circle cx="9" cy="13" r="1" fill="currentColor"/>
-                                  <circle cx="15" cy="13" r="1" fill="currentColor"/>
-                                  <path d="M12 15.5c-1.1 0-2-.9-2-2h4c0 1.1-.9 2-2 2z" fill="currentColor"/>
-                                </svg>
-                              </div>
-                            `;
-                          }
-                        }}
-                      />
-                    ) : (
-                      // Default themed SVG icon for products without images
-                      <div className="flex items-center justify-center w-full h-full">
-                        <svg
-                          width="64"
-                          height="64"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          xmlns="http://www.w3.org/2000/svg"
-                          className="text-muted-foreground/40"
-                        >
-                          <path
-                            d="M20 7h-3V6a3 3 0 0 0-3-3H10a3 3 0 0 0-3 3v1H4a1 1 0 0 0-1 1v11a3 3 0 0 0 3 3h12a3 3 0 0 0 3-3V8a1 1 0 0 0-1-1zM9 6a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1H9V6zm9 13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V9h2v1a1 1 0 0 0 2 0V9h6v1a1 1 0 0 0 2 0V9h2v10z"
-                            fill="currentColor"
-                          />
-                          <circle cx="9" cy="13" r="1" fill="currentColor" />
-                          <circle cx="15" cy="13" r="1" fill="currentColor" />
-                          <path d="M12 15.5c-1.1 0-2-.9-2-2h4c0 1.1-.9 2-2 2z" fill="currentColor" />
-                        </svg>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Card Content - 35% of card height */}
-                  <CardContent className="p-4">
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <span className="font-mono text-xs">{card.internalCode}</span>
-                        <span>{new Date(card.createdAt).toLocaleDateString('en-US', {
-                          month: 'short',
-                          day: 'numeric'
-                        })}</span>
-                      </div>
-
-                      {/* Product Name */}
-                      <div className="text-sm font-bold text-foreground truncate">
-                        {card.workingTitle || card.name || `Product ${card.internalCode}`}
-                      </div>
-
-                      {/* Priority and Stage */}
-                      <div className="flex items-center gap-2">
-                        <span className={`px-2 py-1 rounded-none text-xs font-medium ${priorityColor}`}>
-                          {(card.priority || 'medium').charAt(0).toUpperCase() + (card.priority || 'medium').slice(1)}
-                        </span>
-                        <div className="flex items-center gap-1 px-2 py-1 bg-muted text-muted-foreground rounded-none text-xs">
-                          <StageIcon className="h-3 w-3" />
-                          <span className="font-medium">{stageConfig?.name || card.stage}</span>
-                        </div>
-                      </div>
-
-                      {/* Category and Assigned User */}
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="px-2 py-0.5 bg-muted text-muted-foreground rounded-none text-xs">
-                          {card.category[0] || 'Uncategorized'}
-                        </span>
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <div className="w-4 h-4 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium">
-                            {card.teamLead.name.charAt(0)}
-                          </div>
-                          <span className="text-xs">{card.teamLead.name.split(' ')[0]}</span>
-                        </div>
-                      </div>
-
-                      {/* Tags at bottom */}
-                      {(card.tags && card.tags.length > 0) && (
-                        <div className="pt-2 border-t border-gray-200">
-                          <div className="flex items-center gap-1 overflow-hidden">
-                            {card.tags.slice(0, 3).map((tag, index) => (
-                              <span key={index} className="px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded-none text-[10px] font-normal whitespace-nowrap flex-shrink-0">
-                                {tag}
-                              </span>
-                            ))}
-                            {card.tags.length > 3 && (
-                              <span className="px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded-none text-[10px] font-normal flex-shrink-0">
-                                +{card.tags.length - 3}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
+            {filteredCards.map(card => (
+              <ProductCard key={card.id} card={card} onClick={handleProductClick} />
+            ))}
           </div>
         )}
         
         {/* New Idea Modal */}
         <Dialog open={showNewIdeaModal} onOpenChange={setShowNewIdeaModal}>
-          <DialogContent className="w-[50vw] h-[calc(100vh-4rem)] max-w-none max-h-none flex flex-col">
+          <DialogContent className="w-[50vw] h-[calc(100vh-4rem)] max-w-none max-h-none flex flex-col animate-in fade-in-0 zoom-in-95 duration-300">
             <DialogHeader className="flex-shrink-0 pb-4 border-b border-border/20">
               <div className="flex items-center justify-between">
                 <DialogTitle className="flex items-center gap-3 text-xl font-semibold">
-                  <div className="p-2 rounded-none bg-primary/10">
-                    <Lightbulb className="h-5 w-5 text-primary" />
+                  <div className="p-2 rounded-none bg-primary/10 animate-pulse">
+                    <Lightbulb className={`h-5 w-5 text-primary transition-all duration-500 ${
+                      showSuccessAnimation ? 'text-green-500 animate-bounce' : ''
+                    }`} />
                   </div>
-                  New Product Idea
+                  <span className="animate-in slide-in-from-left-5 duration-300">
+                    {showSuccessAnimation ? 'Product Created!' : 'New Product Idea'}
+                  </span>
                 </DialogTitle>
                 
                 {/* Top right controls */}
@@ -1237,14 +1375,41 @@ export default function Lifecycle() {
                 </Button>
                 <Button
                   onClick={handleCreateIdea}
-                  className="min-w-[120px] bg-primary hover:bg-primary/90 rounded-none"
+                  disabled={isUpdating || showSuccessAnimation}
+                  className={`min-w-[120px] bg-primary hover:bg-primary/90 rounded-none transition-all duration-200 ${
+                    isUpdating ? 'animate-pulse scale-105' : ''
+                  } ${
+                    showSuccessAnimation ? 'bg-green-500 scale-110 animate-bounce' : ''
+                  }`}
                 >
-                  Create Idea
+                  {showSuccessAnimation ? (
+                    <>
+                      <CheckCircle className="h-4 w-4 mr-2 animate-pulse" />
+                      Created!
+                    </>
+                  ) : isUpdating ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      Creating...
+                    </>
+                  ) : (
+                    'Create Idea'
+                  )}
                 </Button>
               </div>
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Product Details Modal */}
+        <ProductDetailsModal
+          product={selectedProduct}
+          open={showProductDetailsModal}
+          onOpenChange={setShowProductDetailsModal}
+          onUpdate={handleProductUpdated}
+          onUpdateProduct={handleProductUpdate}
+          onDeleteProduct={handleProductDelete}
+        />
       </div>
     </div>
     )
