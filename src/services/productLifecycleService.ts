@@ -86,6 +86,28 @@ export interface FilterOptions {
   teamLeads?: string[]
   priority?: string[]
   search?: string
+  potentialScoreMin?: number
+  potentialScoreMax?: number
+  idleDaysMin?: number
+  internalCodePattern?: string
+  createdDateRange?: { start: Date; end: Date }
+  updatedDateRange?: { start: Date; end: Date }
+  marginRange?: { min: number; max: number }
+  vendorLocations?: string[]
+}
+
+export interface PaginationOptions {
+  limit?: number
+  offset?: number
+  page?: number
+}
+
+export interface ProductListResponse {
+  items: LifecycleProduct[]
+  total: number
+  hasMore: boolean
+  page?: number
+  totalPages?: number
 }
 
 class ProductLifecycleService {
@@ -155,13 +177,17 @@ class ProductLifecycleService {
   }
 
   /**
-   * Fetch all products with related data - optimized for performance
+   * Fetch products with pagination, filtering, and related data - optimized for performance
    */
   async listProducts(options?: {
     filters?: FilterOptions
     search?: string
+    stage?: string
     sort?: { field: string; direction: 'asc' | 'desc' }
-  }): Promise<LifecycleProduct[]> {
+    limit?: number
+    offset?: number
+    pagination?: PaginationOptions
+  }): Promise<LifecycleProduct[] | ProductListResponse> {
     try {
       // Check authentication first
       const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -176,13 +202,20 @@ class ProductLifecycleService {
         return []
       }
 
+      // Determine if we need pagination
+      const usePagination = options?.limit !== undefined || options?.offset !== undefined || options?.pagination
+      const limit = options?.limit || options?.pagination?.limit || 20
+      const offset = options?.offset || options?.pagination?.offset || ((options?.pagination?.page || 1) - 1) * limit
+
       // Base query for products - now uses consolidated table structure
       let query = supabase
         .from('products')
-        .select('*')
+        .select('*', { count: usePagination ? 'exact' : undefined })
 
-      // Apply stage filter
-      if (options?.filters?.stages?.length) {
+      // Apply stage filter - check both direct stage param and filters.stages
+      if (options?.stage && options.stage !== 'all') {
+        query = query.eq('stage', options.stage)
+      } else if (options?.filters?.stages?.length) {
         query = query.in('stage', options.filters.stages)
       }
 
@@ -196,19 +229,61 @@ class ProductLifecycleService {
         query = query.in('assigned_to', options.filters.teamLeads)
       }
 
-      // Apply search
-      if (options?.search) {
-        query = query.or(`working_title.ilike.%${options.search}%,name.ilike.%${options.search}%,internal_code.ilike.%${options.search}%`)
+      // Apply search - check both direct search param and filters.search
+      const searchTerm = options?.search || options?.filters?.search
+      if (searchTerm && searchTerm.trim()) {
+        const searchQuery = searchTerm.trim()
+        // Search in working_title, name, internal_code, and JSON fields (tags, categories)
+        query = query.or(`working_title.ilike.%${searchQuery}%,name.ilike.%${searchQuery}%,internal_code.ilike.%${searchQuery}%,tags.ilike.%${searchQuery}%,categories.ilike.%${searchQuery}%`)
+      }
+
+      // Apply additional filters
+      if (options?.filters?.categories?.length) {
+        // For JSON array fields, we need to use overlap operator
+        const categoriesFilter = options.filters.categories.map(cat => `"${cat}"`).join(',')
+        query = query.filter('categories', 'cs', `[${categoriesFilter}]`)
+      }
+
+      if (options?.filters?.tags?.length) {
+        const tagsFilter = options.filters.tags.map(tag => `"${tag}"`).join(',')
+        query = query.filter('tags', 'cs', `[${tagsFilter}]`)
+      }
+
+      if (options?.filters?.potentialScoreMin !== undefined) {
+        query = query.gte('potential_score', options.filters.potentialScoreMin)
+      }
+
+      if (options?.filters?.potentialScoreMax !== undefined) {
+        query = query.lte('potential_score', options.filters.potentialScoreMax)
+      }
+
+      if (options?.filters?.internalCodePattern) {
+        query = query.ilike('internal_code', `%${options.filters.internalCodePattern}%`)
+      }
+
+      if (options?.filters?.createdDateRange) {
+        query = query.gte('created_at', options.filters.createdDateRange.start.toISOString())
+        query = query.lte('created_at', options.filters.createdDateRange.end.toISOString())
+      }
+
+      if (options?.filters?.updatedDateRange) {
+        query = query.gte('updated_at', options.filters.updatedDateRange.start.toISOString())
+        query = query.lte('updated_at', options.filters.updatedDateRange.end.toISOString())
       }
 
       // Apply sorting
       if (options?.sort) {
         query = query.order(options.sort.field, { ascending: options.sort.direction === 'asc' })
       } else {
-        query = query.order('created_at', { ascending: false })
+        query = query.order('updated_at', { ascending: false })
       }
 
-      const { data: products, error } = await query
+      // Apply pagination if requested
+      if (usePagination) {
+        query = query.range(offset, offset + limit - 1)
+      }
+
+      const { data: products, error, count } = await query
 
       if (error) {
         console.error('Error fetching products:', error)
@@ -329,6 +404,22 @@ class ProductLifecycleService {
           activities: [] // Activities table was dropped during consolidation
         }
       })
+
+      // Return paginated response or simple array based on request
+      if (usePagination) {
+        const totalItems = count || 0
+        const currentPage = options?.pagination?.page || Math.floor(offset / limit) + 1
+        const totalPages = Math.ceil(totalItems / limit)
+        const hasMore = offset + limit < totalItems
+
+        return {
+          items: transformedProducts,
+          total: totalItems,
+          hasMore,
+          page: currentPage,
+          totalPages
+        } as ProductListResponse
+      }
 
       return transformedProducts
     } catch (error) {
@@ -539,7 +630,7 @@ class ProductLifecycleService {
       }
 
       // Return the created product by fetching it with all relations
-      const products = await this.listProducts()
+      const products = await this.listProducts() as LifecycleProduct[]
       const createdProduct = products.find(p => p.id === product.id)
 
       if (!createdProduct) {
@@ -671,7 +762,7 @@ class ProductLifecycleService {
       // Note: Activity logging removed (product_activities table was dropped during consolidation)
 
       // Return updated product
-      const products = await this.listProducts()
+      const products = await this.listProducts() as LifecycleProduct[]
       const updatedProduct = products.find(p => p.id === id)
 
       if (!updatedProduct) {
