@@ -95,6 +95,7 @@ import {
   type FilterOptions,
   type CreateProductPayload
 } from '@/services/productLifecycleService'
+import { useUserPermissions } from '@/components/PermissionGuard'
 
 // Re-export types for compatibility
 export type ViewType = 'table' | 'gallery'
@@ -363,7 +364,8 @@ const ProductCard = memo(({
   onArchive,
   onDuplicate,
   isFavorite,
-  getProductAge
+  getProductAge,
+  canDelete = true
 }: {
   card: LifecycleCard
   onClick: (card: LifecycleCard) => void
@@ -372,6 +374,7 @@ const ProductCard = memo(({
   onDuplicate: (e: React.MouseEvent, card: LifecycleCard) => void
   isFavorite: boolean
   getProductAge: (card: LifecycleCard) => number
+  canDelete?: boolean
 }) => {
   const priorityColor = card.priority === 'high' ? 'bg-red-100 text-red-700 border border-red-200' :
                       card.priority === 'medium' ? 'bg-yellow-100 text-yellow-700 border border-yellow-200' :
@@ -440,14 +443,18 @@ const ProductCard = memo(({
                   <Copy className="mr-2 h-4 w-4" />
                   Duplicate
                 </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={(e) => onArchive(e, card.id)}
-                  className="text-orange-600"
-                >
-                  <Archive className="mr-2 h-4 w-4" />
-                  Archive
-                </DropdownMenuItem>
+                {canDelete && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={(e) => onArchive(e, card.id)}
+                      className="text-orange-600"
+                    >
+                      <Archive className="mr-2 h-4 w-4" />
+                      Archive
+                    </DropdownMenuItem>
+                  </>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -474,7 +481,7 @@ const ProductCard = memo(({
                 alt={card.workingTitle || card.name}
                 className="w-full h-full object-cover"
                 onError={() => {
-                  console.log('Failed to load primary image for product:', card.id)
+                  // Image loading failed - handled silently
                 }}
               />
             ) : (
@@ -602,6 +609,7 @@ export default function Lifecycle() {
   const { data: vendors = [], isLoading: vendorsLoading } = useVendors()
   const { users: availableUsers, loading: usersLoading } = useUsers()
   const { allCategories: databaseCategories, loading: categoriesLoading } = useCategories()
+  const { currentUser, hasRole } = useUserPermissions()
   
   // State management
   const [cards, setCards] = useState<LifecycleCard[]>([])
@@ -778,7 +786,7 @@ export default function Lifecycle() {
         // Check cache first
         const now = Date.now()
         if (cachedProducts.has(cacheKey) && (now - lastFetchTime) < CACHE_DURATION) {
-          console.log('Using cached data')
+          // Using cached data
           const cachedData = cachedProducts.get(cacheKey)!
           if (currentPage === 1) {
             setCards(cachedData)
@@ -822,7 +830,7 @@ export default function Lifecycle() {
 
         setSavedViews([]) // TODO: Implement saved views in database
 
-        console.log('Loaded data:', (cardsData.items || cardsData).length, 'products, page:', currentPage)
+        // Successfully loaded products data
       } catch (error) {
         console.error('Failed to load lifecycle data:', error)
         toast({
@@ -1226,11 +1234,11 @@ export default function Lifecycle() {
         assignedTo: newIdeaForm.assignedTo
       }
 
-      console.log('Creating new product with payload:', payload)
+      // Creating new product
 
       const newProduct = await productLifecycleService.createProduct(payload)
 
-      console.log('Created product:', newProduct)
+      // Product created successfully
 
       // Refresh the products list
       const updatedProducts = await productLifecycleService.listProducts()
@@ -1260,7 +1268,6 @@ export default function Lifecycle() {
       })
       setUploadedImages([])
       setUploadedVideos([])
-      setUploadedProductImage(null)
       setSelectedCategories([])
       setTagInput('')
       setTags([])
@@ -1309,6 +1316,17 @@ export default function Lifecycle() {
 
   const handleArchive = (e: React.MouseEvent, productId: string) => {
     e.stopPropagation()
+
+    // Check if user has super_admin role
+    if (!hasRole(['super_admin'])) {
+      toast({
+        title: 'Access Denied',
+        description: 'Only super administrators can delete products.',
+        variant: 'destructive'
+      })
+      return
+    }
+
     setArchivedProducts(prev => new Set([...prev, productId]))
     toast({
       title: 'Product archived',
@@ -1645,6 +1663,22 @@ export default function Lifecycle() {
                     </PopoverContent>
                   </Popover>
 
+                  {/* Group By Dropdown */}
+                  <Select value={groupBy} onValueChange={handleGroupByChange}>
+                    <SelectTrigger className="h-10 w-full sm:w-40 gap-2">
+                      <Group className="h-4 w-4" />
+                      <SelectValue placeholder="Group by" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No grouping</SelectItem>
+                      <SelectItem value="category">Category</SelectItem>
+                      <SelectItem value="stage">Stage</SelectItem>
+                      <SelectItem value="priority">Priority</SelectItem>
+                      <SelectItem value="vendor">Vendor</SelectItem>
+                      <SelectItem value="assignee">Assignee</SelectItem>
+                    </SelectContent>
+                  </Select>
+
                   <div className="relative w-full sm:w-64 lg:w-80">
                     <Input
                       id="lifecycle-search"
@@ -1923,24 +1957,53 @@ export default function Lifecycle() {
           <>
             {filteredCards.length > 0 ? (
               <>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 sm:gap-6">
-                  {filteredCards.map(card => {
-                    console.log('Mapping card:', card.id, 'primaryFile:', card.primaryFile)
-                    return (
-                      <ProductCard
-                        key={card.id}
-                        card={card}
-                        onClick={handleProductClick}
-                        onFavorite={toggleFavorite}
-                        onArchive={handleArchive}
-                        onDuplicate={handleDuplicate}
-                        isFavorite={favoriteProducts.has(card.id)}
-                        getProductAge={getProductAge}
-                        primaryFile={card.primaryFile}
-                      />
-                    )
-                  })}
-                </div>
+                {groupBy === 'none' ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 sm:gap-6">
+                    {filteredCards.map(card => (
+                        <ProductCard
+                          key={card.id}
+                          card={card}
+                          onClick={handleProductClick}
+                          onFavorite={toggleFavorite}
+                          onArchive={handleArchive}
+                          onDuplicate={handleDuplicate}
+                          isFavorite={favoriteProducts.has(card.id)}
+                          getProductAge={getProductAge}
+                          primaryFile={card.primaryFile}
+                          canDelete={hasRole(['super_admin'])}
+                        />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="space-y-8">
+                    {Object.entries(groupedCards).map(([groupName, cards]) => (
+                      <div key={groupName} className="space-y-4">
+                        <div className="flex items-center gap-3">
+                          <h3 className="text-lg font-semibold text-foreground">{groupName}</h3>
+                          <Badge variant="secondary" className="px-2 py-1 text-xs">
+                            {cards.length} {cards.length === 1 ? 'item' : 'items'}
+                          </Badge>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 sm:gap-6">
+                          {cards.map(card => (
+                            <ProductCard
+                              key={card.id}
+                              card={card}
+                              onClick={handleProductClick}
+                              onFavorite={toggleFavorite}
+                              onArchive={handleArchive}
+                              onDuplicate={handleDuplicate}
+                              isFavorite={favoriteProducts.has(card.id)}
+                              getProductAge={getProductAge}
+                              primaryFile={card.primaryFile}
+                              canDelete={hasRole(['super_admin'])}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 {/* Infinite scroll trigger */}
                 {totalItems > 0 && cards.length < totalItems && (

@@ -72,45 +72,53 @@ export function AppHeader() {
   };
 
   return (
-    <header className="h-14 flex items-center justify-between border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 lg:px-6 sticky top-0 z-40">
+    <header className="h-14 flex items-center justify-between border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 lg:px-6 sticky top-0 z-50 w-full">
       <div className="flex items-center gap-4">
+        {/* Left side - intentionally left empty for cleaner look */}
       </div>
-      
+
       <div className="flex items-center gap-2">
+        {/* Weather Widget */}
         <WeatherWidget />
-        <ThemeToggle />
-        
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="relative hover:bg-accent/50 transition-colors h-8 w-8"
-              onClick={toggleCompactMode}
+
+        {/* Quick Actions Group */}
+        <div className="flex items-center gap-1 border-l border-border/30 pl-3 ml-1">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="relative hover:bg-accent/50 transition-colors h-8 w-8"
+                onClick={toggleCompactMode}
+              >
+                {isCompact ? <List className="h-4 w-4" /> : <LayoutGrid className="h-4 w-4" />}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{isCompact ? 'Switch to Normal View' : 'Switch to Compact View'}</p>
+            </TooltipContent>
+          </Tooltip>
+
+          <Button variant="ghost" size="icon" className="relative hover:bg-accent/50 transition-colors h-8 w-8">
+            <Search className="h-4 w-4" />
+          </Button>
+
+          <Button variant="ghost" size="icon" className="relative hover:bg-accent/50 transition-colors h-8 w-8">
+            <Bell className="h-4 w-4" />
+            <Badge
+              variant="destructive"
+              className="absolute -top-1 -right-1 h-4 w-4 p-0 text-xs flex items-center justify-center animate-pulse text-[10px] min-w-0"
             >
-              {isCompact ? <List className="h-4 w-4" /> : <LayoutGrid className="h-4 w-4" />}
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>{isCompact ? 'Switch to Normal View' : 'Switch to Compact View'}</p>
-          </TooltipContent>
-        </Tooltip>
-        
-        <Button variant="ghost" size="icon" className="relative hover:bg-accent/50 transition-colors h-8 w-8">
-          <Search className="h-4 w-4" />
-        </Button>
-        
-        <Button variant="ghost" size="icon" className="relative hover:bg-accent/50 transition-colors h-8 w-8">
-          <Bell className="h-4 w-4" />
-          <Badge 
-            variant="destructive" 
-            className="absolute -top-1 -right-1 h-4 w-4 p-0 text-xs flex items-center justify-center animate-pulse text-[10px] min-w-0"
-          >
-            3
-          </Badge>
-        </Button>
-        
+              3
+            </Badge>
+          </Button>
+
+          <ThemeToggle />
+        </div>
+
+        {/* User Profile */}
         {user && (
+          <div className="border-l border-border/30 pl-3 ml-1">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-8 w-8 rounded-full">
@@ -225,6 +233,7 @@ export function AppHeader() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          </div>
         )}
       </div>
     </header>

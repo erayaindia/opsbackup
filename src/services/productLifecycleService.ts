@@ -33,6 +33,13 @@ export interface LifecycleProduct {
   updatedAt: Date
   idleDays: number
   potentialScore: number
+  // Primary media file from product_files table
+  primaryFile?: {
+    id: string
+    file_url: string
+    file_type: string
+    file_name: string
+  } | null
 
   // Stage-specific data
   ideaData?: {
@@ -207,10 +214,19 @@ class ProductLifecycleService {
       const limit = options?.limit || options?.pagination?.limit || 20
       const offset = options?.offset || options?.pagination?.offset || ((options?.pagination?.page || 1) - 1) * limit
 
-      // Base query for products - now uses consolidated table structure
+      // Base query for products - now uses consolidated table structure with primary media files
       let query = supabase
         .from('products')
-        .select('*', { count: usePagination ? 'exact' : undefined })
+        .select(`
+          *,
+          primary_file:product_files!left(
+            id,
+            file_url,
+            file_type,
+            file_name
+          )
+        `, { count: usePagination ? 'exact' : undefined })
+        .eq('product_files.is_primary', true)
 
       // Apply stage filter - check both direct stage param and filters.stages
       if (options?.stage && options.stage !== 'all') {
@@ -372,6 +388,11 @@ class ProductLifecycleService {
         const createdAt = new Date(product.created_at)
         const updatedAt = new Date(product.updated_at)
 
+        // Debug primary file data
+        const primaryFileData = (product as any).primary_file
+        console.log('Product:', product.internal_code, 'Primary file data:', primaryFileData)
+        console.log('First primary file:', primaryFileData?.[0])
+
         return {
           id: product.id,
           internalCode: product.internal_code || this.generateInternalCode(),
@@ -389,6 +410,8 @@ class ProductLifecycleService {
           updatedAt,
           idleDays: this.calculateIdleDays(updatedAt),
           potentialScore: product.potential_score || 0,
+          // Add primary file from product_files table (takes priority over old thumbnail)
+          primaryFile: (product as any).primary_file?.[0] || null,
           ideaData: {
             notes: product.notes,
             thumbnail: product.thumbnail_url,

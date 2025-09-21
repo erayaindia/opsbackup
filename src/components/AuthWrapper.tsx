@@ -54,7 +54,7 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
           authSubscription = supabase.auth.onAuthStateChange((event, session) => {
             if (!isMounted) return
             
-            console.log('Auth state change:', event, session?.user?.id)
+            // Auth state change handled
             
             // Only handle specific events to prevent infinite loops
             if (event === 'SIGNED_OUT') {

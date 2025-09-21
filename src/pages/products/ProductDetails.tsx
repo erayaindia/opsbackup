@@ -60,6 +60,7 @@ import { useUsers } from '@/hooks/useUsers'
 import { useSuppliers } from '@/hooks/useSuppliers'
 import { useCategories } from '@/hooks/useCategories'
 import { useVendors } from '@/hooks/useSuppliers'
+import type { ProductImage } from '@/services/productImagesService'
 
 const STAGE_CONFIG = {
   idea: { name: 'Idea', icon: Lightbulb, color: 'text-purple-600', bgColor: 'bg-purple-50 dark:bg-purple-950' },
@@ -359,6 +360,9 @@ export default function ProductDetails() {
   const [showBasics, setShowBasics] = useState(false)
   const [showMarketResearch, setShowMarketResearch] = useState(false)
   const [showReferencesMedia, setShowReferencesMedia] = useState(false)
+
+  // Product images state
+  const [productImages, setProductImages] = useState<ProductImage[]>([])
 
   // Scaling tab toggles state
   const [showLaunchDetails, setShowLaunchDetails] = useState(false)
@@ -1244,6 +1248,18 @@ export default function ProductDetails() {
     setUploadedProductImage(null) // Also clear any new upload
   }
 
+  // Handle product images change from carousel
+  const handleProductImagesChange = (images: ProductImage[]) => {
+    setProductImages(images)
+    // Update the main product thumbnail if a primary image is set
+    const primaryImage = images.find(img => img.is_primary)
+    if (primaryImage) {
+      setCurrentProductImage(primaryImage.image_url)
+    } else if (images.length === 0) {
+      setCurrentProductImage(null)
+    }
+  }
+
   const handleChangeCurrentImage = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
@@ -1748,6 +1764,8 @@ export default function ProductDetails() {
                   setShowMarketResearch={setShowMarketResearch}
                   showReferencesMedia={showReferencesMedia}
                   setShowReferencesMedia={setShowReferencesMedia}
+                  productId={product?.id}
+                  onProductImagesChange={handleProductImagesChange}
                   />
               </div>
             </TabsContent>

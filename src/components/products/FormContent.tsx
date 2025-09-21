@@ -7,6 +7,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { X, ImagePlus, VideoIcon, Eye } from 'lucide-react'
 import { ImagePreviewModal } from '@/components/fulfillment/packing/ImagePreviewModal'
+import ProductImageCarousel from './ProductImageCarousel'
+import type { ProductImage } from '@/services/productImagesService'
 
 interface FormContentProps {
   newIdeaForm: any
@@ -43,6 +45,16 @@ interface FormContentProps {
   onChangeProductImage?: (e: React.ChangeEvent<HTMLInputElement>) => void
   onRemoveCurrentImage?: () => void
   onRemoveUploadedImage?: () => void
+  // Product ID for new image carousel
+  productId?: string
+  onProductImagesChange?: (images: ProductImage[]) => void
+  // Toggle states for collapsible sections
+  showBasics?: boolean
+  setShowBasics?: (show: boolean) => void
+  showMarketResearch?: boolean
+  setShowMarketResearch?: (show: boolean) => void
+  showReferencesMedia?: boolean
+  setShowReferencesMedia?: (show: boolean) => void
 }
 
 export const FormContent: React.FC<FormContentProps> = ({
@@ -79,7 +91,17 @@ export const FormContent: React.FC<FormContentProps> = ({
   uploadedProductImage,
   onChangeProductImage,
   onRemoveCurrentImage,
-  onRemoveUploadedImage
+  onRemoveUploadedImage,
+  // Product ID for new image carousel
+  productId,
+  onProductImagesChange,
+  // Toggle states for collapsible sections
+  showBasics = true,
+  setShowBasics = () => {},
+  showMarketResearch = true,
+  setShowMarketResearch = () => {},
+  showReferencesMedia = true,
+  setShowReferencesMedia = () => {}
 }) => {
   const addTag = (tag: string) => {
     if (tag.trim() && !tags.includes(tag.trim())) {
@@ -150,6 +172,14 @@ export const FormContent: React.FC<FormContentProps> = ({
 
   return (
     <div className="space-y-6">
+      {/* Product Image Carousel - Positioned before text fields */}
+      <div className="p-4 bg-muted/10 rounded-lg border">
+        <ProductImageCarousel
+          productId={productId}
+          maxImages={10}
+          onImagesChange={onProductImagesChange}
+        />
+      </div>
       {/* Section 1: Two-Column Grid - Basics & Market Research */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Left Column - Basics */}
@@ -343,8 +373,6 @@ export const FormContent: React.FC<FormContentProps> = ({
         </div>
       </div>
 
-      {/* References & Media Section - Full Width */}
-      <div className="mt-8 pt-8 border-t border-border/30">
         <div className="p-3 bg-muted/10 rounded-none border">
           <div className="flex items-center gap-2 mb-4">
             <div className="w-1 h-4 bg-amber-500 rounded-full"></div>
@@ -459,117 +487,35 @@ export const FormContent: React.FC<FormContentProps> = ({
               )}
             </div>
 
-            {/* Product Photo - Minimal */}
-            <div>
-              <Label className="text-sm font-medium text-foreground">Product Photo</Label>
-
-              <div className="flex items-center gap-3 mt-2">
-                {/* Image Preview */}
-                {(currentProductImage || uploadedProductImage) && (
-                  <div className="relative group">
-                    <img
-                      src={uploadedProductImage ? URL.createObjectURL(uploadedProductImage) : currentProductImage || ''}
-                      alt="Product"
-                      className="w-16 h-16 object-cover rounded border border-border cursor-pointer"
-                      onClick={openProductImagePreview}
-                    />
-                    {/* Preview button overlay */}
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="secondary"
-                      className="absolute inset-0 m-auto h-8 w-8 rounded-full p-0 opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 hover:bg-black/70 border-0"
-                      onClick={openProductImagePreview}
-                    >
-                      <Eye className="h-3 w-3 text-white" />
-                    </Button>
-                    {/* Remove button */}
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="destructive"
-                      className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={uploadedProductImage ? onRemoveUploadedImage : onRemoveCurrentImage}
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  </div>
-                )}
-
-                {/* Upload Button */}
-                <div>
-                  <input
-                    id="product-image-upload"
-                    type="file"
-                    accept="image/*"
-                    onChange={onChangeProductImage}
-                    className="hidden"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-8 text-xs"
-                    onClick={() => document.getElementById('product-image-upload')?.click()}
-                  >
-                    <ImagePlus className="h-3 w-3 mr-1" />
-                    {(currentProductImage || uploadedProductImage) ? 'Change' : 'Add Photo'}
-                  </Button>
-                </div>
-              </div>
-            </div>
 
             {/* Media Upload */}
             <div>
               <Label className="text-sm font-medium text-foreground">Media Upload</Label>
 
-              <div
-                onDrop={handleDrop}
-                onDragOver={handleDragOver}
-                onDragEnter={handleDragEnter}
-                onDragLeave={handleDragLeave}
-                className={`border-2 border-dashed rounded-none p-4 text-center transition-colors mt-2 ${
-                  dragActive
-                    ? 'border-primary bg-primary/5'
-                    : 'border-muted-foreground/25 hover:border-muted-foreground/50'
-                }`}
-              >
-                <div className="flex flex-col items-center gap-2">
-                  <div className="flex gap-2">
-                    <ImagePlus className="h-6 w-6 text-muted-foreground" />
-                    <VideoIcon className="h-6 w-6 text-muted-foreground" />
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    Drop files here or click to upload
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Images (max 10) or Videos (max 5)
-                  </p>
-                  <div className="flex gap-2 mt-2">
-                    <label>
-                      <input
-                        type="file"
-                        multiple
-                        accept="image/*"
-                        onChange={handleImageUpload}
-                        className="hidden"
-                      />
-                      <Button type="button" variant="outline" size="sm" className="text-xs" asChild>
-                        <span>Images</span>
-                      </Button>
-                    </label>
-                    <label>
-                      <input
-                        type="file"
-                        multiple
-                        accept="video/*"
-                        onChange={handleVideoUpload}
-                        className="hidden"
-                      />
-                      <Button type="button" variant="outline" size="sm" className="text-xs" asChild>
-                        <span>Videos</span>
-                      </Button>
-                    </label>
+              {/* Drag and drop area */}
+              <div className="mt-2">
+                <div
+                  onDrop={handleDrop}
+                  onDragOver={handleDragOver}
+                  onDragEnter={handleDragEnter}
+                  onDragLeave={handleDragLeave}
+                  className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+                    dragActive
+                      ? 'border-primary bg-primary/5'
+                      : 'border-muted-foreground/25 hover:border-muted-foreground/50'
+                  }`}
+                >
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="flex gap-2">
+                      <ImagePlus className="h-5 w-5 text-muted-foreground" />
+                      <VideoIcon className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Drop files here
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Images (max 10) or Videos (max 5)
+                    </p>
                   </div>
                 </div>
               </div>
@@ -647,7 +593,6 @@ export const FormContent: React.FC<FormContentProps> = ({
             </div>
           </div>
         </div>
-      </div>
 
       {/* Bottom spacing */}
       <div className="h-16"></div>

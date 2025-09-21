@@ -1,0 +1,555 @@
+            {/* Production Tab */}
+            <TabsContent value="production" className="mt-0">
+              <div className="bg-card rounded-lg border shadow-sm p-6">
+                <div className="space-y-6">
+                  <div className="flex items-center gap-3 pb-4">
+                    <div className="p-2 rounded-none bg-orange-50 dark:bg-orange-950">
+                      <Factory className="h-5 w-5 text-orange-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-foreground">Production Management</h3>
+                      <p className="text-sm text-muted-foreground">Manage manufacturing, samples, and production timeline</p>
+                    </div>
+                  </div>
+
+                  {/* Accordion Sections */}
+                  <Accordion
+                    type="multiple"
+                    value={openAccordionItems}
+                    onValueChange={handleAccordionChange}
+                    className="space-y-4"
+                  >
+                    {/* Supplier & Pricing Section */}
+                    <AccordionItem value="suppliers" className="border rounded-lg px-4">
+                      <AccordionTrigger className="hover:no-underline">
+                        <div className="flex items-center justify-between w-full mr-2">
+                          <div className="flex items-center gap-3">
+                            <div className="p-1.5 rounded bg-blue-50 dark:bg-blue-950">
+                              <Package className="h-4 w-4 text-blue-600" />
+                            </div>
+                            <span className="font-medium">Supplier & Pricing</span>
+                          </div>
+                          <span className="text-sm text-muted-foreground">
+                            {getSectionSummaries().suppliers}
+                          </span>
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent className="pt-4 pb-2">
+                        <div className="space-y-4">
+                          <Label className="text-xs font-medium text-muted-foreground">Suppliers Comparison</Label>
+                          <div className="flex items-center justify-between">
+                            <Button
+                              variant="link"
+                              size="sm"
+                              className="h-auto p-0 text-xs text-primary hover:text-primary/80"
+                              onClick={() => window.open('/vendors', '_blank')}
+                            >
+                              View All Vendors
+                            </Button>
+                          </div>
+
+                          {/* Add Supplier Dropdown */}
+                          <Select
+                            open={supplierDropdownOpen}
+                            onOpenChange={setSupplierDropdownOpen}
+                            onValueChange={addSupplier}
+                          >
+                            <SelectTrigger className="rounded-none">
+                              <SelectValue placeholder="Add vendors to compare..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {vendorsLoading ? (
+                                <SelectItem value="loading" disabled>Loading vendors...</SelectItem>
+                              ) : !vendors || vendors.length === 0 ? (
+                                <SelectItem value="no-vendors" disabled>No vendors available</SelectItem>
+                              ) : (
+                                vendors
+                                  .filter(vendor =>
+                                    vendor.status === 'active' &&
+                                    !selectedSuppliers.some(s => s.id === vendor.id)
+                                  )
+                                  .map((vendor) => (
+                                    <SelectItem key={vendor.id} value={vendor.id}>
+                                      <span className="font-medium">{vendor.name}</span>
+                                    </SelectItem>
+                                  ))
+                              )}
+                            </SelectContent>
+                          </Select>
+
+                          {/* Selected Suppliers */}
+                          {selectedSuppliers.length > 0 ? (
+                            <div className="space-y-4">
+                              {selectedSuppliers.map((supplier, index) => (
+                                <div key={supplier.id} className="border rounded-lg p-4 space-y-3 bg-muted/20">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                      <Badge variant="outline" className="text-xs">#{index + 1}</Badge>
+                                      <span className="font-medium text-sm">{supplier.name}</span>
+                                    </div>
+                                    <X
+                                      className="h-4 w-4 cursor-pointer hover:text-destructive"
+                                      onClick={() => removeSupplier(supplier.id)}
+                                    />
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                      <Label className="text-xs font-medium text-muted-foreground mb-1 block">Source Price (₹)</Label>
+                                      <Input
+                                        type="number"
+                                        step="1"
+                                        value={supplier.sourcePrice}
+                                        onChange={(e) => updateSupplierField(supplier.id, 'sourcePrice', e.target.value)}
+                                        placeholder="500"
+                                        className="rounded-none h-8"
+                                      />
+                                    </div>
+                                    <div>
+                                      <Label className="text-xs font-medium text-muted-foreground mb-1 block">Selling Price (₹)</Label>
+                                      <Input
+                                        type="number"
+                                        step="1"
+                                        value={supplier.sellingPrice}
+                                        onChange={(e) => updateSupplierField(supplier.id, 'sellingPrice', e.target.value)}
+                                        placeholder="800"
+                                        className="rounded-none h-8"
+                                      />
+                                    </div>
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                      <Label className="text-xs font-medium text-muted-foreground mb-1 block">Quality Rating</Label>
+                                      <Select
+                                        value={supplier.quality}
+                                        onValueChange={(value) => updateSupplierField(supplier.id, 'quality', value)}
+                                      >
+                                        <SelectTrigger className="rounded-none h-8">
+                                          <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="excellent">⭐⭐⭐⭐⭐ Excellent</SelectItem>
+                                          <SelectItem value="good">⭐⭐⭐⭐ Good</SelectItem>
+                                          <SelectItem value="average">⭐⭐⭐ Average</SelectItem>
+                                          <SelectItem value="poor">⭐⭐ Poor</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                    <div>
+                                      <Label className="text-xs font-medium text-muted-foreground mb-1 block">Notes</Label>
+                                      <Input
+                                        value={supplier.notes}
+                                        onChange={(e) => updateSupplierField(supplier.id, 'notes', e.target.value)}
+                                        placeholder="Quality notes..."
+                                        className="rounded-none h-8"
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-center py-8 border-2 border-dashed border-muted rounded-lg">
+                              <p className="text-sm text-muted-foreground">No suppliers selected</p>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Add vendors from the dropdown above to compare pricing and quality
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+
+                    {/* Product Links Section */}
+                    <AccordionItem value="links" className="border rounded-lg px-4">
+                      <AccordionTrigger className="hover:no-underline">
+                        <div className="flex items-center justify-between w-full mr-2">
+                          <div className="flex items-center gap-3">
+                            <div className="p-1.5 rounded bg-purple-50 dark:bg-purple-950">
+                              <Link className="h-4 w-4 text-purple-600" />
+                            </div>
+                            <span className="font-medium">Product Links</span>
+                          </div>
+                          <span className="text-sm text-muted-foreground">
+                            {getSectionSummaries().links}
+                          </span>
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent className="pt-4 pb-2">
+                        <div className="space-y-4">
+                          {/* Add New Link Form */}
+                          <div className="space-y-3 border rounded-lg p-4 bg-muted/10">
+                            <Label className="text-xs font-medium text-muted-foreground">Add New Link</Label>
+                            <div className="grid grid-cols-2 gap-3">
+                              <Input
+                                value={newLinkTitle}
+                                onChange={(e) => setNewLinkTitle(e.target.value)}
+                                placeholder="Link title..."
+                                className="rounded-none h-8"
+                              />
+                              <Select
+                                value={newLinkType}
+                                onValueChange={(value) => setNewLinkType(value as any)}
+                              >
+                                <SelectTrigger className="rounded-none h-8">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="reference">📋 Reference</SelectItem>
+                                  <SelectItem value="competitor">🏪 Competitor</SelectItem>
+                                  <SelectItem value="inspiration">💡 Inspiration</SelectItem>
+                                  <SelectItem value="documentation">📄 Documentation</SelectItem>
+                                  <SelectItem value="other">🔗 Other</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="flex gap-3">
+                              <Input
+                                value={newLinkUrl}
+                                onChange={(e) => setNewLinkUrl(e.target.value)}
+                                placeholder="https://..."
+                                className="rounded-none h-8 flex-1"
+                              />
+                              <Button
+                                onClick={addProductLink}
+                                size="sm"
+                                className="h-8 px-3 rounded-none"
+                                disabled={!newLinkUrl.trim() || !newLinkTitle.trim()}
+                              >
+                                <Plus className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </div>
+
+                          {/* Existing Links */}
+                          {productLinks.length > 0 ? (
+                            <div className="space-y-3">
+                              {productLinks.map((link) => (
+                                <div key={link.id} className="border rounded-lg p-3 bg-muted/20">
+                                  <div className="flex items-center justify-between gap-3">
+                                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                                      <Badge variant="outline" className="text-xs flex-shrink-0">
+                                        {link.type === 'reference' && '📋'}
+                                        {link.type === 'competitor' && '🏪'}
+                                        {link.type === 'inspiration' && '💡'}
+                                        {link.type === 'documentation' && '📄'}
+                                        {link.type === 'other' && '🔗'}
+                                      </Badge>
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-medium truncate">{link.title}</p>
+                                        <p className="text-xs text-muted-foreground truncate">{link.url}</p>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-1 flex-shrink-0">
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-6 w-6 p-0"
+                                        onClick={() => window.open(link.url, '_blank')}
+                                      >
+                                        <ExternalLink className="h-3 w-3" />
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-6 w-6 p-0 hover:text-destructive"
+                                        onClick={() => removeProductLink(link.id)}
+                                      >
+                                        <X className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-center py-8 border-2 border-dashed border-muted rounded-lg">
+                              <Link className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                              <p className="text-sm text-muted-foreground">No links added</p>
+                            </div>
+                          )}
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+
+                    {/* Sample Management Section */}
+                    <AccordionItem value="samples" className="border rounded-lg px-4">
+                      <AccordionTrigger className="hover:no-underline">
+                        <div className="flex items-center justify-between w-full mr-2">
+                          <div className="flex items-center gap-3">
+                            <div className="p-1.5 rounded bg-green-50 dark:bg-green-950">
+                              <Package className="h-4 w-4 text-green-600" />
+                            </div>
+                            <span className="font-medium">Sample Management</span>
+                          </div>
+                          <span className="text-sm text-muted-foreground">
+                            {getSectionSummaries().samples}
+                          </span>
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent className="pt-4 pb-2">
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <Label className="text-xs font-medium text-muted-foreground mb-2 block">Sample Request Date</Label>
+                              <Input type="date" className="rounded-none" />
+                            </div>
+                            <div>
+                              <Label className="text-xs font-medium text-muted-foreground mb-2 block">Sample Received Date</Label>
+                              <Input type="date" className="rounded-none" />
+                            </div>
+                          </div>
+                          <div>
+                            <Label className="text-xs font-medium text-muted-foreground mb-2 block">Sample Status</Label>
+                            <Select>
+                              <SelectTrigger className="rounded-none">
+                                <SelectValue placeholder="Select status" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="pending">Pending</SelectItem>
+                                <SelectItem value="approved">Approved</SelectItem>
+                                <SelectItem value="rejected">Rejected</SelectItem>
+                                <SelectItem value="needs-revision">Needs Revision</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label className="text-xs font-medium text-muted-foreground mb-2 block">Sample Notes</Label>
+                            <Textarea
+                              placeholder="Notes about sample quality, feedback..."
+                              className="rounded-none min-h-[80px]"
+                            />
+                          </div>
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+
+                    {/* Production Timeline Section */}
+                    <AccordionItem value="timeline" className="border rounded-lg px-4">
+                      <AccordionTrigger className="hover:no-underline">
+                        <div className="flex items-center justify-between w-full mr-2">
+                          <div className="flex items-center gap-3">
+                            <div className="p-1.5 rounded bg-orange-50 dark:bg-orange-950">
+                              <Factory className="h-4 w-4 text-orange-600" />
+                            </div>
+                            <span className="font-medium">Production Timeline</span>
+                          </div>
+                          <span className="text-sm text-muted-foreground">
+                            {getSectionSummaries().timeline}
+                          </span>
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent className="pt-4 pb-2">
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <Label className="text-xs font-medium text-muted-foreground mb-2 block">Production Start</Label>
+                              <Input type="date" className="rounded-none" />
+                            </div>
+                            <div>
+                              <Label className="text-xs font-medium text-muted-foreground mb-2 block">Expected Completion</Label>
+                              <Input type="date" className="rounded-none" />
+                            </div>
+                          </div>
+                          <div>
+                            <Label className="text-xs font-medium text-muted-foreground mb-2 block">Production Milestones</Label>
+                            <Textarea
+                              placeholder="Key milestones and deadlines..."
+                              className="rounded-none min-h-[100px]"
+                            />
+                          </div>
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+
+                    {/* Materials & Specifications Section */}
+                    <AccordionItem value="materials" className="border rounded-lg px-4">
+                      <AccordionTrigger className="hover:no-underline">
+                        <div className="flex items-center justify-between w-full mr-2">
+                          <div className="flex items-center gap-3">
+                            <div className="p-1.5 rounded bg-yellow-50 dark:bg-yellow-950">
+                              <Package className="h-4 w-4 text-yellow-600" />
+                            </div>
+                            <span className="font-medium">Materials & Specifications</span>
+                          </div>
+                          <span className="text-sm text-muted-foreground">
+                            {getSectionSummaries().materials}
+                          </span>
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent className="pt-4 pb-2">
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <Label className="text-xs font-medium text-muted-foreground mb-2 block">Dimensions</Label>
+                              <Input placeholder="L x W x H" className="rounded-none" />
+                            </div>
+                            <div>
+                              <Label className="text-xs font-medium text-muted-foreground mb-2 block">Weight</Label>
+                              <Input placeholder="kg" className="rounded-none" />
+                            </div>
+                          </div>
+                          <div>
+                            <Label className="text-xs font-medium text-muted-foreground mb-2 block">Materials</Label>
+                            <Textarea
+                              placeholder="Describe materials used..."
+                              className="rounded-none min-h-[80px]"
+                            />
+                          </div>
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+
+                    {/* Packing Section */}
+                    <AccordionItem value="packing" className="border rounded-lg px-4">
+                      <AccordionTrigger className="hover:no-underline">
+                        <div className="flex items-center justify-between w-full mr-2">
+                          <div className="flex items-center gap-3">
+                            <div className="p-1.5 rounded bg-purple-50 dark:bg-purple-950">
+                              <Package className="h-4 w-4 text-purple-600" />
+                            </div>
+                            <span className="font-medium">📦 Packing</span>
+                          </div>
+                          <span className="text-sm text-muted-foreground">
+                            {getSectionSummaries().packing}
+                          </span>
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent className="pt-4 pb-2">
+                        <div className="space-y-6">
+                          <p className="text-xs text-muted-foreground">Box dielines, insert designs, unboxing photos, and packing instructions</p>
+
+                          {/* File Upload Section - Minimal */}
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <Label className="text-xs font-medium text-muted-foreground">Packing Assets</Label>
+                              <input
+                                type="file"
+                                multiple
+                                accept="image/*,application/pdf,video/mp4"
+                                onChange={handlePackingFileUpload}
+                                className="hidden"
+                                id="packing-file-upload"
+                              />
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 px-2 text-xs rounded-none"
+                                onClick={() => document.getElementById('packing-file-upload')?.click()}
+                              >
+                                <Plus className="h-3 w-3 mr-1" />
+                                Add Files
+                              </Button>
+                            </div>
+
+                            {/* Uploaded Files - Grid with Previews */}
+                            {packingFiles.length > 0 && (
+                              <div className="space-y-2">
+                                <div className="text-xs text-muted-foreground">
+                                  {packingFiles.length} file{packingFiles.length > 1 ? 's' : ''} uploaded
+                                </div>
+                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 max-h-48 overflow-y-auto">
+                                  {packingFiles.map((file, index) => {
+                                    const fileUrl = URL.createObjectURL(file)
+                                    const isImage = file.type.startsWith('image/')
+                                    const isPDF = file.type === 'application/pdf'
+                                    const isVideo = file.type.startsWith('video/')
+
+                                    return (
+                                      <div key={index} className="relative group bg-muted/10 rounded-lg p-2 border hover:bg-muted/20 transition-colors">
+                                        {/* Preview */}
+                                        <div className="aspect-square mb-2 bg-muted/20 rounded overflow-hidden flex items-center justify-center">
+                                          {isImage ? (
+                                            <img
+                                              src={fileUrl}
+                                              alt={file.name}
+                                              className="w-full h-full object-cover"
+                                              onLoad={() => URL.revokeObjectURL(fileUrl)}
+                                            />
+                                          ) : isVideo ? (
+                                            <video
+                                              src={fileUrl}
+                                              className="w-full h-full object-cover"
+                                              muted
+                                              preload="metadata"
+                                              onLoadedMetadata={() => URL.revokeObjectURL(fileUrl)}
+                                            />
+                                          ) : isPDF ? (
+                                            <div className="flex flex-col items-center justify-center text-muted-foreground">
+                                              <span className="text-2xl mb-1">📄</span>
+                                              <span className="text-xs">PDF</span>
+                                            </div>
+                                          ) : (
+                                            <div className="flex flex-col items-center justify-center text-muted-foreground">
+                                              <span className="text-2xl mb-1">📁</span>
+                                              <span className="text-xs">File</span>
+                                            </div>
+                                          )}
+                                        </div>
+
+                                        {/* File Info */}
+                                        <div className="space-y-1">
+                                          <p className="text-xs font-medium truncate" title={file.name}>
+                                            {file.name}
+                                          </p>
+                                          <p className="text-xs text-muted-foreground">
+                                            {formatFileSize(file.size)}
+                                          </p>
+                                        </div>
+
+                                        {/* Remove Button */}
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="absolute top-1 right-1 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 hover:text-destructive transition-opacity bg-background/80 hover:bg-background"
+                                          onClick={() => removePackingFile(index)}
+                                        >
+                                          <X className="h-3 w-3" />
+                                        </Button>
+
+                                        {/* View Button for PDFs and Videos */}
+                                        {(isPDF || isVideo) && (
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="absolute bottom-1 right-1 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity bg-background/80 hover:bg-background"
+                                            onClick={() => window.open(fileUrl, '_blank')}
+                                            title="View file"
+                                          >
+                                            <ExternalLink className="h-3 w-3" />
+                                          </Button>
+                                        )}
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              </div>
+                            )}
+
+                            {packingFiles.length === 0 && (
+                              <div className="text-xs text-muted-foreground italic">
+                                No files uploaded • Supports images, PDFs, MP4 videos
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Packing Instructions - Rich Text Editor */}
+                          <div className="space-y-4">
+                            <Label className="text-xs font-medium text-muted-foreground">Packing Instructions</Label>
+                            <RichTextEditor
+                              content={packingInstructions}
+                              onChange={setPackingInstructions}
+                              placeholder="Write detailed packing instructions, box specifications, seasonal notes, or step-by-step packing guidelines..."
+                              className="w-full"
+                              minHeight="200px"
+                            />
+                            <div className="text-xs text-muted-foreground">
+                              💡 Tip: Use headings, bullet points, and numbered lists to organize your packing instructions clearly
+                            </div>
+                          </div>
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  </Accordion>
+                </div>
+              </div>
+            </TabsContent>
