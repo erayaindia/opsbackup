@@ -16,5 +16,17 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
   },
   db: {
     schema: 'public'
-  }
+  },
+  realtime: {
+    params: {
+      eventsPerSecond: 10,
+    },
+    heartbeatIntervalMs: 30000,
+    reconnectAfterMs: (tries) => Math.min(tries * 1000, 30000),
+  },
+  global: {
+    headers: {
+      'apikey': SUPABASE_PUBLISHABLE_KEY,
+    },
+  },
 });

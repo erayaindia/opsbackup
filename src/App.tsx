@@ -104,6 +104,9 @@ import SystemNotifications from "./pages/alerts/SystemNotifications";
 // Logs page
 import Logs from "./pages/system/Logs";
 
+// Notion page
+import Notion from "./pages/system/Notion";
+
 // Create a client
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -122,7 +125,12 @@ const App = () => (
       <PermissionsProvider>
         <Toaster />
         <Sonner />
-        <BrowserRouter>
+        <BrowserRouter
+          future={{
+            v7_startTransition: true,
+            v7_relativeSplatPath: true
+          }}
+        >
       <Routes>
         <Route path="/auth" element={<Auth />} />
         <Route path="/onboard" element={<Onboard />} />
@@ -486,6 +494,13 @@ const App = () => (
                 <Route path="logs" element={
                   <PermissionGuard requiredModule="management" requiredRole={["admin", "super_admin"]}>
                     <Logs />
+                  </PermissionGuard>
+                } />
+
+                {/* Notion route */}
+                <Route path="notion" element={
+                  <PermissionGuard requiredModule="management" requiredRole={["admin", "super_admin"]}>
+                    <Notion />
                   </PermissionGuard>
                 } />
               </Route>
