@@ -468,13 +468,13 @@ const ProductCard = memo(({
 
           {/* Product Image with Lazy Loading */}
           <div className="relative h-[200px] bg-muted flex items-center justify-center">
-            {card.thumbnail || card.thumbnailUrl || card.ideaData?.thumbnail ? (
+            {card.primaryFile?.file_url ? (
               <LazyImage
-                src={card.thumbnail || card.thumbnailUrl || card.ideaData?.thumbnail}
+                src={card.primaryFile.file_url}
                 alt={card.workingTitle || card.name}
                 className="w-full h-full object-cover"
                 onError={() => {
-                  console.log('Failed to load image for product:', card.id)
+                  console.log('Failed to load primary image for product:', card.id)
                 }}
               />
             ) : (
@@ -693,7 +693,6 @@ export default function Lifecycle() {
   })
   const [uploadedImages, setUploadedImages] = useState<File[]>([])
   const [uploadedVideos, setUploadedVideos] = useState<File[]>([])
-  const [uploadedProductImage, setUploadedProductImage] = useState<File | null>(null)
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [tagInput, setTagInput] = useState('')
   const [tags, setTags] = useState<string[]>([])
@@ -973,29 +972,6 @@ export default function Lifecycle() {
     setUploadedVideos(prev => [...prev, ...files])
   }
 
-  const handleProductImageUpload = (file: File) => {
-    setUploadedProductImage(file)
-  }
-
-  const removeProductImage = () => {
-    setUploadedProductImage(null)
-  }
-
-  const handleChangeProductImage = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      setUploadedProductImage(file)
-    }
-  }
-
-  const handleRemoveCurrentImage = () => {
-    // For new products, we don't have a current image, just remove uploaded
-    setUploadedProductImage(null)
-  }
-
-  const handleRemoveUploadedImage = () => {
-    setUploadedProductImage(null)
-  }
 
   
   const removeImage = (index: number) => {
@@ -1231,20 +1207,6 @@ export default function Lifecycle() {
         return
       }
 
-      // Upload product image if provided
-      let thumbnailUrl: string | undefined
-      if (uploadedProductImage) {
-        try {
-          thumbnailUrl = await productLifecycleService.uploadProductImage(uploadedProductImage, 'temp')
-        } catch (uploadError) {
-          console.error('Error uploading image:', uploadError)
-          toast({
-            title: 'Image upload failed',
-            description: 'Product will be created without image.',
-            variant: 'destructive'
-          })
-        }
-      }
 
       // Prepare payload
       const payload: CreateProductPayload = {
@@ -1254,7 +1216,6 @@ export default function Lifecycle() {
         competitorLinks: referenceLinks.filter(link => link.type === 'competitor').map(link => link.url),
         adLinks: referenceLinks.filter(link => link.type === 'ad').map(link => link.url),
         notes: newIdeaForm.notes,
-        thumbnail: thumbnailUrl,
         problemStatement: newIdeaForm.problemStatement,
         opportunityStatement: newIdeaForm.opportunityStatement,
         estimatedSourcePriceMin: newIdeaForm.estimatedSourcePriceMin,
@@ -1823,9 +1784,9 @@ export default function Lifecycle() {
                         <div className="flex items-center gap-3">
                           {/* Product Thumbnail */}
                           <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden">
-                            {card.thumbnail || card.thumbnailUrl || card.ideaData?.thumbnail ? (
+                            {card.primaryFile?.file_url ? (
                               <LazyImage
-                                src={card.thumbnail || card.thumbnailUrl || card.ideaData?.thumbnail}
+                                src={card.primaryFile?.file_url}
                                 alt={card.workingTitle || card.name}
                                 className="w-full h-full object-cover"
                               />
@@ -1963,18 +1924,22 @@ export default function Lifecycle() {
             {filteredCards.length > 0 ? (
               <>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 sm:gap-6">
-                  {filteredCards.map(card => (
-                    <ProductCard
-                      key={card.id}
-                      card={card}
-                      onClick={handleProductClick}
-                      onFavorite={toggleFavorite}
-                      onArchive={handleArchive}
-                      onDuplicate={handleDuplicate}
-                      isFavorite={favoriteProducts.has(card.id)}
-                      getProductAge={getProductAge}
-                    />
-                  ))}
+                  {filteredCards.map(card => {
+                    console.log('Mapping card:', card.id, 'primaryFile:', card.primaryFile)
+                    return (
+                      <ProductCard
+                        key={card.id}
+                        card={card}
+                        onClick={handleProductClick}
+                        onFavorite={toggleFavorite}
+                        onArchive={handleArchive}
+                        onDuplicate={handleDuplicate}
+                        isFavorite={favoriteProducts.has(card.id)}
+                        getProductAge={getProductAge}
+                        primaryFile={card.primaryFile}
+                      />
+                    )
+                  })}
                 </div>
 
                 {/* Infinite scroll trigger */}
@@ -2023,54 +1988,6 @@ export default function Lifecycle() {
                   <span className="animate-in slide-in-from-left-5 duration-300">
                     {showSuccessAnimation ? 'Product Created!' : 'New Product Idea'}
                   </span>
-
-                  {/* Product Photo Upload - moved to header near title */}
-                  <div className="flex items-center gap-2 ml-4">
-                    {uploadedProductImage ? (
-                      <div className="relative">
-                        <img
-                          src={URL.createObjectURL(uploadedProductImage)}
-                          alt="Product"
-                          className="w-10 h-10 object-cover rounded border"
-                        />
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          size="sm"
-                          className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0"
-                          onClick={removeProductImage}
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <label className="cursor-pointer">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0]
-                            if (file) {
-                              handleProductImageUpload(file)
-                            }
-                          }}
-                          className="hidden"
-                        />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="h-10 gap-2 rounded-none"
-                          asChild
-                        >
-                          <span>
-                            <ImagePlus className="h-4 w-4" />
-                            Add Photo
-                          </span>
-                        </Button>
-                      </label>
-                    )}
-                  </div>
                 </DialogTitle>
                 
                 {/* Top right controls */}
@@ -2152,11 +2069,6 @@ export default function Lifecycle() {
                     vendors={vendors}
                     vendorsLoading={vendorsLoading}
                     availableOwners={availableUsers}
-                    currentProductImage={null}
-                    uploadedProductImage={uploadedProductImage}
-                    onChangeProductImage={handleChangeProductImage}
-                    onRemoveCurrentImage={handleRemoveCurrentImage}
-                    onRemoveUploadedImage={handleRemoveUploadedImage}
                   />
                 </TabsContent>
                 
@@ -2210,11 +2122,6 @@ export default function Lifecycle() {
                   vendors={vendors}
                   vendorsLoading={vendorsLoading}
                   availableOwners={availableUsers}
-                  currentProductImage={null}
-                  uploadedProductImage={uploadedProductImage}
-                  onChangeProductImage={handleChangeProductImage}
-                  onRemoveCurrentImage={handleRemoveCurrentImage}
-                  onRemoveUploadedImage={handleRemoveUploadedImage}
                 />
               </div>
               
