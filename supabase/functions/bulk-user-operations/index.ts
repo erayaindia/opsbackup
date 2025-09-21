@@ -290,13 +290,14 @@ serve(async (req) => {
             updateData = { role: data }
             break
 
-          case 'add_module_access':
+          case 'add_module_access': {
             const currentModules = targetUser.module_access || []
             const newModules = [...new Set([...currentModules, ...data])]
             updateData = { module_access: newModules }
             break
+          }
 
-          case 'remove_module_access':
+          case 'remove_module_access': {
             const existingModules = targetUser.module_access || []
             const filteredModules = existingModules.filter(module => !data.includes(module))
             // Ensure dashboard is never removed
@@ -305,10 +306,11 @@ serve(async (req) => {
             }
             updateData = { module_access: filteredModules }
             break
+          }
 
-          case 'delete':
+          case 'delete': {
             // For delete, we need to use the admin client
-            const { error: deleteAuthError } = targetUser.auth_user_id 
+            const { error: deleteAuthError } = targetUser.auth_user_id
               ? await supabaseAdmin.auth.admin.deleteUser(targetUser.auth_user_id)
               : { error: null }
 
@@ -323,6 +325,7 @@ serve(async (req) => {
 
             operationSuccess = true
             break
+          }
         }
 
         // Perform update operations (not delete)

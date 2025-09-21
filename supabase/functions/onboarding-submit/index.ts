@@ -39,7 +39,7 @@ function validateSubmission(data: any): { isValid: boolean; errors: ValidationEr
 
   // Optional field validations
   if (data.phone && typeof data.phone === 'string') {
-    const phoneRegex = /^\+?[\d\s\-\(\)]{10,15}$/
+    const phoneRegex = /^\+?[\d\s\-()]{10,15}$/
     if (!phoneRegex.test(data.phone)) {
       errors.push({ field: 'phone', message: 'Please enter a valid phone number' })
     }

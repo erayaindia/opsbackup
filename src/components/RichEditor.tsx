@@ -10,12 +10,12 @@ import { SlashCommandMenu, SlashCommandMenuRef } from './slash-commands/SlashCom
 import { SlashCommand as SlashCommandType } from './slash-commands/types';
 
 // Optional task list extensions - will be loaded dynamically
-let TaskList: any = null;
-let TaskItem: any = null;
+let TaskList: typeof import('@tiptap/extension-task-list').default | null = null;
+let TaskItem: typeof import('@tiptap/extension-task-item').default | null = null;
 
 interface RichEditorProps {
-  value?: any;
-  onChange?: (json: any) => void;
+  value?: Record<string, unknown>;
+  onChange?: (json: Record<string, unknown>) => void;
 }
 
 export const RichEditor: React.FC<RichEditorProps> = ({ value, onChange }) => {
@@ -87,14 +87,14 @@ export const RichEditor: React.FC<RichEditorProps> = ({ value, onChange }) => {
           allowSpaces: false,
           allowedPrefixes: [' ', '^'],
           startOfLine: false,
-          command: ({ editor, range }: any) => {
+          command: ({ editor, range }: { editor: any; range: any }) => {
             // This will be handled by the menu selection
           },
           render: () => {
-            let popup: any = null;
+            let popup: { editor: any; query: string; range: any } | null = null;
 
             return {
-              onStart: (props: any) => {
+              onStart: (props: { editor: any; query: string; range: any }) => {
                 setShowSlashMenu(true);
                 setSlashQuery(props.query || '');
                 setSlashRange(props.range);
@@ -116,13 +116,13 @@ export const RichEditor: React.FC<RichEditorProps> = ({ value, onChange }) => {
                 popup = props;
               },
 
-              onUpdate: (props: any) => {
+              onUpdate: (props: { editor: any; query: string; range: any }) => {
                 setSlashQuery(props.query || '');
                 setSlashRange(props.range);
                 popup = props;
               },
 
-              onKeyDown: (props: any) => {
+              onKeyDown: (props: { event: KeyboardEvent }) => {
                 if (props.event.key === 'Escape') {
                   setShowSlashMenu(false);
                   return true;
@@ -273,7 +273,7 @@ export const RichEditor: React.FC<RichEditorProps> = ({ value, onChange }) => {
 
   // Add global functions for table controls
   React.useEffect(() => {
-    (window as any).addTableColumn = (buttonElement: HTMLElement) => {
+    (window as unknown as { addTableColumn: (element: HTMLElement) => void }).addTableColumn = (buttonElement: HTMLElement) => {
       if (editor) {
         // Find the table and add column
         const tableWrapper = buttonElement.closest('.table-wrapper');
@@ -303,7 +303,7 @@ export const RichEditor: React.FC<RichEditorProps> = ({ value, onChange }) => {
       }
     };
 
-    (window as any).addTableRow = (buttonElement: HTMLElement) => {
+    (window as unknown as { addTableRow: (element: HTMLElement) => void }).addTableRow = (buttonElement: HTMLElement) => {
       if (editor) {
         const tableWrapper = buttonElement.closest('.table-wrapper');
         if (tableWrapper) {
@@ -330,8 +330,8 @@ export const RichEditor: React.FC<RichEditorProps> = ({ value, onChange }) => {
 
     // Cleanup
     return () => {
-      delete (window as any).addTableColumn;
-      delete (window as any).addTableRow;
+      delete (window as unknown as { addTableColumn?: unknown }).addTableColumn;
+      delete (window as unknown as { addTableRow?: unknown }).addTableRow;
     };
   }, [editor]);
 

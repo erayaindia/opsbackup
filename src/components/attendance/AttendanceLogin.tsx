@@ -22,9 +22,10 @@ const AttendanceLogin: React.FC<AttendanceLoginProps> = ({
   const { toast } = useToast();
 
   const validateEmployeeId = (id: string): boolean => {
-    // Updated validation for your employee ID format: RD001, EE001, PB001
-    const employeeIdRegex = /^[A-Z]{2}\d{3}$/; // Example: RD001, EE001, PB001
-    return employeeIdRegex.test(id);
+    // Accept any alphanumeric employee ID format (numbers, letters, or combinations)
+    // Examples: 1000, RD001, EE001, PB001, 123, ABC123, etc.
+    const employeeIdRegex = /^[A-Z0-9]+$/; // Any combination of letters and numbers
+    return id.length >= 1 && id.length <= 20 && employeeIdRegex.test(id);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -37,7 +38,7 @@ const AttendanceLogin: React.FC<AttendanceLoginProps> = ({
     }
 
     if (!validateEmployeeId(employeeId.toUpperCase())) {
-      setError('Invalid employee ID format. Use format: RD001');
+      setError('Invalid employee ID format. Use alphanumeric characters only (e.g., 1000, RD001, ABC123)');
       return;
     }
 
@@ -97,7 +98,7 @@ const AttendanceLogin: React.FC<AttendanceLoginProps> = ({
             <Input
               id="employeeId"
               type="text"
-              placeholder="Enter your ID (e.g., RD001)"
+              placeholder="Enter your ID (e.g., 1000, RD001)"
               value={employeeId}
               onChange={(e) => {
                 setEmployeeId(e.target.value.toUpperCase());
@@ -105,7 +106,7 @@ const AttendanceLogin: React.FC<AttendanceLoginProps> = ({
               }}
               disabled={isValidating || isLoading}
               className="text-center text-lg font-mono"
-              maxLength={5}
+              maxLength={20}
             />
           </div>
 
