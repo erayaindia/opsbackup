@@ -5,7 +5,8 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
-import { X, ImagePlus, VideoIcon } from 'lucide-react'
+import { X, ImagePlus, VideoIcon, Eye } from 'lucide-react'
+import { ImagePreviewModal } from '@/components/fulfillment/packing/ImagePreviewModal'
 
 interface FormContentProps {
   newIdeaForm: any
@@ -95,6 +96,11 @@ export const FormContent: React.FC<FormContentProps> = ({
   const [newLinkUrl, setNewLinkUrl] = useState('')
   const [newLinkType, setNewLinkType] = useState<'competitor' | 'ad'>('competitor')
 
+  // Image preview state
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false)
+  const [previewImages, setPreviewImages] = useState<string[]>([])
+  const [previewIndex, setPreviewIndex] = useState(0)
+
   const addReferenceLink = () => {
     setShowLinkInput(true)
   }
@@ -116,6 +122,30 @@ export const FormContent: React.FC<FormContentProps> = ({
 
   const removeReferenceLink = (indexToRemove: number) => {
     setReferenceLinks(referenceLinks.filter((_, index) => index !== indexToRemove))
+  }
+
+  // Image preview functions
+  const openImagePreview = (imageUrl: string, additionalImages: string[] = []) => {
+    const images = [imageUrl, ...additionalImages]
+    setPreviewImages(images)
+    setPreviewIndex(0)
+    setIsPreviewModalOpen(true)
+  }
+
+  const openProductImagePreview = () => {
+    const imageUrl = uploadedProductImage
+      ? URL.createObjectURL(uploadedProductImage)
+      : currentProductImage
+    if (imageUrl) {
+      openImagePreview(imageUrl)
+    }
+  }
+
+  const openUploadedImagePreview = (index: number) => {
+    const imageUrls = uploadedImages.map(file => URL.createObjectURL(file))
+    setPreviewImages(imageUrls)
+    setPreviewIndex(index)
+    setIsPreviewModalOpen(true)
   }
 
   return (
@@ -440,8 +470,20 @@ export const FormContent: React.FC<FormContentProps> = ({
                     <img
                       src={uploadedProductImage ? URL.createObjectURL(uploadedProductImage) : currentProductImage || ''}
                       alt="Product"
-                      className="w-16 h-16 object-cover rounded border border-border"
+                      className="w-16 h-16 object-cover rounded border border-border cursor-pointer"
+                      onClick={openProductImagePreview}
                     />
+                    {/* Preview button overlay */}
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      className="absolute inset-0 m-auto h-8 w-8 rounded-full p-0 opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 hover:bg-black/70 border-0"
+                      onClick={openProductImagePreview}
+                    >
+                      <Eye className="h-3 w-3 text-white" />
+                    </Button>
+                    {/* Remove button */}
                     <Button
                       type="button"
                       size="sm"
@@ -546,8 +588,20 @@ export const FormContent: React.FC<FormContentProps> = ({
                             <img
                               src={URL.createObjectURL(file)}
                               alt={`Upload ${index + 1}`}
-                              className="w-full h-12 object-cover rounded-none border"
+                              className="w-full h-12 object-cover rounded-none border cursor-pointer"
+                              onClick={() => openUploadedImagePreview(index)}
                             />
+                            {/* Preview button overlay */}
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="secondary"
+                              className="absolute inset-0 m-auto h-6 w-6 rounded-full p-0 opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 hover:bg-black/70 border-0"
+                              onClick={() => openUploadedImagePreview(index)}
+                            >
+                              <Eye className="h-2 w-2 text-white" />
+                            </Button>
+                            {/* Remove button */}
                             <Button
                               type="button"
                               variant="destructive"
@@ -597,6 +651,16 @@ export const FormContent: React.FC<FormContentProps> = ({
 
       {/* Bottom spacing */}
       <div className="h-16"></div>
+
+      {/* Image Preview Modal */}
+      <ImagePreviewModal
+        isOpen={isPreviewModalOpen}
+        onClose={() => setIsPreviewModalOpen(false)}
+        images={previewImages}
+        currentIndex={previewIndex}
+        onIndexChange={setPreviewIndex}
+        title="Image Preview"
+      />
     </div>
   )
 }
