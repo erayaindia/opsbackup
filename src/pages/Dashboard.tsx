@@ -212,7 +212,7 @@ export default function Dashboard() {
 
 
       {/* Live Feed Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className={`grid grid-cols-1 ${profile?.appUser?.role === 'admin' || profile?.appUser?.role === 'super_admin' ? 'lg:grid-cols-3' : 'lg:grid-cols-2'} gap-6`}>
         <Card className="enhanced-card">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -243,14 +243,14 @@ export default function Dashboard() {
                   <div key={index} className="border rounded-md p-2 hover:bg-muted/20 transition-colors">
                     <div className="flex items-center justify-between mb-1">
                       <div className="font-medium text-sm">#{order.id}</div>
-                      <Badge 
+                      <Badge
                         variant={getStatusBadgeVariant(order.status)}
                         className="text-xs px-2 py-0"
                       >
                         {order.status}
                       </Badge>
                     </div>
-                    
+
                     <div className="flex items-center justify-between text-xs">
                       <div>{order.customer}</div>
                       <div className="font-medium text-green-600">{order.amount}</div>
@@ -262,12 +262,12 @@ export default function Dashboard() {
                     </div>
                   </div>
                 ))}
-                
+
                 {recentOrders.length > 5 && (
                   <div className="pt-2 border-t">
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
+                    <Button
+                      variant="outline"
+                      size="sm"
                       className="w-full"
                       onClick={() => window.location.href = '/orders'}
                     >
@@ -280,102 +280,104 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card className="enhanced-card">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5" />
-              Employee Status
-              <Badge variant="secondary" className="ml-auto">
-                {employeesLoading ? '...' : `${getCheckedInCount()}/${getTotalActiveEmployees()} checked in`}
-              </Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {employeesLoading ? (
-              <div className="space-y-3">
-                {Array.from({ length: 6 }).map((_, index) => (
-                  <div key={index} className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <Skeleton className="w-2 h-2 rounded-full" />
-                      <div className="space-y-1">
-                        <Skeleton className="h-4 w-24" />
-                        <Skeleton className="h-3 w-16" />
-                      </div>
-                    </div>
-                    <Skeleton className="h-3 w-20" />
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {employees.slice(0, 8).map((employee) => {
-                  // Determine status indicator
-                  const getStatusColor = () => {
-                    if (employee.status === 'inactive') return 'bg-gray-400';
-                    if (!employee.isCheckedIn) return 'bg-red-500';
-                    if (employee.attendanceStatus === 'late') return 'bg-orange-500';
-                    if (employee.attendanceStatus === 'present') return 'bg-green-500';
-                    if (employee.attendanceStatus === 'checked_out') return 'bg-blue-500';
-                    return 'bg-gray-400';
-                  };
-
-                  const getStatusText = () => {
-                    if (employee.status === 'inactive') return 'Inactive';
-                    if (!employee.isCheckedIn) return 'Not checked in';
-                    if (employee.attendanceStatus === 'late') return 'Late';
-                    if (employee.attendanceStatus === 'present') return 'Present';
-                    if (employee.attendanceStatus === 'checked_out') return 'Checked out';
-                    return 'Unknown';
-                  };
-
-                  return (
-                    <div key={employee.id} className="flex items-center justify-between hover:bg-muted/20 rounded-lg p-2 transition-colors">
+        {(profile?.appUser?.role === 'admin' || profile?.appUser?.role === 'super_admin') && (
+          <Card className="enhanced-card">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                Employee Status
+                <Badge variant="secondary" className="ml-auto">
+                  {employeesLoading ? '...' : `${getCheckedInCount()}/${getTotalActiveEmployees()} checked in`}
+                </Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {employeesLoading ? (
+                <div className="space-y-3">
+                  {Array.from({ length: 6 }).map((_, index) => (
+                    <div key={index} className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div
-                          className={`w-2 h-2 rounded-full ${getStatusColor()}`}
-                          title={getStatusText()}
-                        />
-                        <div>
-                          <div className="font-medium text-sm">{employee.full_name}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {employee.designation || 'Employee'}
-                            {employee.employee_id && ` • ${employee.employee_id}`}
-                          </div>
+                        <Skeleton className="w-2 h-2 rounded-full" />
+                        <div className="space-y-1">
+                          <Skeleton className="h-4 w-24" />
+                          <Skeleton className="h-3 w-16" />
                         </div>
                       </div>
-                      <div className="text-xs text-muted-foreground max-w-[120px] truncate text-right">
-                        <div className="font-medium">{getStatusText()}</div>
-                        {employee.department && (
-                          <div className="text-xs">{employee.department}</div>
-                        )}
-                      </div>
+                      <Skeleton className="h-3 w-20" />
                     </div>
-                  );
-                })}
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {employees.slice(0, 8).map((employee) => {
+                    // Determine status indicator
+                    const getStatusColor = () => {
+                      if (employee.status === 'inactive') return 'bg-gray-400';
+                      if (!employee.isCheckedIn) return 'bg-red-500';
+                      if (employee.attendanceStatus === 'late') return 'bg-orange-500';
+                      if (employee.attendanceStatus === 'present') return 'bg-green-500';
+                      if (employee.attendanceStatus === 'checked_out') return 'bg-blue-500';
+                      return 'bg-gray-400';
+                    };
 
-                {employees.length > 8 && (
-                  <div className="pt-2 border-t">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full"
-                      onClick={() => navigate('/attendance')}
-                    >
-                      View All Employees ({employees.length})
-                    </Button>
-                  </div>
-                )}
+                    const getStatusText = () => {
+                      if (employee.status === 'inactive') return 'Inactive';
+                      if (!employee.isCheckedIn) return 'Not checked in';
+                      if (employee.attendanceStatus === 'late') return 'Late';
+                      if (employee.attendanceStatus === 'present') return 'Present';
+                      if (employee.attendanceStatus === 'checked_out') return 'Checked out';
+                      return 'Unknown';
+                    };
 
-                {employees.length === 0 && !employeesLoading && (
-                  <div className="text-center py-4">
-                    <Users className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                    <div className="text-sm text-muted-foreground">No employees found</div>
-                  </div>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                    return (
+                      <div key={employee.id} className="flex items-center justify-between hover:bg-muted/20 rounded-lg p-2 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <div
+                            className={`w-2 h-2 rounded-full ${getStatusColor()}`}
+                            title={getStatusText()}
+                          />
+                          <div>
+                            <div className="font-medium text-sm">{employee.full_name}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {employee.designation || 'Employee'}
+                              {employee.employee_id && ` • ${employee.employee_id}`}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-xs text-muted-foreground max-w-[120px] truncate text-right">
+                          <div className="font-medium">{getStatusText()}</div>
+                          {employee.department && (
+                            <div className="text-xs">{employee.department}</div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {employees.length > 8 && (
+                    <div className="pt-2 border-t">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => navigate('/attendance')}
+                      >
+                        View All Employees ({employees.length})
+                      </Button>
+                    </div>
+                  )}
+
+                  {employees.length === 0 && !employeesLoading && (
+                    <div className="text-center py-4">
+                      <Users className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                      <div className="text-sm text-muted-foreground">No employees found</div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         <Card className="enhanced-card">
           <CardHeader>

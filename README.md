@@ -1,73 +1,190 @@
-# Welcome to your Lovable project
+# Eraya Operations Hub
 
-## Project info
+A comprehensive operations management platform built with React, TypeScript, and Supabase. Streamline your business processes with powerful tools for order management, fulfillment tracking, team coordination, and more.
 
-**URL**: https://lovable.dev/projects/d7951ba0-846f-4168-8ea9-4cce8011a39f
+## Features
 
-## How can I edit this code?
+### 🎯 Dashboard & Analytics
+- Real-time KPI monitoring
+- Live order tracking
+- Inventory alerts
+- Employee attendance overview
 
-There are several ways of editing your application.
+### 📦 Order Management
+- Order processing workflow
+- Status tracking
+- Customer communication
+- Dispute resolution
 
-**Use Lovable**
+### 🏭 Fulfillment Operations
+- Multi-step fulfillment process
+- Quality control checks
+- Packing and shipping
+- Return handling
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/d7951ba0-846f-4168-8ea9-4cce8011a39f) and start prompting.
+### 👥 Team Management
+- Employee check-in/out system
+- Role-based access control
+- Team communication
+- Performance tracking
 
-Changes made via Lovable will be committed automatically to this repo.
+### 📊 Inventory Management
+- Stock level monitoring
+- Low stock alerts
+- Product variant tracking
+- Warehouse management
 
-**Use your preferred IDE**
+### 🎯 Task Management
+- Daily and one-off tasks
+- Evidence-based completion
+- Review workflows
+- Auto-approval settings
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### 💬 Support System
+- Customer feedback management
+- Ticket resolution
+- Priority handling
+- Knowledge base
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+## Technology Stack
 
-Follow these steps:
+- **Frontend**: React 18, TypeScript, Vite
+- **UI Components**: Radix UI, shadcn/ui, Tailwind CSS
+- **Backend**: Supabase (Authentication, Database, Storage)
+- **State Management**: React Query, React Hook Form
+- **Routing**: React Router DOM
+- **Charts**: Recharts
+- **Icons**: Lucide React
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+## Prerequisites
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+- Node.js 18+
+- npm or yarn
+- Supabase account
 
-# Step 3: Install the necessary dependencies.
-npm i
+## Installation
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+1. **Clone the repository**
+   ```bash
+   git clone [your-repo-url]
+   cd eraya-ops-hub
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Environment Setup**
+
+   Create a `.env.local` file in the root directory:
+   ```env
+   VITE_SUPABASE_URL=your-supabase-url
+   VITE_SUPABASE_PUBLISHABLE_KEY=your-supabase-anon-key
+   ```
+
+4. **Database Setup**
+
+   Run the Supabase migrations:
+   ```bash
+   npx supabase db push
+   ```
+
+## Development
+
+### Available Scripts
+
+- `npm run dev` - Start development server
+- `npm run build` - Production build
+- `npm run build:dev` - Development build
+- `npm run lint` - Run ESLint
+- `npm run preview` - Preview production build
+
+### Development Server
+
+```bash
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+The application will be available at `http://localhost:8080`
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## Project Structure
 
-**Use GitHub Codespaces**
+```
+src/
+├── components/         # Reusable UI components
+│   ├── ui/            # shadcn/ui components
+│   ├── dashboard/     # Dashboard-specific components
+│   ├── orders/        # Order management components
+│   └── ...
+├── pages/             # Route pages
+├── hooks/             # Custom React hooks
+├── lib/               # Utility functions
+├── integrations/      # External service integrations
+├── types/             # TypeScript type definitions
+└── styles/            # Global styles
+```
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+### Key Directories
 
-## What technologies are used for this project?
+- **`src/components/`** - Organized by feature (fulfillment, orders, support, etc.)
+- **`src/pages/`** - Main application routes
+- **`src/hooks/`** - Data fetching and state management hooks
+- **`src/lib/`** - Business logic and utilities
+- **`src/integrations/supabase/`** - Database client and type definitions
 
-This project is built with:
+## Authentication
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+The application uses Supabase Auth with:
+- Email/password authentication
+- Role-based access control (admin, super_admin, user)
+- Protected routes via AuthWrapper
+- Module-based permissions
 
-## How can I deploy this project?
+## Deployment
 
-Simply open [Lovable](https://lovable.dev/projects/d7951ba0-846f-4168-8ea9-4cce8011a39f) and click on Share -> Publish.
+### Production Build
 
-## Can I connect a custom domain to my Lovable project?
+```bash
+npm run build
+```
 
-Yes, you can!
+### Environment Variables
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+Ensure these are set in your production environment:
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_PUBLISHABLE_KEY`
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## Code Style
+
+- Follow TypeScript best practices
+- Use ESLint configuration provided
+- Follow component naming conventions
+- Use Tailwind CSS for styling
+- Implement proper error handling
+
+## Security
+
+- Never commit secrets or API keys
+- Use environment variables for configuration
+- Follow security best practices for authentication
+- Implement proper input validation
+
+## Support
+
+For support and questions, please:
+1. Check the existing documentation
+2. Search through existing issues
+3. Create a new issue with detailed information
+
+## License
+
+This project is proprietary software developed for Eraya Operations.

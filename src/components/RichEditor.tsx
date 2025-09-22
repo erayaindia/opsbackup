@@ -1,9 +1,31 @@
 import React, { useState, useRef, useCallback, useMemo } from 'react';
 import { useEditor, EditorContent, Editor } from '@tiptap/react';
-import { Node, mergeAttributes } from '@tiptap/core';
-import { ReactNodeViewRenderer } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
+import Underline from '@tiptap/extension-underline';
+import { Button } from '@/components/ui/button';
+import {
+  Bold,
+  Italic,
+  Underline as UnderlineIcon,
+  List,
+  ListOrdered,
+  CheckSquare,
+  Strikethrough,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  AlignJustify,
+  Undo,
+  Redo,
+  Search,
+  Replace
+} from 'lucide-react';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { SlashCommand } from './slash-commands/SlashCommand';
 import { SlashCommandMenu, SlashCommandMenuRef } from './slash-commands/SlashCommandMenu';
 import { SlashCommand as SlashCommandType } from './slash-commands/types';
@@ -18,194 +40,13 @@ import {
   MenuPosition,
   EditorNode,
   EditorClickHandler,
-  EditorKeyDownHandler,
-  FileBlockAttributes,
-  FileUploadProgress
+  EditorKeyDownHandler
 } from './editor-types';
 import { RichEditorErrorBoundary } from './RichEditorErrorBoundary';
-import { uploadFile, formatBytes, getMimePrimary, getFileIcon } from '../lib/upload';
 
 // Optional task list extensions - will be loaded dynamically
 let TaskList: typeof import('@tiptap/extension-task-list').default | null = null;
 let TaskItem: typeof import('@tiptap/extension-task-item').default | null = null;
-
-// File Block Component
-const FileBlockComponent: React.FC<{ node: { attrs: FileBlockAttributes }; deleteNode: () => void }> = ({ node, deleteNode }) => {
-  const { url, name, size, mime, width, height } = node.attrs;
-  const mimeType = getMimePrimary(mime);
-  const icon = getFileIcon(mime);
-
-  const handleDownload = () => {
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = name;
-    a.click();
-  };
-
-  const handleOpen = () => {
-    window.open(url, '_blank');
-  };
-
-  const renderPreview = () => {
-    switch (mimeType) {
-      case 'image':
-        return (
-          <img
-            src={url}
-            alt={name}
-            className="max-w-full h-auto rounded"
-            style={{ maxHeight: '400px' }}
-            width={width}
-            height={height}
-          />
-        );
-
-      case 'video':
-        return (
-          <video
-            controls
-            className="max-w-full h-auto rounded"
-            style={{ maxHeight: '400px' }}
-            width={width}
-            height={height}
-          >
-            <source src={url} type={mime} />
-            Your browser does not support video playback.
-          </video>
-        );
-
-      case 'audio':
-        return (
-          <audio controls className="w-full">
-            <source src={url} type={mime} />
-            Your browser does not support audio playback.
-          </audio>
-        );
-
-      case 'pdf':
-        return (
-          <div className="border rounded">
-            <iframe
-              src={url}
-              className="w-full h-96"
-              title={name}
-            />
-            <div className="p-2 bg-gray-50 flex justify-between items-center">
-              <span className="text-sm text-gray-600">{name}</span>
-              <button
-                onClick={handleOpen}
-                className="text-blue-600 hover:text-blue-800 text-sm"
-              >
-                Open in new tab
-              </button>
-            </div>
-          </div>
-        );
-
-      case 'text':
-        return (
-          <div className="border rounded bg-gray-50 p-4">
-            <div className="text-sm text-gray-600 mb-2">{name}</div>
-            <div className="max-h-48 overflow-auto text-sm bg-white p-3 rounded border">
-              {/* Text preview would go here - for now showing placeholder */}
-              <div className="text-gray-500">Text file preview not implemented</div>
-            </div>
-            <button
-              onClick={handleOpen}
-              className="mt-2 text-blue-600 hover:text-blue-800 text-sm"
-            >
-              Open full file
-            </button>
-          </div>
-        );
-
-      default:
-        return null;
-    }
-  };
-
-  return (
-    <div className="file-block my-4 p-4 border rounded-lg bg-white shadow-sm">
-      {renderPreview() || (
-        <div className="flex items-center space-x-3">
-          <div className="text-2xl">{icon}</div>
-          <div className="flex-1">
-            <div className="font-medium text-gray-900">{name}</div>
-            <div className="text-sm text-gray-500">{formatBytes(size)}</div>
-          </div>
-          <div className="flex space-x-2">
-            <button
-              onClick={handleOpen}
-              className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
-            >
-              Open
-            </button>
-            <button
-              onClick={handleDownload}
-              className="px-3 py-1 text-sm bg-gray-600 text-white rounded hover:bg-gray-700"
-            >
-              Download
-            </button>
-          </div>
-        </div>
-      )}
-      <button
-        onClick={deleteNode}
-        className="mt-2 text-red-600 hover:text-red-800 text-sm"
-      >
-        Remove
-      </button>
-    </div>
-  );
-};
-
-// File Block Extension
-const FileBlock = Node.create({
-  name: 'fileBlock',
-
-  group: 'block',
-
-  atom: true,
-
-  addAttributes() {
-    return {
-      url: {
-        default: '',
-      },
-      name: {
-        default: '',
-      },
-      size: {
-        default: 0,
-      },
-      mime: {
-        default: '',
-      },
-      width: {
-        default: null,
-      },
-      height: {
-        default: null,
-      },
-    };
-  },
-
-  parseHTML() {
-    return [
-      {
-        tag: 'div[data-type="file-block"]',
-      },
-    ];
-  },
-
-  renderHTML({ HTMLAttributes }) {
-    return ['div', mergeAttributes(HTMLAttributes, { 'data-type': 'file-block' })];
-  },
-
-  addNodeView() {
-    return ReactNodeViewRenderer(FileBlockComponent);
-  },
-});
 
 interface RichEditorProps {
   value?: EditorContentType;
@@ -220,8 +61,12 @@ export const RichEditor: React.FC<RichEditorProps> = ({ value, onChange }) => {
   const menuRef = useRef<SlashCommandMenuRef>(null);
   const [extensionsLoaded, setExtensionsLoaded] = useState(false);
   const [linkPreviews, setLinkPreviews] = useState<LinkPreviewType[]>([]);
-  const [uploadProgress, setUploadProgress] = useState<FileUploadProgress[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showFindReplace, setShowFindReplace] = useState(false);
+  const [findText, setFindText] = useState('');
+  const [replaceText, setReplaceText] = useState('');
+  const [currentMatch, setCurrentMatch] = useState(0);
+  const [totalMatches, setTotalMatches] = useState(0);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Load task list extensions dynamically
   React.useEffect(() => {
@@ -243,12 +88,35 @@ export const RichEditor: React.FC<RichEditorProps> = ({ value, onChange }) => {
     loadTaskExtensions();
   }, []);
 
+  // Cleanup search timeout on unmount
+  React.useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
         document: {
           content: 'block*',
         },
+        // Allow HTML to preserve formatting
+        parseOptions: {
+          preserveWhitespace: 'full',
+        },
+        // Enable HTML support
+        enableInputRules: true,
+        enablePasteRules: true,
+        // Configure history properly with StarterKit
+        history: {
+          depth: 100,
+          newGroupDelay: 500,
+        },
+        // Disable link to configure separately
+        link: false,
       }),
       Link.configure({
         openOnClick: true,
@@ -260,6 +128,7 @@ export const RichEditor: React.FC<RichEditorProps> = ({ value, onChange }) => {
           rel: 'noopener noreferrer',
         },
       }),
+      Underline,
       ...(TaskList ? [TaskList] : []),
       ...(TaskItem ? [TaskItem.configure({
         nested: true,
@@ -267,7 +136,6 @@ export const RichEditor: React.FC<RichEditorProps> = ({ value, onChange }) => {
           class: 'task-item',
         },
       })] : []),
-      FileBlock,
       SlashCommand.configure({
         suggestion: {
           char: '/',
@@ -328,6 +196,9 @@ export const RichEditor: React.FC<RichEditorProps> = ({ value, onChange }) => {
       }),
     ],
     content: value,
+    parseOptions: {
+      preserveWhitespace: 'full',
+    },
     onUpdate: ({ editor }) => {
       const json = editor.getJSON();
       onChange?.(json);
@@ -340,24 +211,120 @@ export const RichEditor: React.FC<RichEditorProps> = ({ value, onChange }) => {
         class: 'notion-editor-content',
       },
       handleKeyDown: (view, event) => {
-        // Space key toggles task item when in a task list
-        if (event.key === ' ' && event.ctrlKey) {
-          const { state, dispatch } = view;
-          const { selection } = state;
-          const { $from } = selection;
+        const { state, dispatch } = view;
+        const { selection } = state;
+        const { $from } = selection;
 
-          // Check if we're in a task item
-          const taskItem = $from.node($from.depth);
-          if (taskItem && taskItem.type.name === 'taskItem') {
+        // Check if we're in a task item
+        const taskItem = $from.node($from.depth);
+        const isInTaskItem = taskItem && taskItem.type.name === 'taskItem';
+
+        // Space key toggles task item when in a task list
+        if (event.key === ' ' && event.ctrlKey && isInTaskItem) {
+          event.preventDefault();
+          const tr = state.tr.setNodeMarkup($from.before($from.depth), undefined, {
+            ...taskItem.attrs,
+            checked: !taskItem.attrs.checked,
+          });
+          dispatch(tr);
+          return true;
+        }
+
+        // Enter key in task item creates new task
+        if (event.key === 'Enter' && !event.shiftKey && isInTaskItem) {
+          if (editor && editor.can().splitListItem('taskItem')) {
             event.preventDefault();
-            const tr = state.tr.setNodeMarkup($from.before($from.depth), undefined, {
-              ...taskItem.attrs,
-              checked: !taskItem.attrs.checked,
-            });
-            dispatch(tr);
+            editor.chain().focus().splitListItem('taskItem').run();
             return true;
           }
         }
+
+        // Shift+Enter creates newline within task content
+        if (event.key === 'Enter' && event.shiftKey && isInTaskItem) {
+          event.preventDefault();
+          editor?.chain().focus().setHardBreak().run();
+          return true;
+        }
+
+        // Backspace at start of empty task converts to paragraph
+        if (event.key === 'Backspace' && isInTaskItem && selection.empty && $from.parentOffset === 0) {
+          const taskContent = taskItem.content;
+          if (taskContent.size === 0) {
+            event.preventDefault();
+            if (editor?.can().liftListItem('taskItem')) {
+              editor.chain().focus().liftListItem('taskItem').run();
+            } else {
+              editor?.chain().focus().setParagraph().run();
+            }
+            return true;
+          }
+        }
+
+        // Tab for indenting tasks
+        if (event.key === 'Tab' && !event.shiftKey && isInTaskItem) {
+          if (editor?.can().sinkListItem('taskItem')) {
+            event.preventDefault();
+            editor.chain().focus().sinkListItem('taskItem').run();
+            return true;
+          }
+        }
+
+        // Shift+Tab for outdenting tasks
+        if (event.key === 'Tab' && event.shiftKey && isInTaskItem) {
+          if (editor?.can().liftListItem('taskItem')) {
+            event.preventDefault();
+            editor.chain().focus().liftListItem('taskItem').run();
+            return true;
+          }
+        }
+
+        // Text formatting and editing keyboard shortcuts
+        if (event.ctrlKey || event.metaKey) {
+          switch (event.key.toLowerCase()) {
+            case 'z':
+              if (event.shiftKey) {
+                // Ctrl+Shift+Z for redo (alternative to Ctrl+Y)
+                event.preventDefault();
+                editor?.chain().focus().redo().run();
+                return true;
+              } else {
+                // Ctrl+Z for undo
+                event.preventDefault();
+                editor?.chain().focus().undo().run();
+                return true;
+              }
+            case 'y':
+              // Ctrl+Y for redo
+              event.preventDefault();
+              editor?.chain().focus().redo().run();
+              return true;
+            case 'b':
+              event.preventDefault();
+              editor?.chain().focus().toggleBold().run();
+              return true;
+            case 'i':
+              event.preventDefault();
+              editor?.chain().focus().toggleItalic().run();
+              return true;
+            case 'u':
+              event.preventDefault();
+              editor?.chain().focus().toggleUnderline().run();
+              return true;
+            case 's':
+              if (event.shiftKey) {
+                event.preventDefault();
+                editor?.chain().focus().toggleStrike().run();
+                return true;
+              }
+              break;
+            case 'f':
+              // Ctrl+F for find & replace
+              event.preventDefault();
+              setShowFindReplace(true);
+              return true;
+          }
+        }
+
         return false;
       },
       handleClick: (view, pos, event) => {
@@ -406,155 +373,8 @@ export const RichEditor: React.FC<RichEditorProps> = ({ value, onChange }) => {
         }
         return false; // Let TipTap handle other clicks
       },
-      handleDrop: (view, event, slice, moved) => {
-        const files = event.dataTransfer?.files;
-        if (files && files.length > 0) {
-          event.preventDefault();
-          // We'll handle this after the editor is created
-          return true;
-        }
-        return false;
-      },
-      handlePaste: (view, event, slice) => {
-        const files = event.clipboardData?.files;
-        if (files && files.length > 0) {
-          event.preventDefault();
-          // We'll handle this after the editor is created
-          return true;
-        }
-        return false;
-      },
     },
   }, [extensionsLoaded]);
-
-  // File upload functions (defined after editor is created)
-  const handleFileUpload = useCallback(async (files: FileList) => {
-    if (!editor) return;
-
-    const fileArray = Array.from(files);
-
-    for (const file of fileArray) {
-      const id = Math.random().toString(36).substr(2, 9);
-
-      // Add upload progress tracker
-      setUploadProgress(prev => [...prev, { id, file, progress: 0 }]);
-
-      try {
-        // Insert placeholder
-        const placeholderNode = {
-          type: 'fileBlock',
-          attrs: {
-            url: '',
-            name: file.name,
-            size: file.size,
-            mime: file.type,
-          },
-        };
-
-        editor.commands.insertContent(placeholderNode);
-
-        // Simulate progress updates
-        const progressInterval = setInterval(() => {
-          setUploadProgress(prev =>
-            prev.map(p => p.id === id ? { ...p, progress: Math.min(p.progress + 10, 90) } : p)
-          );
-        }, 100);
-
-        // Upload file
-        const result = await uploadFile(file);
-
-        clearInterval(progressInterval);
-
-        // Update progress to complete
-        setUploadProgress(prev =>
-          prev.map(p => p.id === id ? { ...p, progress: 100 } : p)
-        );
-
-        // Replace placeholder with actual file block
-        setTimeout(() => {
-          setUploadProgress(prev => prev.filter(p => p.id !== id));
-        }, 500);
-
-        // Get image dimensions for images
-        let width, height;
-        if (result.type.startsWith('image/')) {
-          try {
-            const img = new Image();
-            img.src = result.url;
-            await new Promise((resolve) => {
-              img.onload = () => {
-                width = img.naturalWidth;
-                height = img.naturalHeight;
-                resolve(void 0);
-              };
-            });
-          } catch (error) {
-            // Failed to get dimensions, continue without them
-          }
-        }
-
-        // Find and update the placeholder (this is simplified - in a real implementation
-        // you'd want to track the exact position)
-        const fileNode = {
-          type: 'fileBlock',
-          attrs: {
-            url: result.url,
-            name: result.name,
-            size: result.size,
-            mime: result.type,
-            width,
-            height,
-          },
-        };
-
-        // For now, just insert the completed file block
-        editor.commands.insertContent(fileNode);
-
-      } catch (error) {
-        // Update progress with error
-        setUploadProgress(prev =>
-          prev.map(p => p.id === id ? { ...p, error: 'Upload failed' } : p)
-        );
-
-        console.error('File upload failed:', error);
-      }
-    }
-  }, [editor]);
-
-  const handleFilePickerClick = useCallback(() => {
-    fileInputRef.current?.click();
-  }, []);
-
-  // Add drag and drop handlers after editor is created
-  React.useEffect(() => {
-    if (!editor) return;
-
-    const editorElement = editor.view.dom;
-
-    const handleDrop = (event: DragEvent) => {
-      const files = event.dataTransfer?.files;
-      if (files && files.length > 0) {
-        event.preventDefault();
-        handleFileUpload(files);
-      }
-    };
-
-    const handlePaste = (event: ClipboardEvent) => {
-      const files = event.clipboardData?.files;
-      if (files && files.length > 0) {
-        event.preventDefault();
-        handleFileUpload(files);
-      }
-    };
-
-    editorElement.addEventListener('drop', handleDrop);
-    editorElement.addEventListener('paste', handlePaste);
-
-    return () => {
-      editorElement.removeEventListener('drop', handleDrop);
-      editorElement.removeEventListener('paste', handlePaste);
-    };
-  }, [editor, handleFileUpload]);
 
   // Update content separately to preserve cursor position
   React.useEffect(() => {
@@ -610,18 +430,13 @@ export const RichEditor: React.FC<RichEditorProps> = ({ value, onChange }) => {
         .deleteRange(slashRange)
         .run();
 
-      // Handle upload file command specially
-      if (command.title === 'Upload file') {
-        handleFilePickerClick();
-      } else {
-        command.run(editor);
-      }
+      command.run(editor);
     } catch (error) {
       console.warn('Failed to execute slash command:', error);
     } finally {
       setShowSlashMenu(false);
     }
-  }, [editor, slashRange, handleFilePickerClick]);
+  }, [editor, slashRange]);
 
   const handleSlashMenuClose = () => {
     setShowSlashMenu(false);
@@ -663,17 +478,314 @@ export const RichEditor: React.FC<RichEditorProps> = ({ value, onChange }) => {
     setLinkPreviews(prev => prev.filter(preview => preview.id !== id));
   }, []);
 
+  // Find and replace helper functions
+  const countMatches = useCallback((searchText: string) => {
+    if (!editor || !searchText) {
+      setTotalMatches(0);
+      setCurrentMatch(0);
+      return;
+    }
+
+    const content = editor.state.doc.textContent;
+    const regex = new RegExp(searchText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+    const matches = content.match(regex);
+    const matchCount = matches ? matches.length : 0;
+
+    setTotalMatches(matchCount);
+    setCurrentMatch(0);
+  }, [editor]);
+
+  const findInEditor = useCallback((searchText: string, selectFirst = true) => {
+    if (!editor || !searchText) {
+      setTotalMatches(0);
+      setCurrentMatch(0);
+      return;
+    }
+
+    const content = editor.state.doc.textContent;
+    const regex = new RegExp(searchText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+    const matches = content.match(regex);
+    const matchCount = matches ? matches.length : 0;
+
+    setTotalMatches(matchCount);
+
+    if (matchCount > 0 && selectFirst) {
+      setCurrentMatch(1);
+      // Find first occurrence and set cursor position
+      const firstIndex = content.toLowerCase().indexOf(searchText.toLowerCase());
+      if (firstIndex !== -1) {
+        editor.commands.focus();
+        editor.commands.setTextSelection({ from: firstIndex, to: firstIndex + searchText.length });
+      }
+    } else if (!selectFirst) {
+      setCurrentMatch(0);
+    } else {
+      setCurrentMatch(0);
+    }
+  }, [editor]);
+
+  const debouncedSearch = useCallback((searchText: string) => {
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    searchTimeoutRef.current = setTimeout(() => {
+      countMatches(searchText);
+    }, 300); // 300ms delay
+  }, [countMatches]);
+
+  const findNext = useCallback(() => {
+    if (!editor || !findText || totalMatches === 0) return;
+
+    const content = editor.state.doc.textContent;
+    const currentPos = editor.state.selection.from;
+    const searchFrom = currentPos + 1;
+
+    const index = content.toLowerCase().indexOf(findText.toLowerCase(), searchFrom);
+    if (index !== -1) {
+      editor.commands.setTextSelection({ from: index, to: index + findText.length });
+      setCurrentMatch(prev => prev < totalMatches ? prev + 1 : 1);
+    } else {
+      // Loop back to beginning
+      const firstIndex = content.toLowerCase().indexOf(findText.toLowerCase());
+      if (firstIndex !== -1) {
+        editor.commands.setTextSelection({ from: firstIndex, to: firstIndex + findText.length });
+        setCurrentMatch(1);
+      }
+    }
+  }, [editor, findText, totalMatches]);
+
+  const replaceAll = useCallback(() => {
+    if (!editor || !findText || !replaceText) return;
+
+    const html = editor.getHTML();
+    const regex = new RegExp(findText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+    const newHtml = html.replace(regex, replaceText);
+    editor.commands.setContent(newHtml);
+
+    // Clear search after replace
+    setTotalMatches(0);
+    setCurrentMatch(0);
+  }, [editor, findText, replaceText]);
+
+  const replaceCurrent = useCallback(() => {
+    if (!editor || !findText || !replaceText) return;
+
+    const { from, to } = editor.state.selection;
+    const selectedText = editor.state.doc.textBetween(from, to);
+
+    if (selectedText.toLowerCase() === findText.toLowerCase()) {
+      editor.commands.insertContentAt({ from, to }, replaceText);
+      // Find next occurrence
+      setTimeout(() => findNext(), 100);
+    }
+  }, [editor, findText, replaceText, findNext]);
+
+  // Toolbar component
+  const EditorToolbar = useMemo(() => {
+    if (!editor) return null;
+
+    return (
+      <div className="flex items-center gap-1 p-2 border-b border-gray-600 bg-gray-900 flex-wrap">
+        {/* Undo/Redo */}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => editor?.chain().focus().undo().run()}
+          disabled={!editor?.can().undo()}
+          className="h-8 w-8 p-0 hover:bg-gray-700 text-gray-300 disabled:opacity-50"
+          title="Undo (Ctrl+Z)"
+        >
+          <Undo className="h-4 w-4" />
+        </Button>
+
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => editor?.chain().focus().redo().run()}
+          disabled={!editor?.can().redo()}
+          className="h-8 w-8 p-0 hover:bg-gray-700 text-gray-300 disabled:opacity-50"
+          title="Redo (Ctrl+Y)"
+        >
+          <Redo className="h-4 w-4" />
+        </Button>
+
+        <div className="w-px h-6 bg-gray-600 mx-1" />
+
+        {/* Text Formatting */}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => editor.chain().focus().toggleBold().run()}
+          className={`h-8 w-8 p-0 hover:bg-gray-700 ${
+            editor.isActive('bold') ? 'bg-gray-700 text-blue-400' : 'text-gray-300'
+          }`}
+          title="Bold (Ctrl+B)"
+        >
+          <Bold className="h-4 w-4" />
+        </Button>
+
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => editor.chain().focus().toggleItalic().run()}
+          className={`h-8 w-8 p-0 hover:bg-gray-700 ${
+            editor.isActive('italic') ? 'bg-gray-700 text-blue-400' : 'text-gray-300'
+          }`}
+          title="Italic (Ctrl+I)"
+        >
+          <Italic className="h-4 w-4" />
+        </Button>
+
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => editor.chain().focus().toggleUnderline().run()}
+          className={`h-8 w-8 p-0 hover:bg-gray-700 ${
+            editor.isActive('underline') ? 'bg-gray-700 text-blue-400' : 'text-gray-300'
+          }`}
+          title="Underline (Ctrl+U)"
+        >
+          <UnderlineIcon className="h-4 w-4" />
+        </Button>
+
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => editor.chain().focus().toggleStrike().run()}
+          className={`h-8 w-8 p-0 hover:bg-gray-700 ${
+            editor.isActive('strike') ? 'bg-gray-700 text-blue-400' : 'text-gray-300'
+          }`}
+          title="Strikethrough (Ctrl+Shift+S)"
+        >
+          <Strikethrough className="h-4 w-4" />
+        </Button>
+
+        <div className="w-px h-6 bg-gray-600 mx-1" />
+
+        {/* Text Alignment */}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            document.execCommand('justifyLeft', false, null);
+            editor.chain().focus().run();
+          }}
+          className="h-8 w-8 p-0 hover:bg-gray-700 text-gray-300"
+          title="Align Left"
+        >
+          <AlignLeft className="h-4 w-4" />
+        </Button>
+
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            document.execCommand('justifyCenter', false, null);
+            editor.chain().focus().run();
+          }}
+          className="h-8 w-8 p-0 hover:bg-gray-700 text-gray-300"
+          title="Align Center"
+        >
+          <AlignCenter className="h-4 w-4" />
+        </Button>
+
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            document.execCommand('justifyRight', false, null);
+            editor.chain().focus().run();
+          }}
+          className="h-8 w-8 p-0 hover:bg-gray-700 text-gray-300"
+          title="Align Right"
+        >
+          <AlignRight className="h-4 w-4" />
+        </Button>
+
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            document.execCommand('justifyFull', false, null);
+            editor.chain().focus().run();
+          }}
+          className="h-8 w-8 p-0 hover:bg-gray-700 text-gray-300"
+          title="Justify"
+        >
+          <AlignJustify className="h-4 w-4" />
+        </Button>
+
+        <div className="w-px h-6 bg-gray-600 mx-1" />
+
+        {/* Lists */}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => editor.chain().focus().toggleBulletList().run()}
+          className={`h-8 w-8 p-0 hover:bg-gray-700 ${
+            editor.isActive('bulletList') ? 'bg-gray-700 text-blue-400' : 'text-gray-300'
+          }`}
+          title="Bullet List"
+        >
+          <List className="h-4 w-4" />
+        </Button>
+
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => editor.chain().focus().toggleOrderedList().run()}
+          className={`h-8 w-8 p-0 hover:bg-gray-700 ${
+            editor.isActive('orderedList') ? 'bg-gray-700 text-blue-400' : 'text-gray-300'
+          }`}
+          title="Numbered List"
+        >
+          <ListOrdered className="h-4 w-4" />
+        </Button>
+
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            if (editor.can().toggleTaskList()) {
+              editor.chain().focus().toggleTaskList().run();
+            }
+          }}
+          className={`h-8 w-8 p-0 hover:bg-gray-700 ${
+            editor.isActive('taskList') ? 'bg-gray-700 text-blue-400' : 'text-gray-300'
+          }`}
+          title="To-do List"
+        >
+          <CheckSquare className="h-4 w-4" />
+        </Button>
+
+        <div className="w-px h-6 bg-gray-600 mx-1" />
+
+        {/* Find & Replace */}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setShowFindReplace(true)}
+          className="h-8 w-8 p-0 hover:bg-gray-700 text-gray-300"
+          title="Find & Replace (Ctrl+F)"
+        >
+          <Search className="h-4 w-4" />
+        </Button>
+      </div>
+    );
+  }, [editor]);
+
   const EditorComponent = useMemo(() => (
-    <div className="notion-editor h-full relative bg-[#191919]">
-      <style jsx global>{`
+    <div className="notion-editor h-full relative" style={{backgroundColor: '#111219'}}>
+      <style jsx global="true">{`
         .notion-editor-content {
           outline: none;
-          padding: 60px 96px 200px;
+          padding: 12px 16px;
           color: #ffffff;
           font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, "Apple Color Emoji", Arial, sans-serif;
           line-height: 1.5;
-          font-size: 16px;
-          min-height: 100vh;
+          font-size: 14px;
+          min-height: 60px;
         }
 
         .notion-editor-content .ProseMirror {
@@ -728,6 +840,63 @@ export const RichEditor: React.FC<RichEditorProps> = ({ value, onChange }) => {
           color: #ffffff;
         }
 
+        .notion-editor-content u {
+          text-decoration: underline;
+          color: #ffffff;
+        }
+
+        .notion-editor-content s {
+          text-decoration: line-through;
+          color: #ffffff;
+        }
+
+        /* Text formatting combinations */
+        .notion-editor-content strong em {
+          font-weight: 700;
+          font-style: italic;
+          color: #ffffff;
+        }
+
+        .notion-editor-content strong u {
+          font-weight: 700;
+          text-decoration: underline;
+          color: #ffffff;
+        }
+
+        /* Text alignment */
+        .notion-editor-content [style*="text-align: left"] {
+          text-align: left;
+        }
+
+        .notion-editor-content [style*="text-align: center"] {
+          text-align: center;
+        }
+
+        .notion-editor-content [style*="text-align: right"] {
+          text-align: right;
+        }
+
+        .notion-editor-content [style*="text-align: justify"] {
+          text-align: justify;
+        }
+
+        /* Highlight colors */
+        .notion-editor-content mark {
+          border-radius: 0.25em;
+          padding: 0.125em 0.25em;
+        }
+
+        /* Colored text spans */
+        .notion-editor-content span[style*="color"] {
+          /* Ensure color inheritance */
+        }
+
+        /* Background highlights */
+        .notion-editor-content mark[style*="background-color"] {
+          border-radius: 0.25em;
+          padding: 0.125em 0.25em;
+        }
+
         .notion-editor-content ul {
           padding-left: 1.5em;
           margin: 0.5em 0;
@@ -763,6 +932,55 @@ export const RichEditor: React.FC<RichEditorProps> = ({ value, onChange }) => {
         .notion-editor-content ul[data-type="taskList"] {
           list-style: none;
           padding-left: 0;
+          margin: 0;
+        }
+
+        .notion-editor-content ul[data-type="taskList"] li {
+          display: flex;
+          align-items: flex-start;
+          gap: 0.5rem;
+          padding: 0.25rem 0;
+          margin: 0;
+        }
+
+        .notion-editor-content ul[data-type="taskList"] li .task-item {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          width: 100%;
+          line-height: 1.5;
+        }
+
+        .notion-editor-content ul[data-type="taskList"] li input[type="checkbox"] {
+          margin-top: 0.2rem;
+          cursor: pointer;
+          flex-shrink: 0;
+        }
+
+        .notion-editor-content ul[data-type="taskList"] li[data-checked="true"] .task-content {
+          text-decoration: line-through;
+          opacity: 0.6;
+        }
+
+        /* TipTap TaskItem specific styling */
+        .notion-editor-content li[data-type="taskItem"][data-checked="true"] {
+          text-decoration: line-through;
+          opacity: 0.6;
+        }
+
+        .notion-editor-content li[data-type="taskItem"][data-checked="true"] p {
+          text-decoration: line-through;
+          opacity: 0.6;
+        }
+
+        /* nested tasks indent */
+        .notion-editor-content ul[data-type="taskList"] ul[data-type="taskList"] {
+          margin-left: 1.5rem;
+        }
+
+        /* ensure no bullet markers leak in */
+        .notion-editor-content ul[data-type="taskList"] li::marker {
+          content: none;
         }
 
         .notion-editor-content li[data-type="taskItem"] {
@@ -813,7 +1031,33 @@ export const RichEditor: React.FC<RichEditorProps> = ({ value, onChange }) => {
 
         .notion-editor-content li[data-type="taskItem"][data-checked="true"] > div {
           text-decoration: line-through;
-          color: #6b7280;
+          opacity: 0.6;
+        }
+
+        /* Additional selectors for TipTap TaskItem content */
+        .notion-editor-content li[data-type="taskItem"][data-checked="true"] * {
+          text-decoration: line-through !important;
+          opacity: 0.6 !important;
+        }
+
+        /* More specific selectors for checked task items */
+        .notion-editor-content [data-checked="true"] {
+          text-decoration: line-through !important;
+          opacity: 0.6 !important;
+        }
+
+        .notion-editor-content [data-checked="true"] p,
+        .notion-editor-content [data-checked="true"] div,
+        .notion-editor-content [data-checked="true"] span {
+          text-decoration: line-through !important;
+          opacity: 0.6 !important;
+        }
+
+        /* Target TipTap task item content specifically */
+        .notion-editor-content li[data-checked="true"] > div,
+        .notion-editor-content li[data-checked="true"] > p {
+          text-decoration: line-through !important;
+          opacity: 0.6 !important;
         }
 
         .notion-editor-content li[data-type="taskItem"] ul {
@@ -964,62 +1208,16 @@ export const RichEditor: React.FC<RichEditorProps> = ({ value, onChange }) => {
           pointer-events: none;
           height: 0;
         }
+
       `}</style>
 
       <div>
+        {EditorToolbar}
         <EditorContent
           editor={editor}
           className="h-full"
         />
 
-        {/* Hidden file input */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          multiple
-          accept="*/*"
-          style={{ display: 'none' }}
-          onChange={(e) => {
-            if (e.target.files) {
-              handleFileUpload(e.target.files);
-              e.target.value = ''; // Reset input
-            }
-          }}
-        />
-
-        {/* Upload progress indicators */}
-        {uploadProgress.length > 0 && (
-          <div className="upload-progress-container fixed bottom-4 right-4 space-y-2">
-            {uploadProgress.map((progress) => (
-              <div
-                key={progress.id}
-                className="bg-white border rounded-lg p-3 shadow-lg max-w-sm"
-              >
-                <div className="flex items-center space-x-3">
-                  <div className="text-lg">{getFileIcon(progress.file.type)}</div>
-                  <div className="flex-1">
-                    <div className="text-sm font-medium text-gray-900 truncate">
-                      {progress.file.name}
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      {formatBytes(progress.file.size)}
-                    </div>
-                    {progress.error ? (
-                      <div className="text-xs text-red-600 mt-1">{progress.error}</div>
-                    ) : (
-                      <div className="w-full bg-gray-200 rounded-full h-1.5 mt-1">
-                        <div
-                          className="bg-blue-600 h-1.5 rounded-full transition-all duration-300"
-                          style={{ width: `${progress.progress}%` }}
-                        />
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
 
         {/* Link Previews */}
         {linkPreviews.length > 0 && (
@@ -1034,6 +1232,106 @@ export const RichEditor: React.FC<RichEditorProps> = ({ value, onChange }) => {
           </div>
         )}
       </div>
+
+      {/* Find & Replace Dialog */}
+      {showFindReplace && (
+        <div className="absolute top-4 right-4 z-50 bg-gray-800 border border-gray-600 rounded-lg p-4 shadow-lg min-w-[300px]">
+          <div className="flex justify-between items-center mb-3">
+            <h3 className="text-white text-sm font-medium">Find & Replace</h3>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowFindReplace(false)}
+              className="h-6 w-6 p-0 hover:bg-gray-700 text-gray-400"
+            >
+              ×
+            </Button>
+          </div>
+
+          <div className="space-y-2">
+            <div>
+              <input
+                type="text"
+                placeholder="Find..."
+                value={findText}
+                onChange={(e) => {
+                  setFindText(e.target.value);
+                  if (e.target.value) {
+                    debouncedSearch(e.target.value);
+                  } else {
+                    setTotalMatches(0);
+                    setCurrentMatch(0);
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    findNext();
+                  }
+                }}
+                className="w-full px-2 py-1 text-sm bg-gray-700 border border-gray-600 rounded text-white placeholder-gray-400 focus:outline-none focus:border-blue-500"
+                autoFocus
+              />
+              {totalMatches > 0 && (
+                <div className="text-xs text-gray-400 mt-1">
+                  {currentMatch} of {totalMatches} matches
+                </div>
+              )}
+            </div>
+            <div>
+              <input
+                type="text"
+                placeholder="Replace with..."
+                value={replaceText}
+                onChange={(e) => setReplaceText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && findText && replaceText) {
+                    replaceCurrent();
+                  }
+                }}
+                className="w-full px-2 py-1 text-sm bg-gray-700 border border-gray-600 rounded text-white placeholder-gray-400 focus:outline-none focus:border-blue-500"
+              />
+            </div>
+            <div className="flex gap-2 mt-3 flex-wrap">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => findInEditor(findText, true)}
+                disabled={!findText}
+                className="text-xs h-7 px-3 py-1 hover:bg-gray-700 text-gray-300 border border-gray-600 disabled:opacity-50"
+              >
+                Find
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={findNext}
+                disabled={!findText || totalMatches === 0}
+                className="text-xs h-7 px-3 py-1 hover:bg-gray-700 text-gray-300 border border-gray-600 disabled:opacity-50"
+              >
+                Next
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={replaceCurrent}
+                disabled={!findText || !replaceText || totalMatches === 0}
+                className="text-xs h-7 px-3 py-1 hover:bg-gray-700 text-gray-300 border border-gray-600 disabled:opacity-50"
+              >
+                Replace
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={replaceAll}
+                disabled={!findText || !replaceText || totalMatches === 0}
+                className="text-xs h-7 px-3 py-1 hover:bg-gray-700 text-gray-300 border border-gray-600 disabled:opacity-50"
+              >
+                Replace All
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showSlashMenu && (
         <div
@@ -1052,7 +1350,7 @@ export const RichEditor: React.FC<RichEditorProps> = ({ value, onChange }) => {
         </div>
       )}
     </div>
-  ), [editor, linkPreviews, showSlashMenu, menuPosition, slashQuery, uploadProgress, handleLinkPreviewClose, handleSlashCommandSelect, handleFileUpload]);
+  ), [editor, linkPreviews, showSlashMenu, menuPosition, slashQuery, handleLinkPreviewClose, handleSlashCommandSelect, showFindReplace, findText, replaceText, currentMatch, totalMatches, findInEditor, findNext, replaceCurrent, replaceAll, debouncedSearch]);
 
   return (
     <RichEditorErrorBoundary>

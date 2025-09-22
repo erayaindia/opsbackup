@@ -540,9 +540,9 @@ const ProductCard = memo(({
                 </span>
                 <div className="flex items-center gap-1 text-xs text-muted-foreground">
                   <div className="w-4 h-4 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium">
-                    {card.teamLead.name.charAt(0)}
+                    {card.teamLead?.name?.charAt(0) || '?'}
                   </div>
-                  <span className="text-xs">{card.teamLead.name.split(' ')[0]}</span>
+                  <span className="text-xs">{card.teamLead?.name?.split(' ')[0] || 'Unknown'}</span>
                 </div>
               </div>
 
@@ -896,7 +896,7 @@ export default function Lifecycle() {
           groupKey = STAGE_CONFIG[card.stage]?.name || card.stage
           break
         case 'priority':
-          groupKey = card.priority.charAt(0).toUpperCase() + card.priority.slice(1)
+          groupKey = card.priority ? card.priority.charAt(0).toUpperCase() + card.priority.slice(1) : 'No Priority'
           break
         default:
           groupKey = 'All Products'
@@ -1886,11 +1886,11 @@ export default function Lifecycle() {
                       <TableCell className="border-r border-border/50">
                         <div className="flex items-center gap-2">
                           <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-medium text-primary">
-                            {card.teamLead.name.charAt(0)}
+                            {card.teamLead?.name?.charAt(0) || '?'}
                           </div>
                           <div>
-                            <div className="font-medium">{card.teamLead.name.split(' ')[0]}</div>
-                            <div className="text-xs text-muted-foreground">{card.teamLead.name.split(' ').slice(1).join(' ')}</div>
+                            <div className="font-medium">{card.teamLead?.name?.split(' ')[0] || 'Unknown'}</div>
+                            <div className="text-xs text-muted-foreground">{card.teamLead?.name?.split(' ').slice(1).join(' ') || ''}</div>
                           </div>
                         </div>
                       </TableCell>
@@ -2074,9 +2074,9 @@ export default function Lifecycle() {
                             <SelectItem key={owner.id} value={owner.id}>
                               <div className="flex items-center gap-2">
                                 <div className="w-4 h-4 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium">
-                                  {owner.name.charAt(0)}
+                                  {owner.name?.charAt(0) || '?'}
                                 </div>
-                                <span className="text-xs">{owner.name.split(' ')[0]}</span>
+                                <span className="text-xs">{owner.name?.split(' ')[0] || 'Unknown'}</span>
                               </div>
                             </SelectItem>
                           ))

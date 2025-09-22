@@ -2110,6 +2110,347 @@ export type Database = {
         }
         Relationships: []
       }
+      task_templates: {
+        Row: {
+          id: string
+          title: string
+          description: string | null
+          task_type: 'daily' | 'one-off'
+          priority: 'low' | 'medium' | 'high'
+          evidence_required: 'none' | 'photo' | 'file' | 'link' | 'checklist'
+          due_time: string | null
+          duration_hours: number | null
+          checklist_items: Json
+          tags: string[]
+          department: string | null
+          role_access: string[]
+          auto_assign_roles: string[]
+          reviewer_role: string | null
+          reviewer_user_id: string | null
+          is_active: boolean
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          title: string
+          description?: string | null
+          task_type: 'daily' | 'one-off'
+          priority?: 'low' | 'medium' | 'high'
+          evidence_required?: 'none' | 'photo' | 'file' | 'link' | 'checklist'
+          due_time?: string | null
+          duration_hours?: number | null
+          checklist_items?: Json
+          tags?: string[]
+          department?: string | null
+          role_access?: string[]
+          auto_assign_roles?: string[]
+          reviewer_role?: string | null
+          reviewer_user_id?: string | null
+          is_active?: boolean
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          title?: string
+          description?: string | null
+          task_type?: 'daily' | 'one-off'
+          priority?: 'low' | 'medium' | 'high'
+          evidence_required?: 'none' | 'photo' | 'file' | 'link' | 'checklist'
+          due_time?: string | null
+          duration_hours?: number | null
+          checklist_items?: Json
+          tags?: string[]
+          department?: string | null
+          role_access?: string[]
+          auto_assign_roles?: string[]
+          reviewer_role?: string | null
+          reviewer_user_id?: string | null
+          is_active?: boolean
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_templates_reviewer_user_id_fkey"
+            columns: ["reviewer_user_id"]
+            isOneToOne: false
+            referencedRelation: "app_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_templates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "app_users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      tasks: {
+        Row: {
+          id: string
+          template_id: string | null
+          title: string
+          description: string | null
+          task_type: 'daily' | 'one-off'
+          priority: 'low' | 'medium' | 'high'
+          status: 'pending' | 'in_progress' | 'submitted_for_review' | 'approved' | 'rejected' | 'done_auto_approved'
+          evidence_required: 'none' | 'photo' | 'file' | 'link' | 'checklist'
+          due_date: string
+          due_time: string | null
+          due_datetime: string | null
+          checklist_items: Json
+          tags: string[]
+          assigned_to: string
+          assigned_by: string | null
+          reviewer_id: string | null
+          assigned_at: string
+          started_at: string | null
+          submitted_at: string | null
+          completed_at: string | null
+          is_late: boolean
+          auto_approved: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          template_id?: string | null
+          title: string
+          description?: string | null
+          task_type: 'daily' | 'one-off'
+          priority?: 'low' | 'medium' | 'high'
+          status?: 'pending' | 'in_progress' | 'submitted_for_review' | 'approved' | 'rejected' | 'done_auto_approved'
+          evidence_required?: 'none' | 'photo' | 'file' | 'link' | 'checklist'
+          due_date: string
+          due_time?: string | null
+          due_datetime?: string | null
+          checklist_items?: Json
+          tags?: string[]
+          assigned_to: string
+          assigned_by?: string | null
+          reviewer_id?: string | null
+          assigned_at?: string
+          started_at?: string | null
+          submitted_at?: string | null
+          completed_at?: string | null
+          is_late?: boolean
+          auto_approved?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          template_id?: string | null
+          title?: string
+          description?: string | null
+          task_type?: 'daily' | 'one-off'
+          priority?: 'low' | 'medium' | 'high'
+          status?: 'pending' | 'in_progress' | 'submitted_for_review' | 'approved' | 'rejected' | 'done_auto_approved'
+          evidence_required?: 'none' | 'photo' | 'file' | 'link' | 'checklist'
+          due_date?: string
+          due_time?: string | null
+          due_datetime?: string | null
+          checklist_items?: Json
+          tags?: string[]
+          assigned_to?: string
+          assigned_by?: string | null
+          reviewer_id?: string | null
+          assigned_at?: string
+          started_at?: string | null
+          submitted_at?: string | null
+          completed_at?: string | null
+          is_late?: boolean
+          auto_approved?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "task_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "app_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "app_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_reviewer_id_fkey"
+            columns: ["reviewer_id"]
+            isOneToOne: false
+            referencedRelation: "app_users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      task_submissions: {
+        Row: {
+          id: string
+          task_id: string
+          submission_type: 'evidence' | 'completion' | 'note'
+          evidence_type: 'photo' | 'file' | 'link' | 'checklist' | 'note' | null
+          file_path: string | null
+          file_url: string | null
+          file_name: string | null
+          file_size: number | null
+          link_url: string | null
+          notes: string | null
+          checklist_data: Json | null
+          submitted_by: string
+          submitted_at: string
+        }
+        Insert: {
+          id?: string
+          task_id: string
+          submission_type: 'evidence' | 'completion' | 'note'
+          evidence_type?: 'photo' | 'file' | 'link' | 'checklist' | 'note' | null
+          file_path?: string | null
+          file_url?: string | null
+          file_name?: string | null
+          file_size?: number | null
+          link_url?: string | null
+          notes?: string | null
+          checklist_data?: Json | null
+          submitted_by: string
+          submitted_at?: string
+        }
+        Update: {
+          id?: string
+          task_id?: string
+          submission_type?: 'evidence' | 'completion' | 'note'
+          evidence_type?: 'photo' | 'file' | 'link' | 'checklist' | 'note' | null
+          file_path?: string | null
+          file_url?: string | null
+          file_name?: string | null
+          file_size?: number | null
+          link_url?: string | null
+          notes?: string | null
+          checklist_data?: Json | null
+          submitted_by?: string
+          submitted_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_submissions_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_submissions_submitted_by_fkey"
+            columns: ["submitted_by"]
+            isOneToOne: false
+            referencedRelation: "app_users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      task_reviews: {
+        Row: {
+          id: string
+          task_id: string
+          reviewer_id: string
+          status: 'approved' | 'rejected'
+          review_notes: string | null
+          reviewed_at: string
+        }
+        Insert: {
+          id?: string
+          task_id: string
+          reviewer_id: string
+          status: 'approved' | 'rejected'
+          review_notes?: string | null
+          reviewed_at?: string
+        }
+        Update: {
+          id?: string
+          task_id?: string
+          reviewer_id?: string
+          status?: 'approved' | 'rejected'
+          review_notes?: string | null
+          reviewed_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_reviews_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_reviews_reviewer_id_fkey"
+            columns: ["reviewer_id"]
+            isOneToOne: false
+            referencedRelation: "app_users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      task_settings: {
+        Row: {
+          id: string
+          setting_type: 'global' | 'role' | 'team' | 'user'
+          target_id: string | null
+          auto_approve_daily: boolean
+          auto_approve_cutoff_hours: number
+          notifications_enabled: boolean
+          email_notifications: boolean
+          due_reminder_hours: number
+          default_evidence_daily: string
+          default_evidence_oneoff: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          setting_type: 'global' | 'role' | 'team' | 'user'
+          target_id?: string | null
+          auto_approve_daily?: boolean
+          auto_approve_cutoff_hours?: number
+          notifications_enabled?: boolean
+          email_notifications?: boolean
+          due_reminder_hours?: number
+          default_evidence_daily?: string
+          default_evidence_oneoff?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          setting_type?: 'global' | 'role' | 'team' | 'user'
+          target_id?: string | null
+          auto_approve_daily?: boolean
+          auto_approve_cutoff_hours?: number
+          notifications_enabled?: boolean
+          email_notifications?: boolean
+          due_reminder_hours?: number
+          default_evidence_daily?: string
+          default_evidence_oneoff?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

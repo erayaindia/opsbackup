@@ -3,11 +3,11 @@ import { SlashCommand } from './types';
 import {
   getFilteredCommands,
   getFilteredBasicBlocks,
+  getFilteredTextFormatting,
   getFilteredAdvancedBlocks,
-  getFilteredNotionAI,
   basicBlocks,
-  advancedBlocks,
-  notionAI
+  textFormatting,
+  advancedBlocks
 } from './registry';
 
 export interface SlashCommandMenuRef {
@@ -27,11 +27,11 @@ export const SlashCommandMenu = forwardRef<SlashCommandMenuRef, SlashCommandMenu
 
     // Get filtered commands for each section
     const filteredBasicBlocks = getFilteredBasicBlocks(filterQuery);
+    const filteredTextFormatting = getFilteredTextFormatting(filterQuery);
     const filteredAdvancedBlocks = getFilteredAdvancedBlocks(filterQuery);
-    const filteredNotionAI = getFilteredNotionAI(filterQuery);
 
     // Combine all commands for navigation
-    const allCommands = [...filteredBasicBlocks, ...filteredAdvancedBlocks, ...filteredNotionAI];
+    const allCommands = [...filteredBasicBlocks, ...filteredTextFormatting, ...filteredAdvancedBlocks];
 
     useEffect(() => {
       setSelectedIndex(0);
@@ -158,8 +158,8 @@ export const SlashCommandMenu = forwardRef<SlashCommandMenuRef, SlashCommandMenu
         {/* Sections */}
         <div className="p-2">
           {filteredBasicBlocks.length > 0 && renderSection('Basic blocks', filteredBasicBlocks)}
-          {filteredAdvancedBlocks.length > 0 && renderSection('', filteredAdvancedBlocks)}
-          {filteredNotionAI.length > 0 && renderSection('Notion AI', filteredNotionAI)}
+          {filteredTextFormatting.length > 0 && renderSection('Text formatting', filteredTextFormatting)}
+          {filteredAdvancedBlocks.length > 0 && renderSection('Advanced', filteredAdvancedBlocks)}
         </div>
 
         {/* Footer */}

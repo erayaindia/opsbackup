@@ -7,6 +7,7 @@ import {
   CheckSquare,
   Headphones,
   Settings,
+  Inbox,
   User,
   Shield,
   TrendingUp,
@@ -140,7 +141,9 @@ const customerSupportItems = [
 // Team Hub Section
 const teamHubItems = [
   { title: "Attendance", url: "/attendance", icon: CalendarIcon },
+  { title: "My Tasks", url: "/me/tasks", icon: CheckSquareIcon },
   { title: "Tasks & To-Dos", url: "/team-hub/tasks", icon: CheckSquareIcon },
+  { title: "Review Inbox", url: "/review", icon: Inbox },
   { title: "Team Chat", url: "/team-hub/chat", icon: MessageSquareIcon },
   { title: "Announcements", url: "/team-hub/announcements", icon: BellIcon },
   { title: "Holidays", url: "/team-hub/holidays", icon: Calendar },
@@ -176,6 +179,7 @@ const managementAdminItems = [
   { title: "Users", url: "/users", icon: UserCog },
   { title: "Employee Onboarding Form", url: "/onboard", icon: UserPlus },
   { title: "Onboarding Applications", url: "/admin/onboarding", icon: UserPlus },
+  { title: "Task Management Hub", url: "/admin/tasks", icon: CheckSquare },
   { title: "People & Roles", url: "/management/people-roles", icon: UserCheck },
   { title: "System Settings", url: "/management/system-settings", icon: Settings },
   { title: "Integrations", url: "/management/integrations", icon: Link },

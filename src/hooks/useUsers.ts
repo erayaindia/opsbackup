@@ -3,9 +3,11 @@ import { supabase } from '@/integrations/supabase/client'
 
 interface User {
   id: string
-  name: string
-  email: string
-  avatar?: string
+  full_name: string
+  company_email: string
+  role: string
+  department: string
+  status: string
 }
 
 export function useUsers() {
@@ -21,7 +23,7 @@ export function useUsers() {
       // Fetch users from app_users table
       const { data, error: fetchError } = await supabase
         .from('app_users')
-        .select('id, full_name, company_email, status')
+        .select('id, full_name, company_email, role, department, status')
         .eq('status', 'active')
         .order('full_name', { ascending: true })
 
@@ -36,12 +38,14 @@ export function useUsers() {
         throw new Error(`Failed to fetch users: ${fetchError.message}`)
       }
 
-      // Transform to the expected User format
+      // Return users in the expected format
       const transformedUsers: User[] = (data || []).map(user => ({
         id: user.id,
-        name: user.full_name || 'Unknown User',
-        email: user.company_email || 'No email',
-        avatar: `https://api.dicebear.com/7.x/avatars/svg?seed=${(user.full_name || 'user').replace(/\s+/g, '')}`
+        full_name: user.full_name || 'Unknown User',
+        company_email: user.company_email || 'No email',
+        role: user.role || 'employee',
+        department: user.department || 'Unassigned',
+        status: user.status
       }))
 
       setUsers(transformedUsers)

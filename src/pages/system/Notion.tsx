@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { RichEditor } from "@/components/RichEditor";
 
 const Notion = () => {
-  const [editorContent, setEditorContent] = useState<any>({
+  const [editorContent, setEditorContent] = useState<Record<string, unknown>>({
     type: 'doc',
     content: [
       {
@@ -12,9 +12,9 @@ const Notion = () => {
     ]
   });
 
-  const handleEditorChange = (json: any) => {
+  const handleEditorChange = useCallback((json: Record<string, unknown>) => {
     setEditorContent(json);
-  };
+  }, []);
 
   return (
     <div className="h-screen bg-[#191919] text-white">

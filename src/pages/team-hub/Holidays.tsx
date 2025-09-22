@@ -57,95 +57,95 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 
-// Mock holiday data
+// 2025 Indian Holidays Data
 const mockHolidays = [
   {
     id: 1,
-    name: "New Year's Day",
-    date: "2024-01-01",
-    type: "national",
+    name: "Makar Sankranti / Pongal",
+    date: "2025-01-14",
+    type: "religious",
     isOfficial: true,
-    location: "All Offices",
-    description: "Start of the new year",
+    location: "India Offices",
+    description: "Harvest festival celebrated across India",
     addedBy: "HR Team",
-    addedDate: "2023-12-01"
+    addedDate: "2024-12-01"
   },
   {
     id: 2,
     name: "Republic Day",
-    date: "2024-01-26",
+    date: "2025-01-26",
     type: "national",
     isOfficial: true,
     location: "India Offices",
-    description: "Indian national holiday",
+    description: "Commemorates the adoption of the Constitution of India",
     addedBy: "HR Team",
-    addedDate: "2023-12-01"
+    addedDate: "2024-12-01"
   },
   {
     id: 3,
     name: "Holi",
-    date: "2024-03-25",
+    date: "2025-03-14",
     type: "religious",
     isOfficial: true,
     location: "India Offices",
-    description: "Festival of colors",
+    description: "Festival of colors and spring celebration",
     addedBy: "HR Team",
-    addedDate: "2023-12-15"
+    addedDate: "2024-12-01"
   },
   {
     id: 4,
-    name: "Good Friday",
-    date: "2024-03-29",
+    name: "Raksha Bandhan",
+    date: "2025-08-09",
     type: "religious",
     isOfficial: true,
-    location: "All Offices",
-    description: "Christian holiday",
+    location: "India Offices",
+    description: "Festival celebrating the bond between brothers and sisters",
     addedBy: "HR Team",
-    addedDate: "2023-12-01"
+    addedDate: "2024-12-01"
   },
   {
     id: 5,
     name: "Independence Day",
-    date: "2024-08-15",
+    date: "2025-08-15",
     type: "national",
     isOfficial: true,
     location: "India Offices",
-    description: "Indian independence day",
+    description: "Commemorates India's independence from British rule",
     addedBy: "HR Team",
-    addedDate: "2023-12-01"
+    addedDate: "2024-12-01"
   },
   {
     id: 6,
-    name: "Company Foundation Day",
-    date: "2024-09-15",
-    type: "company",
-    isOfficial: false,
-    location: "All Offices",
-    description: "Celebrating company anniversary",
-    addedBy: "Management",
-    addedDate: "2023-11-20"
-  },
-  {
-    id: 7,
-    name: "Diwali",
-    date: "2024-11-01",
+    name: "Dussehra / Vijaya Dashami",
+    date: "2025-10-02",
     type: "religious",
     isOfficial: true,
     location: "India Offices",
-    description: "Festival of lights",
+    description: "Festival celebrating the victory of good over evil",
     addedBy: "HR Team",
-    addedDate: "2023-12-01"
+    addedDate: "2024-12-01"
+  },
+  {
+    id: 7,
+    name: "Diwali / Deepavali",
+    date: "2025-10-20",
+    type: "religious",
+    isOfficial: true,
+    location: "India Offices",
+    description: "Festival of lights and prosperity",
+    addedBy: "HR Team",
+    addedDate: "2024-12-01"
   },
   {
     id: 8,
-    name: "Christmas Day",
-    date: "2024-12-25",
+    name: "Chhath Puja",
+    date: "2025-10-28",
     type: "religious",
     isOfficial: true,
-    location: "All Offices",
-    description: "Christian holiday",
+    location: "India Offices",
+    description: "Hindu festival dedicated to the Sun God",
     addedBy: "HR Team",
-    addedDate: "2023-12-01"
+    addedDate: "2024-12-01"
   }
 ]
 

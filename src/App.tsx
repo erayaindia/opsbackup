@@ -55,6 +55,11 @@ import Announcements from "./pages/team-hub/Announcements";
 import TrainingKnowledge from "./pages/team-hub/TrainingKnowledge";
 import Holidays from "./pages/team-hub/Holidays";
 
+// Task Management pages
+import MyTasks from "./pages/me/MyTasks";
+import AdminTasksHub from "./pages/admin/AdminTasksHub";
+import ReviewInbox from "./pages/review/ReviewInbox";
+
 // Marketing pages
 import Campaigns from "./pages/marketing/Campaigns";
 import AdsTesting from "./pages/marketing/AdsTesting";
@@ -283,6 +288,19 @@ const App = () => (
                 <Route path="team-hub/tasks" element={
                   <PermissionGuard requiredModule="team-hub">
                     <TasksTodos />
+                  </PermissionGuard>
+                } />
+                <Route path="me/tasks" element={
+                  <MyTasks />
+                } />
+                <Route path="admin/tasks" element={
+                  <PermissionGuard requiredModule="admin">
+                    <AdminTasksHub />
+                  </PermissionGuard>
+                } />
+                <Route path="review" element={
+                  <PermissionGuard requiredModule="team-hub">
+                    <ReviewInbox />
                   </PermissionGuard>
                 } />
                 <Route path="team-hub/chat" element={

@@ -62,58 +62,64 @@ export const basicBlocks: SlashCommand[] = [
     icon: '☐',
     shortcut: '[]',
     run: (editor) => {
-      console.log('To-do list command triggered!');
-
       try {
-        // Try to use the task list extension first
-        if (editor.can().toggleTaskList && editor.can().toggleTaskList()) {
-          console.log('Using task list extension');
+        // Use the task list extension to create proper TaskList nodes
+        if (editor.can().toggleTaskList()) {
           editor.chain().focus().toggleTaskList().run();
         } else {
-          console.log('Task list not available, using interactive fallback');
-          // Create a simple visible checkbox
-          const todoId = `todo-${Date.now()}`;
-          const todoHTML = `<p>
-            <span class="todo-checkbox" data-todo-id="${todoId}" data-checked="false" style="
-              display: inline-block;
-              width: 18px;
-              height: 18px;
-              border: 2px solid #ffffff;
-              border-radius: 3px;
-              margin-right: 10px;
-              cursor: pointer;
-              background-color: #2a2a2a;
-              position: relative;
-              vertical-align: middle;
-              line-height: 14px;
-              text-align: center;
-              font-size: 12px;
-              color: #ffffff;
-            ">☐</span><span class="todo-text" data-todo-id="${todoId}" style="color: #ffffff;">Task item</span>
-          </p>`;
-
-          editor.chain().focus().insertContent(todoHTML).run();
+          // Fallback: insert a paragraph and convert to task list
+          editor.chain().focus().insertContent('Task item').toggleTaskList().run();
         }
       } catch (error) {
-        console.log('Error occurred, using simple fallback:', error);
-        // Simple text fallback
+        // Final fallback if task list extensions are not available
         editor.chain().focus().insertContent('☐ Task item').run();
       }
     },
   },
 ];
 
-// Advanced blocks
-export const advancedBlocks: SlashCommand[] = [
+// Text formatting
+export const textFormatting: SlashCommand[] = [
   {
-    id: 'page',
-    title: 'Page',
-    icon: '📄',
-    shortcut: '',
+    id: 'bold',
+    title: 'Bold',
+    icon: 'B',
+    shortcut: 'Ctrl+B',
     run: (editor) => {
-      editor.chain().focus().insertContent('📄 New Page').run();
+      editor.chain().focus().toggleBold().run();
     },
   },
+  {
+    id: 'italic',
+    title: 'Italic',
+    icon: 'I',
+    shortcut: 'Ctrl+I',
+    run: (editor) => {
+      editor.chain().focus().toggleItalic().run();
+    },
+  },
+  {
+    id: 'underline',
+    title: 'Underline',
+    icon: 'U',
+    shortcut: 'Ctrl+U',
+    run: (editor) => {
+      editor.chain().focus().toggleUnderline().run();
+    },
+  },
+  {
+    id: 'strikethrough',
+    title: 'Strikethrough',
+    icon: 'S̶',
+    shortcut: 'Ctrl+Shift+S',
+    run: (editor) => {
+      editor.chain().focus().toggleStrike().run();
+    },
+  },
+];
+
+// Advanced blocks
+export const advancedBlocks: SlashCommand[] = [
   {
     id: 'callout',
     title: 'Callout',
@@ -146,46 +152,13 @@ export const advancedBlocks: SlashCommand[] = [
       }
     },
   },
-  {
-    id: 'linkToPage',
-    title: 'Link to page',
-    icon: '📎',
-    shortcut: '++',
-    run: (editor) => {
-      editor.chain().focus().insertContent('[[Link to page]]').run();
-    },
-  },
-  {
-    id: 'uploadFile',
-    title: 'Upload file',
-    icon: '📎',
-    shortcut: '',
-    subtitle: 'Insert file with preview',
-    run: (editor) => {
-      // This will be handled specially in the Rich Editor
-      // The actual file picker will be triggered
-    },
-  },
 ];
 
-// AI section
-export const notionAI: SlashCommand[] = [
-  {
-    id: 'continueWriting',
-    title: 'Continue writing',
-    icon: '✨',
-    shortcut: '',
-    run: (editor) => {
-      // Placeholder for AI functionality
-      editor.chain().focus().insertContent(' [AI continues writing...]').run();
-    },
-  },
-];
 
 export const slashCommands: SlashCommand[] = [
   ...basicBlocks,
+  ...textFormatting,
   ...advancedBlocks,
-  ...notionAI,
 ];
 
 export const getFilteredCommands = (query: string): SlashCommand[] => {
@@ -204,6 +177,14 @@ export const getFilteredBasicBlocks = (query: string): SlashCommand[] => {
   );
 };
 
+export const getFilteredTextFormatting = (query: string): SlashCommand[] => {
+  if (!query) return textFormatting;
+
+  return textFormatting.filter(command =>
+    command.title.toLowerCase().includes(query.toLowerCase())
+  );
+};
+
 export const getFilteredAdvancedBlocks = (query: string): SlashCommand[] => {
   if (!query) return advancedBlocks;
 
@@ -212,10 +193,3 @@ export const getFilteredAdvancedBlocks = (query: string): SlashCommand[] => {
   );
 };
 
-export const getFilteredNotionAI = (query: string): SlashCommand[] => {
-  if (!query) return notionAI;
-
-  return notionAI.filter(command =>
-    command.title.toLowerCase().includes(query.toLowerCase())
-  );
-};
