@@ -12,6 +12,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import {
   FileText, Search, Filter, Download, Upload, RefreshCw, Plus, Edit, Eye,
   MoreHorizontal, Check, X, Copy, ArrowUpDown, ArrowUp, ArrowDown,
@@ -40,6 +42,12 @@ export default function Invoice() {
   const [selectedVendors, setSelectedVendors] = useState<string[]>(['all']);
   const [sortField, setSortField] = useState<string>('');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+
+  // Date filtering states
+  const [startDate, setStartDate] = useState<Date | undefined>();
+  const [endDate, setEndDate] = useState<Date | undefined>();
+  const [showStartDatePicker, setShowStartDatePicker] = useState(false);
+  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -105,6 +113,14 @@ export default function Invoice() {
       filtered = filtered.filter(bill => selectedVendors.includes(bill.vendor_name));
     }
 
+    // Date range filter
+    if (startDate) {
+      filtered = filtered.filter(bill => bill.bill_date >= startDate);
+    }
+    if (endDate) {
+      filtered = filtered.filter(bill => bill.bill_date <= endDate);
+    }
+
     // Sort data
     if (sortField) {
       filtered.sort((a, b) => {
@@ -134,7 +150,7 @@ export default function Invoice() {
     }
 
     return filtered;
-  }, [bills, searchTerm, selectedTypes, selectedStatuses, selectedVendors, sortField, sortDirection]);
+  }, [bills, searchTerm, selectedTypes, selectedStatuses, selectedVendors, startDate, endDate, sortField, sortDirection]);
 
   // Paginated data
   const paginatedData = useMemo(() => {
@@ -150,7 +166,7 @@ export default function Invoice() {
   // Reset to first page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, selectedTypes, selectedStatuses, selectedVendors]);
+  }, [searchTerm, selectedTypes, selectedStatuses, selectedVendors, startDate, endDate]);
 
   // Utility functions - defined first to avoid hoisting issues
   const isOverdue = (dueDate: Date) => {
@@ -470,6 +486,67 @@ export default function Invoice() {
                 </SelectContent>
               </Select>
 
+              {/* Date Range Filter */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">From:</span>
+                <Popover open={showStartDatePicker} onOpenChange={setShowStartDatePicker}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-[140px] justify-start text-left font-normal rounded-none h-10",
+                        !startDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {startDate ? format(startDate, "dd MMM yyyy") : "Start date"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0 rounded-none" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={startDate}
+                      onSelect={(date) => {
+                        setStartDate(date);
+                        setShowStartDatePicker(false);
+                      }}
+                      initialFocus
+                      captionLayout="dropdown"
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">To:</span>
+                <Popover open={showEndDatePicker} onOpenChange={setShowEndDatePicker}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-[140px] justify-start text-left font-normal rounded-none h-10",
+                        !endDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {endDate ? format(endDate, "dd MMM yyyy") : "End date"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0 rounded-none" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={endDate}
+                      onSelect={(date) => {
+                        setEndDate(date);
+                        setShowEndDatePicker(false);
+                      }}
+                      initialFocus
+                      captionLayout="dropdown"
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+
               <Button
                 variant="outline"
                 onClick={() => {
@@ -477,6 +554,8 @@ export default function Invoice() {
                   setSelectedTypes(['all']);
                   setSelectedStatuses(['all']);
                   setSelectedVendors(['all']);
+                  setStartDate(undefined);
+                  setEndDate(undefined);
                 }}
                 className="rounded-none"
               >
@@ -621,7 +700,7 @@ export default function Invoice() {
                         <TableCell className="border-r border-border/50 text-center">
                           <div className="flex items-center justify-center gap-2">
                             {format(bill.due_date, "dd MMM yyyy")}
-                            {bill.amount_due > 0 && isOverdue(bill.due_date) && (
+                            {bill.amount_due > 0 && isOverdue(bill.due_date) && bill.status !== 'paid' && (
                               <Badge variant="destructive" className="text-xs px-1 py-0 rounded-none">
                                 Overdue
                               </Badge>
@@ -646,7 +725,7 @@ export default function Invoice() {
                         <TableCell className="border-r border-border/50 text-center">
                           <div className={cn(
                             "font-medium",
-                            bill.amount_due > 0 && isOverdue(bill.due_date) && "text-red-600"
+                            bill.amount_due > 0 && isOverdue(bill.due_date) && bill.status !== 'paid' && "text-red-600"
                           )}>
                             ₹{bill.amount_due.toLocaleString()}
                           </div>

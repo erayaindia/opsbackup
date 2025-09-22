@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { VendorsTable } from '@/components/vendors/VendorsTable';
 import { AddVendorDialog } from '@/components/vendors/AddVendorDialog';
+import { EditVendorDialog } from '@/components/vendors/EditVendorDialog';
 import { useVendors, Vendor } from '@/hooks/useSuppliers';
 import {
   Download,
@@ -22,6 +23,7 @@ export default function Vendors() {
   const [searchTerm, setSearchTerm] = useState('');
   const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
   const { data: vendors = [], isLoading: loading, error } = useVendors();
 
@@ -36,8 +38,7 @@ export default function Vendors() {
 
   const handleEdit = (vendor: Vendor) => {
     setEditingVendor(vendor);
-    // TODO: Open edit dialog/modal
-    console.log('Edit vendor:', vendor);
+    setIsEditDialogOpen(true);
   };
 
   const handleAddVendor = () => {
@@ -45,6 +46,10 @@ export default function Vendors() {
   };
 
   const handleVendorAdded = () => {
+    // Refresh vendors list - useVendors handles this automatically with React Query
+  };
+
+  const handleVendorUpdated = () => {
     // Refresh vendors list - useVendors handles this automatically with React Query
   };
 
@@ -232,6 +237,14 @@ export default function Vendors() {
         open={isAddDialogOpen}
         onOpenChange={setIsAddDialogOpen}
         onVendorAdded={handleVendorAdded}
+      />
+
+      {/* Edit Vendor Dialog */}
+      <EditVendorDialog
+        open={isEditDialogOpen}
+        onOpenChange={setIsEditDialogOpen}
+        onVendorUpdated={handleVendorUpdated}
+        vendor={editingVendor}
       />
     </div>
   );

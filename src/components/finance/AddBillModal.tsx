@@ -9,7 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { CalendarIcon, Calculator, Upload, AlertCircle, FileText, X } from 'lucide-react';
+import { CalendarIcon, Calculator, Upload, AlertCircle, FileText, X, Eye } from 'lucide-react';
 import { useVendors } from '@/hooks/useSuppliers';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -175,8 +175,8 @@ export default function AddBillModal({ open, onOpenChange, onSuccess, vendors, o
           vendor_gstin: initialData.vendor_gstin || '',
           vendor_contact: initialData.vendor_contact || '',
           type: initialData.type,
-          bill_date: new Date(initialData.bill_date),
-          due_date: new Date(initialData.due_date),
+          bill_date: new Date(new Date(initialData.bill_date).toDateString()), // Parse to local date without time component
+          due_date: new Date(new Date(initialData.due_date).toDateString()), // Parse to local date without time component
           subtotal: initialData.subtotal.toString(),
           discount_amount: initialData.discount_amount.toString(),
           freight_amount: initialData.freight_amount.toString(),
@@ -199,7 +199,8 @@ export default function AddBillModal({ open, onOpenChange, onSuccess, vendors, o
           currency: initialData.currency,
           exchange_rate: initialData.exchange_rate.toString(),
           reason: initialData.reason || '',
-          notes_internal: initialData.notes_internal || ''
+          notes_internal: initialData.notes_internal || '',
+          uploaded_file: null // Don't set the file object, we'll handle existing files separately
         });
       } else if (!isEdit && !formData.bill_number) {
         // Auto-generate sequential bill number for new bills
@@ -311,7 +312,8 @@ export default function AddBillModal({ open, onOpenChange, onSuccess, vendors, o
     if (!formData.type) newErrors.type = 'Bill type is required';
     if (!formData.bill_date) newErrors.bill_date = 'Bill date is required';
     if (!formData.due_date) newErrors.due_date = 'Due date is required';
-    if (!formData.uploaded_file) newErrors.uploaded_file = 'Bill document is required';
+    // Only require file upload for new bills, not when editing existing ones
+    if (!isEdit && !formData.uploaded_file) newErrors.uploaded_file = 'Bill document is required';
     if (!formData.subtotal.trim()) newErrors.subtotal = 'Subtotal is required';
 
     // Date validation
@@ -371,7 +373,7 @@ export default function AddBillModal({ open, onOpenChange, onSuccess, vendors, o
     try {
       let fileData = {};
 
-      // If file is uploaded, upload it to storage first
+      // If a new file is uploaded, upload it to storage first
       if (formData.uploaded_file) {
         setIsUploadingFile(true);
         try {
@@ -401,6 +403,14 @@ export default function AddBillModal({ open, onOpenChange, onSuccess, vendors, o
         } finally {
           setIsUploadingFile(false);
         }
+      } else if (isEdit && initialData) {
+        // When editing without uploading a new file, preserve existing file data
+        fileData = {
+          file_url: initialData.file_url,
+          file_type: initialData.file_type,
+          file_name: initialData.file_name,
+          file_size: initialData.file_size
+        };
       }
 
       // Create bill with all data including file metadata
@@ -411,8 +421,8 @@ export default function AddBillModal({ open, onOpenChange, onSuccess, vendors, o
         vendor_gstin: formData.vendor_gstin || undefined,
         vendor_contact: formData.vendor_contact || undefined,
         type: formData.type,
-        bill_date: formData.bill_date!,
-        due_date: formData.due_date!,
+        bill_date: new Date(formData.bill_date!.getFullYear(), formData.bill_date!.getMonth(), formData.bill_date!.getDate(), 12, 0, 0), // Set to noon to avoid timezone issues
+        due_date: new Date(formData.due_date!.getFullYear(), formData.due_date!.getMonth(), formData.due_date!.getDate(), 12, 0, 0), // Set to noon to avoid timezone issues
         status: 'draft' as const,
         grand_total: parseFloat(formData.grand_total),
         amount_paid: 0,
@@ -721,20 +731,26 @@ export default function AddBillModal({ open, onOpenChange, onSuccess, vendors, o
                   className="hidden"
                 />
 
-                {formData.uploaded_file ? (
+                {formData.uploaded_file || (isEdit && initialData?.file_url) ? (
                   <div className="border border-green-300 bg-green-50 rounded-md p-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <FileText className="h-4 w-4 text-green-600" />
                         <div>
-                          <p className="text-sm font-medium text-green-800">{formData.uploaded_file.name}</p>
+                          <p className="text-sm font-medium text-green-800">
+                            {formData.uploaded_file ? formData.uploaded_file.name : (initialData?.file_name || 'Existing file')}
+                          </p>
                           <p className="text-xs text-green-600">
-                            {(formData.uploaded_file.size / 1024 / 1024).toFixed(1)} MB
+                            {formData.uploaded_file
+                              ? `${(formData.uploaded_file.size / 1024 / 1024).toFixed(1)} MB`
+                              : (initialData?.file_size ? `${(initialData.file_size / 1024 / 1024).toFixed(1)} MB` : 'File attached')
+                            }
                             {isUploadingFile && <span className="ml-2">- Uploading...</span>}
+                            {isEdit && !formData.uploaded_file && <span className="ml-2">- Current file</span>}
                           </p>
                         </div>
                       </div>
-                      {!isUploadingFile && (
+                      {!isUploadingFile && formData.uploaded_file && (
                         <Button
                           type="button"
                           variant="ghost"
@@ -745,8 +761,21 @@ export default function AddBillModal({ open, onOpenChange, onSuccess, vendors, o
                             if (fileInput) fileInput.value = '';
                           }}
                           className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
+                          title="Remove new file"
                         >
                           <X className="h-3 w-3" />
+                        </Button>
+                      )}
+                      {isEdit && !formData.uploaded_file && initialData?.file_url && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => window.open(initialData.file_url, '_blank')}
+                          className="h-6 w-6 p-0 text-blue-500 hover:text-blue-700"
+                          title="View current file"
+                        >
+                          <Eye className="h-3 w-3" />
                         </Button>
                       )}
                     </div>
@@ -759,9 +788,13 @@ export default function AddBillModal({ open, onOpenChange, onSuccess, vendors, o
                     onClick={() => document.getElementById('bill-file-upload')?.click()}
                   >
                     <Upload className="h-6 w-6 mx-auto text-muted-foreground mb-2" />
-                    <p className="text-sm font-medium mb-1">Choose file</p>
+                    <p className="text-sm font-medium mb-1">
+                      {isEdit ? 'Replace file' : 'Choose file'}
+                    </p>
                     <p className="text-xs text-muted-foreground">
                       PDF, PNG, JPG (Max 10MB)
+                      {isEdit && <br />}
+                      {isEdit && 'Leave empty to keep current file'}
                     </p>
                   </div>
                 )}
