@@ -71,8 +71,15 @@ const AttendanceDashboard: React.FC = () => {
     setIsLoading(true);
     try {
       const targetDate = dateToFetch || selectedDate;
-      const dateStr = targetDate.toISOString().split('T')[0];
+
+      // Get local date string (YYYY-MM-DD) without timezone conversion
+      const year = targetDate.getFullYear();
+      const month = String(targetDate.getMonth() + 1).padStart(2, '0');
+      const day = String(targetDate.getDate()).padStart(2, '0');
+      const dateStr = `${year}-${month}-${day}`;
+
       console.log('📅 Fetching attendance for date:', dateStr);
+      console.log('📅 Target date object:', targetDate);
 
       // Fetch all active employees from app_users (excluding super admins)
       const { data: appUsers, error: usersError } = await supabase
@@ -90,11 +97,17 @@ const AttendanceDashboard: React.FC = () => {
       console.log('👥 Found active employees:', appUsers?.length);
 
       // Fetch attendance records for the selected date
+      // Use a date range that covers the entire day
+      const startOfDay = `${dateStr}T00:00:00`;
+      const endOfDay = `${dateStr}T23:59:59.999`;
+
+      console.log('📅 Querying from:', startOfDay, 'to:', endOfDay);
+
       const { data: attendanceRecords, error: attendanceError } = await supabase
         .from('attendance_records')
         .select('*')
-        .gte('check_in_time', `${dateStr}T00:00:00.000Z`)
-        .lt('check_in_time', `${dateStr}T23:59:59.999Z`);
+        .gte('check_in_time', startOfDay)
+        .lte('check_in_time', endOfDay);
 
       if (attendanceError) {
         console.error('Error fetching attendance records:', attendanceError);
@@ -330,14 +343,6 @@ const AttendanceDashboard: React.FC = () => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-4">
-          <div>
-            <h3 className="text-lg font-semibold">
-              Attendance for {format(selectedDate, "EEEE, MMMM d, yyyy")}
-            </h3>
-            <p className="text-muted-foreground mt-1">
-              Last updated: {lastUpdated.toLocaleTimeString()}
-            </p>
-          </div>
 
           {/* Date Picker */}
           <div className="flex items-center gap-2">
@@ -483,12 +488,18 @@ const AttendanceDashboard: React.FC = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {employees.map((employee) => (
+                {employees
+                  .sort((a, b) => {
+                    // Present employees first, then absent
+                    const statusOrder = { 'present': 1, 'late': 2, 'checked_out': 3, 'absent': 4 };
+                    return (statusOrder[a.status] || 5) - (statusOrder[b.status] || 5);
+                  })
+                  .map((employee) => (
                   <TableRow
                     key={employee.id}
                     className="hover:bg-muted/50 transition-colors h-16"
                   >
-                    <TableCell className="border-r border-border/50 py-2">
+                    <TableCell className="border-r border-border/50 py-2 whitespace-nowrap">
                       <div className="flex items-center space-x-3">
                         {employee.selfie_url && selfieUrls[employee.id] ? (
                           <Dialog>
@@ -541,27 +552,27 @@ const AttendanceDashboard: React.FC = () => {
                       </div>
                     </TableCell>
 
-                    <TableCell className="border-r border-border/50 py-2 text-sm font-mono">
+                    <TableCell className="border-r border-border/50 py-2 text-sm font-mono whitespace-nowrap">
                       {employee.employee_id}
                     </TableCell>
 
-                    <TableCell className="border-r border-border/50 py-2 text-sm">
+                    <TableCell className="border-r border-border/50 py-2 text-sm whitespace-nowrap">
                       {employee.department}
                     </TableCell>
 
-                    <TableCell className="border-r border-border/50 py-2 text-sm">
+                    <TableCell className="border-r border-border/50 py-2 text-sm whitespace-nowrap">
                       {employee.position}
                     </TableCell>
 
-                    <TableCell className="border-r border-border/50 py-2 text-sm">
+                    <TableCell className="border-r border-border/50 py-2 text-sm whitespace-nowrap">
                       {formatTime(employee.check_in_time)}
                     </TableCell>
 
-                    <TableCell className="border-r border-border/50 py-2 text-sm">
+                    <TableCell className="border-r border-border/50 py-2 text-sm whitespace-nowrap">
                       {employee.check_out_time ? formatTime(employee.check_out_time) : '-'}
                     </TableCell>
 
-                    <TableCell className="py-2">
+                    <TableCell className="py-2 whitespace-nowrap">
                       <Badge
                         className={`${getStatusColor(employee.status)} whitespace-nowrap text-xs px-2 py-0.5`}
                       >
@@ -598,7 +609,7 @@ const AttendanceDashboard: React.FC = () => {
               <TableBody>
                 {employees.filter(e => e.status === 'present').map((employee) => (
                   <TableRow key={employee.id} className="hover:bg-muted/50 transition-colors h-16">
-                    <TableCell className="border-r border-border/50 py-2">
+                    <TableCell className="border-r border-border/50 py-2 whitespace-nowrap">
                       <div className="flex items-center space-x-3">
                         {employee.selfie_url && selfieUrls[employee.id] ? (
                           <Dialog>
@@ -633,11 +644,11 @@ const AttendanceDashboard: React.FC = () => {
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="border-r border-border/50 py-2 text-sm font-mono">{employee.employee_id}</TableCell>
-                    <TableCell className="border-r border-border/50 py-2 text-sm">{employee.department}</TableCell>
-                    <TableCell className="border-r border-border/50 py-2 text-sm">{employee.position}</TableCell>
-                    <TableCell className="border-r border-border/50 py-2 text-sm">{formatTime(employee.check_in_time)}</TableCell>
-                    <TableCell className="py-2">
+                    <TableCell className="border-r border-border/50 py-2 text-sm font-mono whitespace-nowrap">{employee.employee_id}</TableCell>
+                    <TableCell className="border-r border-border/50 py-2 text-sm whitespace-nowrap">{employee.department}</TableCell>
+                    <TableCell className="border-r border-border/50 py-2 text-sm whitespace-nowrap">{employee.position}</TableCell>
+                    <TableCell className="border-r border-border/50 py-2 text-sm whitespace-nowrap">{formatTime(employee.check_in_time)}</TableCell>
+                    <TableCell className="py-2 whitespace-nowrap">
                       <Badge className="bg-green-100 text-green-800 whitespace-nowrap text-xs px-2 py-0.5">Present</Badge>
                     </TableCell>
                   </TableRow>
@@ -666,7 +677,7 @@ const AttendanceDashboard: React.FC = () => {
               <TableBody>
                 {employees.filter(e => e.status === 'late').map((employee) => (
                   <TableRow key={employee.id} className="hover:bg-muted/50 transition-colors h-16">
-                    <TableCell className="border-r border-border/50 py-2">
+                    <TableCell className="border-r border-border/50 py-2 whitespace-nowrap">
                       <div className="flex items-center space-x-3">
                         {employee.selfie_url && selfieUrls[employee.id] ? (
                           <Dialog>
@@ -701,11 +712,11 @@ const AttendanceDashboard: React.FC = () => {
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="border-r border-border/50 py-2 text-sm font-mono">{employee.employee_id}</TableCell>
-                    <TableCell className="border-r border-border/50 py-2 text-sm">{employee.department}</TableCell>
-                    <TableCell className="border-r border-border/50 py-2 text-sm">{employee.position}</TableCell>
-                    <TableCell className="border-r border-border/50 py-2 text-sm">{formatTime(employee.check_in_time)}</TableCell>
-                    <TableCell className="py-2">
+                    <TableCell className="border-r border-border/50 py-2 text-sm font-mono whitespace-nowrap">{employee.employee_id}</TableCell>
+                    <TableCell className="border-r border-border/50 py-2 text-sm whitespace-nowrap">{employee.department}</TableCell>
+                    <TableCell className="border-r border-border/50 py-2 text-sm whitespace-nowrap">{employee.position}</TableCell>
+                    <TableCell className="border-r border-border/50 py-2 text-sm whitespace-nowrap">{formatTime(employee.check_in_time)}</TableCell>
+                    <TableCell className="py-2 whitespace-nowrap">
                       <Badge className="bg-yellow-100 text-yellow-800 whitespace-nowrap text-xs px-2 py-0.5">Late</Badge>
                     </TableCell>
                   </TableRow>
@@ -733,7 +744,7 @@ const AttendanceDashboard: React.FC = () => {
               <TableBody>
                 {employees.filter(e => e.status === 'absent').map((employee) => (
                   <TableRow key={employee.id} className="hover:bg-muted/50 transition-colors h-16">
-                    <TableCell className="border-r border-border/50 py-2">
+                    <TableCell className="border-r border-border/50 py-2 whitespace-nowrap">
                       <div className="flex items-center space-x-3">
                         <Avatar className="h-10 w-10">
                           <AvatarFallback>{employee.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
@@ -743,10 +754,10 @@ const AttendanceDashboard: React.FC = () => {
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="border-r border-border/50 py-2 text-sm font-mono">{employee.employee_id}</TableCell>
-                    <TableCell className="border-r border-border/50 py-2 text-sm">{employee.department}</TableCell>
-                    <TableCell className="border-r border-border/50 py-2 text-sm">{employee.position}</TableCell>
-                    <TableCell className="py-2">
+                    <TableCell className="border-r border-border/50 py-2 text-sm font-mono whitespace-nowrap">{employee.employee_id}</TableCell>
+                    <TableCell className="border-r border-border/50 py-2 text-sm whitespace-nowrap">{employee.department}</TableCell>
+                    <TableCell className="border-r border-border/50 py-2 text-sm whitespace-nowrap">{employee.position}</TableCell>
+                    <TableCell className="py-2 whitespace-nowrap">
                       <Badge className="bg-red-100 text-red-800 whitespace-nowrap text-xs px-2 py-0.5">Absent</Badge>
                     </TableCell>
                   </TableRow>

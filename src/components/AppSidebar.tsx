@@ -138,14 +138,12 @@ const customerSupportItems = [
   { title: "NDR & RTO Management", url: "/support/ndr-rto", icon: RefreshCw },
 ];
 
-// Team Hub Section
+// Team Section
 const teamHubItems = [
   { title: "Attendance", url: "/attendance", icon: CalendarIcon },
   { title: "My Tasks", url: "/me/tasks", icon: CheckSquareIcon },
-  { title: "Tasks & To-Dos", url: "/team-hub/tasks", icon: CheckSquareIcon },
   { title: "Review Inbox", url: "/review", icon: Inbox },
   { title: "Team Chat", url: "/team-hub/chat", icon: MessageSquareIcon },
-  { title: "Announcements", url: "/team-hub/announcements", icon: BellIcon },
   { title: "Holidays", url: "/team-hub/holidays", icon: Calendar },
 ];
 
@@ -172,6 +170,7 @@ const productManagementItems = [
 const accountsItems = [
   { title: "Purchase", url: "/account/purchase", icon: ShoppingCart },
   { title: "Invoice", url: "/account/invoice", icon: FileText },
+  { title: "Payroll", url: "/payroll", icon: DollarSign },
 ];
 
 // Admin Section
@@ -264,7 +263,7 @@ export function AppSidebar() {
       ]
     },
     support: { title: "Customer Support", items: customerSupportItems },
-    teamHub: { title: "Team Hub", items: teamHubItems },
+    teamHub: { title: "Team", items: teamHubItems },
     content: { title: "Content", items: contentItems },
     marketing: { title: "Marketing & Growth", items: marketingGrowthItems },
     products: { title: "Product Management", items: productManagementItems },
@@ -753,9 +752,9 @@ export function AppSidebar() {
               </SidebarGroup>
             )}
             
-            {/* 4. Team Hub - Collapsible */}
+            {/* 4. Team - Collapsible */}
             {renderCollapsibleSection(
-              "Team Hub",
+              "Team",
               teamHubOpen,
               setTeamHubOpen,
               isTeamHubActive,
