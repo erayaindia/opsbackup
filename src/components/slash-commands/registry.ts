@@ -101,16 +101,6 @@ export const basicBlocks: SlashCommand[] = [
       }
     },
   },
-  {
-    id: 'toggleList',
-    title: 'Toggle list',
-    icon: '▶',
-    shortcut: '>',
-    run: (editor) => {
-      // Create a collapsible toggle block
-      editor.chain().focus().insertContent('▶ ').run();
-    },
-  },
 ];
 
 // Advanced blocks
@@ -143,180 +133,6 @@ export const advancedBlocks: SlashCommand[] = [
     },
   },
   {
-    id: 'table',
-    title: 'Table',
-    icon: '⚏',
-    shortcut: '',
-    run: (editor) => {
-      console.log('Table command executed');
-
-      // Try the direct TipTap table insertion first
-      try {
-        editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
-        console.log('Table inserted successfully with TipTap extension');
-
-        // Add controls to TipTap table too
-        setTimeout(() => {
-          const tables = document.querySelectorAll('table:not([data-table-wrapper])');
-          tables.forEach((table) => {
-            if (!table.parentElement?.classList.contains('table-wrapper')) {
-              // Create wrapper
-              const wrapper = document.createElement('div');
-              wrapper.className = 'table-wrapper';
-              table.parentNode?.insertBefore(wrapper, table);
-              wrapper.appendChild(table);
-
-              // Add column button
-              const addColumnBtn = document.createElement('button');
-              addColumnBtn.className = 'add-column-btn';
-              addColumnBtn.innerHTML = '+';
-              addColumnBtn.setAttribute('title', 'Add column');
-              addColumnBtn.onclick = () => {
-                if (editor.can().addColumnAfter()) {
-                  editor.chain().focus().addColumnAfter().run();
-                }
-              };
-              wrapper.appendChild(addColumnBtn);
-
-              // Add row button
-              const addRowBtn = document.createElement('button');
-              addRowBtn.className = 'add-row-btn';
-              addRowBtn.innerHTML = '+';
-              addRowBtn.setAttribute('title', 'Add row');
-              addRowBtn.onclick = () => {
-                if (editor.can().addRowAfter()) {
-                  editor.chain().focus().addRowAfter().run();
-                }
-              };
-              wrapper.appendChild(addRowBtn);
-            }
-          });
-        }, 100);
-        return;
-      } catch (error) {
-        console.log('TipTap table extension failed:', error);
-      }
-
-      // If that fails, use HTML insertion with proper structure
-      console.log('Using HTML table fallback');
-      const tableContent = `
-        <table class="notion-table" data-table-wrapper="true">
-          <thead>
-            <tr class="notion-table-row">
-              <th class="notion-table-header">Column 1</th>
-              <th class="notion-table-header">Column 2</th>
-              <th class="notion-table-header">Column 3</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr class="notion-table-row">
-              <td class="notion-table-cell">Cell 1</td>
-              <td class="notion-table-cell">Cell 2</td>
-              <td class="notion-table-cell">Cell 3</td>
-            </tr>
-            <tr class="notion-table-row">
-              <td class="notion-table-cell">Cell 4</td>
-              <td class="notion-table-cell">Cell 5</td>
-              <td class="notion-table-cell">Cell 6</td>
-            </tr>
-          </tbody>
-        </table>
-      `;
-
-      editor.chain().focus().insertContent(tableContent).run();
-
-      // Add controls after insertion
-      setTimeout(() => {
-        const tables = document.querySelectorAll('table[data-table-wrapper="true"]');
-        tables.forEach((table) => {
-          if (!table.parentElement?.classList.contains('table-wrapper')) {
-            // Create wrapper
-            const wrapper = document.createElement('div');
-            wrapper.className = 'table-wrapper';
-            table.parentNode?.insertBefore(wrapper, table);
-            wrapper.appendChild(table);
-
-            // Add column button
-            const addColumnBtn = document.createElement('button');
-            addColumnBtn.className = 'add-column-btn';
-            addColumnBtn.innerHTML = '+';
-            addColumnBtn.setAttribute('title', 'Add column');
-            addColumnBtn.onclick = () => window.addTableColumn && (window as any).addTableColumn(addColumnBtn);
-            wrapper.appendChild(addColumnBtn);
-
-            // Add row button
-            const addRowBtn = document.createElement('button');
-            addRowBtn.className = 'add-row-btn';
-            addRowBtn.innerHTML = '+';
-            addRowBtn.setAttribute('title', 'Add row');
-            addRowBtn.onclick = () => window.addTableRow && (window as any).addTableRow(addRowBtn);
-            wrapper.appendChild(addRowBtn);
-          }
-        });
-      }, 100);
-    },
-  },
-  {
-    id: 'addTableColumn',
-    title: 'Add table column',
-    icon: '⚏+',
-    shortcut: '',
-    run: (editor) => {
-      try {
-        if (editor.can().addColumnAfter()) {
-          editor.chain().focus().addColumnAfter().run();
-        }
-      } catch (error) {
-        console.log('Add column not available');
-      }
-    },
-  },
-  {
-    id: 'addTableRow',
-    title: 'Add table row',
-    icon: '⚏↓',
-    shortcut: '',
-    run: (editor) => {
-      try {
-        if (editor.can().addRowAfter()) {
-          editor.chain().focus().addRowAfter().run();
-        }
-      } catch (error) {
-        console.log('Add row not available');
-      }
-    },
-  },
-  {
-    id: 'deleteTableColumn',
-    title: 'Delete table column',
-    icon: '⚏-',
-    shortcut: '',
-    run: (editor) => {
-      try {
-        if (editor.can().deleteColumn()) {
-          editor.chain().focus().deleteColumn().run();
-        }
-      } catch (error) {
-        console.log('Delete column not available');
-      }
-    },
-  },
-  {
-    id: 'deleteTableRow',
-    title: 'Delete table row',
-    icon: '⚏↑',
-    shortcut: '',
-    run: (editor) => {
-      try {
-        if (editor.can().deleteRow()) {
-          editor.chain().focus().deleteRow().run();
-        }
-      } catch (error) {
-        console.log('Delete row not available');
-      }
-    },
-  },
-  {
     id: 'divider',
     title: 'Divider',
     icon: '—',
@@ -337,6 +153,17 @@ export const advancedBlocks: SlashCommand[] = [
     shortcut: '++',
     run: (editor) => {
       editor.chain().focus().insertContent('[[Link to page]]').run();
+    },
+  },
+  {
+    id: 'uploadFile',
+    title: 'Upload file',
+    icon: '📎',
+    shortcut: '',
+    subtitle: 'Insert file with preview',
+    run: (editor) => {
+      // This will be handled specially in the Rich Editor
+      // The actual file picker will be triggered
     },
   },
 ];

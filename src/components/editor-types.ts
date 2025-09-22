@@ -90,3 +90,20 @@ export interface EditorError {
 export interface ErrorInfo {
   componentStack: string;
 }
+
+// File block types
+export interface FileBlockAttributes {
+  url: string;
+  name: string;
+  size: number;
+  mime: string;
+  width?: number;
+  height?: number;
+}
+
+export interface FileUploadProgress {
+  id: string;
+  file: File;
+  progress: number;
+  error?: string;
+}

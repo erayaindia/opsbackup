@@ -1,5 +1,7 @@
 import React, { useState, useRef, useCallback, useMemo } from 'react';
 import { useEditor, EditorContent, Editor } from '@tiptap/react';
+import { Node, mergeAttributes } from '@tiptap/core';
+import { ReactNodeViewRenderer } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
 import { SlashCommand } from './slash-commands/SlashCommand';
@@ -16,13 +18,194 @@ import {
   MenuPosition,
   EditorNode,
   EditorClickHandler,
-  EditorKeyDownHandler
+  EditorKeyDownHandler,
+  FileBlockAttributes,
+  FileUploadProgress
 } from './editor-types';
 import { RichEditorErrorBoundary } from './RichEditorErrorBoundary';
+import { uploadFile, formatBytes, getMimePrimary, getFileIcon } from '../lib/upload';
 
 // Optional task list extensions - will be loaded dynamically
 let TaskList: typeof import('@tiptap/extension-task-list').default | null = null;
 let TaskItem: typeof import('@tiptap/extension-task-item').default | null = null;
+
+// File Block Component
+const FileBlockComponent: React.FC<{ node: { attrs: FileBlockAttributes }; deleteNode: () => void }> = ({ node, deleteNode }) => {
+  const { url, name, size, mime, width, height } = node.attrs;
+  const mimeType = getMimePrimary(mime);
+  const icon = getFileIcon(mime);
+
+  const handleDownload = () => {
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    a.click();
+  };
+
+  const handleOpen = () => {
+    window.open(url, '_blank');
+  };
+
+  const renderPreview = () => {
+    switch (mimeType) {
+      case 'image':
+        return (
+          <img
+            src={url}
+            alt={name}
+            className="max-w-full h-auto rounded"
+            style={{ maxHeight: '400px' }}
+            width={width}
+            height={height}
+          />
+        );
+
+      case 'video':
+        return (
+          <video
+            controls
+            className="max-w-full h-auto rounded"
+            style={{ maxHeight: '400px' }}
+            width={width}
+            height={height}
+          >
+            <source src={url} type={mime} />
+            Your browser does not support video playback.
+          </video>
+        );
+
+      case 'audio':
+        return (
+          <audio controls className="w-full">
+            <source src={url} type={mime} />
+            Your browser does not support audio playback.
+          </audio>
+        );
+
+      case 'pdf':
+        return (
+          <div className="border rounded">
+            <iframe
+              src={url}
+              className="w-full h-96"
+              title={name}
+            />
+            <div className="p-2 bg-gray-50 flex justify-between items-center">
+              <span className="text-sm text-gray-600">{name}</span>
+              <button
+                onClick={handleOpen}
+                className="text-blue-600 hover:text-blue-800 text-sm"
+              >
+                Open in new tab
+              </button>
+            </div>
+          </div>
+        );
+
+      case 'text':
+        return (
+          <div className="border rounded bg-gray-50 p-4">
+            <div className="text-sm text-gray-600 mb-2">{name}</div>
+            <div className="max-h-48 overflow-auto text-sm bg-white p-3 rounded border">
+              {/* Text preview would go here - for now showing placeholder */}
+              <div className="text-gray-500">Text file preview not implemented</div>
+            </div>
+            <button
+              onClick={handleOpen}
+              className="mt-2 text-blue-600 hover:text-blue-800 text-sm"
+            >
+              Open full file
+            </button>
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="file-block my-4 p-4 border rounded-lg bg-white shadow-sm">
+      {renderPreview() || (
+        <div className="flex items-center space-x-3">
+          <div className="text-2xl">{icon}</div>
+          <div className="flex-1">
+            <div className="font-medium text-gray-900">{name}</div>
+            <div className="text-sm text-gray-500">{formatBytes(size)}</div>
+          </div>
+          <div className="flex space-x-2">
+            <button
+              onClick={handleOpen}
+              className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+            >
+              Open
+            </button>
+            <button
+              onClick={handleDownload}
+              className="px-3 py-1 text-sm bg-gray-600 text-white rounded hover:bg-gray-700"
+            >
+              Download
+            </button>
+          </div>
+        </div>
+      )}
+      <button
+        onClick={deleteNode}
+        className="mt-2 text-red-600 hover:text-red-800 text-sm"
+      >
+        Remove
+      </button>
+    </div>
+  );
+};
+
+// File Block Extension
+const FileBlock = Node.create({
+  name: 'fileBlock',
+
+  group: 'block',
+
+  atom: true,
+
+  addAttributes() {
+    return {
+      url: {
+        default: '',
+      },
+      name: {
+        default: '',
+      },
+      size: {
+        default: 0,
+      },
+      mime: {
+        default: '',
+      },
+      width: {
+        default: null,
+      },
+      height: {
+        default: null,
+      },
+    };
+  },
+
+  parseHTML() {
+    return [
+      {
+        tag: 'div[data-type="file-block"]',
+      },
+    ];
+  },
+
+  renderHTML({ HTMLAttributes }) {
+    return ['div', mergeAttributes(HTMLAttributes, { 'data-type': 'file-block' })];
+  },
+
+  addNodeView() {
+    return ReactNodeViewRenderer(FileBlockComponent);
+  },
+});
 
 interface RichEditorProps {
   value?: EditorContentType;
@@ -37,6 +220,104 @@ export const RichEditor: React.FC<RichEditorProps> = ({ value, onChange }) => {
   const menuRef = useRef<SlashCommandMenuRef>(null);
   const [extensionsLoaded, setExtensionsLoaded] = useState(false);
   const [linkPreviews, setLinkPreviews] = useState<LinkPreviewType[]>([]);
+  const [uploadProgress, setUploadProgress] = useState<FileUploadProgress[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // File upload functions
+  const handleFileUpload = useCallback(async (files: FileList) => {
+    const fileArray = Array.from(files);
+
+    for (const file of fileArray) {
+      const id = Math.random().toString(36).substr(2, 9);
+
+      // Add upload progress tracker
+      setUploadProgress(prev => [...prev, { id, file, progress: 0 }]);
+
+      try {
+        // Insert placeholder
+        const placeholderNode = {
+          type: 'fileBlock',
+          attrs: {
+            url: '',
+            name: file.name,
+            size: file.size,
+            mime: file.type,
+          },
+        };
+
+        editor?.commands.insertContent(placeholderNode);
+
+        // Simulate progress updates
+        const progressInterval = setInterval(() => {
+          setUploadProgress(prev =>
+            prev.map(p => p.id === id ? { ...p, progress: Math.min(p.progress + 10, 90) } : p)
+          );
+        }, 100);
+
+        // Upload file
+        const result = await uploadFile(file);
+
+        clearInterval(progressInterval);
+
+        // Update progress to complete
+        setUploadProgress(prev =>
+          prev.map(p => p.id === id ? { ...p, progress: 100 } : p)
+        );
+
+        // Replace placeholder with actual file block
+        setTimeout(() => {
+          setUploadProgress(prev => prev.filter(p => p.id !== id));
+        }, 500);
+
+        // Get image dimensions for images
+        let width, height;
+        if (result.type.startsWith('image/')) {
+          try {
+            const img = new Image();
+            img.src = result.url;
+            await new Promise((resolve) => {
+              img.onload = () => {
+                width = img.naturalWidth;
+                height = img.naturalHeight;
+                resolve(void 0);
+              };
+            });
+          } catch (error) {
+            // Failed to get dimensions, continue without them
+          }
+        }
+
+        // Find and update the placeholder (this is simplified - in a real implementation
+        // you'd want to track the exact position)
+        const fileNode = {
+          type: 'fileBlock',
+          attrs: {
+            url: result.url,
+            name: result.name,
+            size: result.size,
+            mime: result.type,
+            width,
+            height,
+          },
+        };
+
+        // For now, just insert the completed file block
+        editor?.commands.insertContent(fileNode);
+
+      } catch (error) {
+        // Update progress with error
+        setUploadProgress(prev =>
+          prev.map(p => p.id === id ? { ...p, error: 'Upload failed' } : p)
+        );
+
+        console.error('File upload failed:', error);
+      }
+    }
+  }, [editor]);
+
+  const handleFilePickerClick = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
 
   // Load task list extensions dynamically
   React.useEffect(() => {
@@ -82,6 +363,7 @@ export const RichEditor: React.FC<RichEditorProps> = ({ value, onChange }) => {
           class: 'task-item',
         },
       })] : []),
+      FileBlock,
       SlashCommand.configure({
         suggestion: {
           char: '/',
@@ -220,8 +502,26 @@ export const RichEditor: React.FC<RichEditorProps> = ({ value, onChange }) => {
         }
         return false; // Let TipTap handle other clicks
       },
+      handleDrop: (view, event, slice, moved) => {
+        const files = event.dataTransfer?.files;
+        if (files && files.length > 0) {
+          event.preventDefault();
+          handleFileUpload(files);
+          return true;
+        }
+        return false;
+      },
+      handlePaste: (view, event, slice) => {
+        const files = event.clipboardData?.files;
+        if (files && files.length > 0) {
+          event.preventDefault();
+          handleFileUpload(files);
+          return true;
+        }
+        return false;
+      },
     },
-  }, [extensionsLoaded]);
+  }, [extensionsLoaded, handleFileUpload]);
 
   // Update content separately to preserve cursor position
   React.useEffect(() => {
@@ -277,13 +577,18 @@ export const RichEditor: React.FC<RichEditorProps> = ({ value, onChange }) => {
         .deleteRange(slashRange)
         .run();
 
-      command.run(editor);
+      // Handle upload file command specially
+      if (command.title === 'Upload file') {
+        handleFilePickerClick();
+      } else {
+        command.run(editor);
+      }
     } catch (error) {
       console.warn('Failed to execute slash command:', error);
     } finally {
       setShowSlashMenu(false);
     }
-  }, [editor, slashRange]);
+  }, [editor, slashRange, handleFilePickerClick]);
 
   const handleSlashMenuClose = () => {
     setShowSlashMenu(false);
@@ -634,6 +939,55 @@ export const RichEditor: React.FC<RichEditorProps> = ({ value, onChange }) => {
           className="h-full"
         />
 
+        {/* Hidden file input */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          accept="*/*"
+          style={{ display: 'none' }}
+          onChange={(e) => {
+            if (e.target.files) {
+              handleFileUpload(e.target.files);
+              e.target.value = ''; // Reset input
+            }
+          }}
+        />
+
+        {/* Upload progress indicators */}
+        {uploadProgress.length > 0 && (
+          <div className="upload-progress-container fixed bottom-4 right-4 space-y-2">
+            {uploadProgress.map((progress) => (
+              <div
+                key={progress.id}
+                className="bg-white border rounded-lg p-3 shadow-lg max-w-sm"
+              >
+                <div className="flex items-center space-x-3">
+                  <div className="text-lg">{getFileIcon(progress.file.type)}</div>
+                  <div className="flex-1">
+                    <div className="text-sm font-medium text-gray-900 truncate">
+                      {progress.file.name}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {formatBytes(progress.file.size)}
+                    </div>
+                    {progress.error ? (
+                      <div className="text-xs text-red-600 mt-1">{progress.error}</div>
+                    ) : (
+                      <div className="w-full bg-gray-200 rounded-full h-1.5 mt-1">
+                        <div
+                          className="bg-blue-600 h-1.5 rounded-full transition-all duration-300"
+                          style={{ width: `${progress.progress}%` }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Link Previews */}
         {linkPreviews.length > 0 && (
           <div className="link-previews-container" style={{ marginTop: '16px' }}>
@@ -665,7 +1019,7 @@ export const RichEditor: React.FC<RichEditorProps> = ({ value, onChange }) => {
         </div>
       )}
     </div>
-  ), [editor, linkPreviews, showSlashMenu, menuPosition, slashQuery, handleLinkPreviewClose, handleSlashCommandSelect]);
+  ), [editor, linkPreviews, showSlashMenu, menuPosition, slashQuery, uploadProgress, handleLinkPreviewClose, handleSlashCommandSelect, handleFileUpload]);
 
   return (
     <RichEditorErrorBoundary>
