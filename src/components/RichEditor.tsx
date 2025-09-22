@@ -1,30 +1,42 @@
-import React, { useState, useRef } from 'react';
-import { useEditor, EditorContent } from '@tiptap/react';
+import React, { useState, useRef, useCallback, useMemo } from 'react';
+import { useEditor, EditorContent, Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
-import { Table } from '@tiptap/extension-table';
-import { TableRow } from '@tiptap/extension-table-row';
-import { TableHeader } from '@tiptap/extension-table-header';
-import { TableCell } from '@tiptap/extension-table-cell';
+import Link from '@tiptap/extension-link';
 import { SlashCommand } from './slash-commands/SlashCommand';
 import { SlashCommandMenu, SlashCommandMenuRef } from './slash-commands/SlashCommandMenu';
 import { SlashCommand as SlashCommandType } from './slash-commands/types';
+import { LinkPreview } from './LinkPreview';
+import {
+  EditorContent as EditorContentType,
+  EditorRange,
+  SlashCommandProps,
+  SlashCommandRenderProps,
+  SlashCommandKeyDownProps,
+  LinkPreview as LinkPreviewType,
+  MenuPosition,
+  EditorNode,
+  EditorClickHandler,
+  EditorKeyDownHandler
+} from './editor-types';
+import { RichEditorErrorBoundary } from './RichEditorErrorBoundary';
 
 // Optional task list extensions - will be loaded dynamically
 let TaskList: typeof import('@tiptap/extension-task-list').default | null = null;
 let TaskItem: typeof import('@tiptap/extension-task-item').default | null = null;
 
 interface RichEditorProps {
-  value?: Record<string, unknown>;
-  onChange?: (json: Record<string, unknown>) => void;
+  value?: EditorContentType;
+  onChange?: (json: EditorContentType) => void;
 }
 
 export const RichEditor: React.FC<RichEditorProps> = ({ value, onChange }) => {
   const [showSlashMenu, setShowSlashMenu] = useState(false);
   const [slashQuery, setSlashQuery] = useState('');
-  const [slashRange, setSlashRange] = useState<{ from: number; to: number } | null>(null);
-  const [menuPosition, setMenuPosition] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+  const [slashRange, setSlashRange] = useState<EditorRange | null>(null);
+  const [menuPosition, setMenuPosition] = useState<MenuPosition>({ top: 0, left: 0 });
   const menuRef = useRef<SlashCommandMenuRef>(null);
   const [extensionsLoaded, setExtensionsLoaded] = useState(false);
+  const [linkPreviews, setLinkPreviews] = useState<LinkPreviewType[]>([]);
 
   // Load task list extensions dynamically
   React.useEffect(() => {
@@ -38,7 +50,7 @@ export const RichEditor: React.FC<RichEditorProps> = ({ value, onChange }) => {
         TaskItem = taskItemModule.default;
         setExtensionsLoaded(true);
       } catch (error) {
-        console.log('Task list extensions not available:', error);
+        // Task list extensions not available, continue without them
         setExtensionsLoaded(true); // Mark as loaded even if failed
       }
     };
@@ -53,25 +65,14 @@ export const RichEditor: React.FC<RichEditorProps> = ({ value, onChange }) => {
           content: 'block*',
         },
       }),
-      Table.configure({
-        resizable: true,
+      Link.configure({
+        openOnClick: true,
+        autolink: true,
+        defaultProtocol: 'https',
         HTMLAttributes: {
-          class: 'notion-table',
-        },
-      }),
-      TableRow.configure({
-        HTMLAttributes: {
-          class: 'notion-table-row',
-        },
-      }),
-      TableHeader.configure({
-        HTMLAttributes: {
-          class: 'notion-table-header',
-        },
-      }),
-      TableCell.configure({
-        HTMLAttributes: {
-          class: 'notion-table-cell',
+          class: 'notion-link',
+          target: '_blank',
+          rel: 'noopener noreferrer',
         },
       }),
       ...(TaskList ? [TaskList] : []),
@@ -87,14 +88,14 @@ export const RichEditor: React.FC<RichEditorProps> = ({ value, onChange }) => {
           allowSpaces: false,
           allowedPrefixes: [' ', '^'],
           startOfLine: false,
-          command: ({ editor, range }: { editor: any; range: any }) => {
+          command: ({ editor, range }: SlashCommandProps) => {
             // This will be handled by the menu selection
           },
           render: () => {
-            let popup: { editor: any; query: string; range: any } | null = null;
+            let popup: SlashCommandRenderProps | null = null;
 
             return {
-              onStart: (props: { editor: any; query: string; range: any }) => {
+              onStart: (props: SlashCommandRenderProps) => {
                 setShowSlashMenu(true);
                 setSlashQuery(props.query || '');
                 setSlashRange(props.range);
@@ -116,13 +117,13 @@ export const RichEditor: React.FC<RichEditorProps> = ({ value, onChange }) => {
                 popup = props;
               },
 
-              onUpdate: (props: { editor: any; query: string; range: any }) => {
+              onUpdate: (props: SlashCommandRenderProps) => {
                 setSlashQuery(props.query || '');
                 setSlashRange(props.range);
                 popup = props;
               },
 
-              onKeyDown: (props: { event: KeyboardEvent }) => {
+              onKeyDown: (props: SlashCommandKeyDownProps) => {
                 if (props.event.key === 'Escape') {
                   setShowSlashMenu(false);
                   return true;
@@ -144,6 +145,9 @@ export const RichEditor: React.FC<RichEditorProps> = ({ value, onChange }) => {
     onUpdate: ({ editor }) => {
       const json = editor.getJSON();
       onChange?.(json);
+
+      // Check for new links and create previews
+      detectAndCreateLinkPreviews(editor);
     },
     editorProps: {
       attributes: {
@@ -171,19 +175,15 @@ export const RichEditor: React.FC<RichEditorProps> = ({ value, onChange }) => {
         return false;
       },
       handleClick: (view, pos, event) => {
-        console.log('TipTap click handler triggered');
         const target = event.target as HTMLElement;
 
         if (target.classList.contains('todo-checkbox')) {
-          console.log('Todo checkbox clicked in TipTap handler!');
           event.preventDefault();
           event.stopPropagation();
 
           const todoId = target.getAttribute('data-todo-id');
           const isChecked = target.getAttribute('data-checked') === 'true';
           const newChecked = !isChecked;
-
-          console.log(`Toggling todo ${todoId} from ${isChecked} to ${newChecked}`);
 
           // Find the text element - it should be the next sibling
           const todoText = target.nextElementSibling as HTMLElement;
@@ -221,177 +221,111 @@ export const RichEditor: React.FC<RichEditorProps> = ({ value, onChange }) => {
         return false; // Let TipTap handle other clicks
       },
     },
-  }, [extensionsLoaded, value]);
+  }, [extensionsLoaded]);
 
-  const handleSlashCommandSelect = (command: SlashCommandType) => {
-    if (editor && slashRange) {
+  // Update content separately to preserve cursor position
+  React.useEffect(() => {
+    if (!editor || !value) return;
+
+    try {
+      const currentContent = editor.getJSON();
+      const newContent = JSON.stringify(value);
+      const currentContentString = JSON.stringify(currentContent);
+
+      // Only update if content has actually changed
+      if (newContent !== currentContentString) {
+        const { from, to } = editor.state.selection;
+
+        try {
+          editor.commands.setContent(value, false);
+
+          // Try to restore cursor position
+          requestAnimationFrame(() => {
+            try {
+              const docSize = editor.state.doc.content.size;
+              if (from <= docSize && to <= docSize) {
+                editor.commands.setTextSelection({ from, to });
+              } else {
+                editor.commands.focus('end');
+              }
+            } catch (error) {
+              // Fallback to end position if cursor restoration fails
+              try {
+                editor.commands.focus('end');
+              } catch (focusError) {
+                // Silent fallback if even focus fails
+              }
+            }
+          });
+        } catch (contentError) {
+          // If content setting fails, try to maintain editor state
+          console.warn('Failed to update editor content:', contentError);
+        }
+      }
+    } catch (error) {
+      // Log error but don't crash the component
+      console.warn('Editor content update error:', error);
+    }
+  }, [editor, value]);
+
+  const handleSlashCommandSelect = useCallback((command: SlashCommandType) => {
+    if (!editor || !slashRange) return;
+
+    try {
       editor.chain()
         .focus()
         .deleteRange(slashRange)
         .run();
 
       command.run(editor);
+    } catch (error) {
+      console.warn('Failed to execute slash command:', error);
+    } finally {
+      setShowSlashMenu(false);
     }
-    setShowSlashMenu(false);
-  };
+  }, [editor, slashRange]);
 
   const handleSlashMenuClose = () => {
     setShowSlashMenu(false);
   };
 
-  // Table management functions
-  const handleTableAction = (action: string, event: React.MouseEvent) => {
-    event.preventDefault();
-    event.stopPropagation();
+  const detectAndCreateLinkPreviews = useCallback((editor: Editor) => {
+    try {
+      const doc = editor.state.doc;
+      const linkUrls: string[] = [];
 
-    if (!editor) return;
-
-    switch (action) {
-      case 'addColumnBefore':
-        editor.chain().focus().addColumnBefore().run();
-        break;
-      case 'addColumnAfter':
-        editor.chain().focus().addColumnAfter().run();
-        break;
-      case 'addRowBefore':
-        editor.chain().focus().addRowBefore().run();
-        break;
-      case 'addRowAfter':
-        editor.chain().focus().addRowAfter().run();
-        break;
-      case 'deleteColumn':
-        editor.chain().focus().deleteColumn().run();
-        break;
-      case 'deleteRow':
-        editor.chain().focus().deleteRow().run();
-        break;
-      case 'deleteTable':
-        editor.chain().focus().deleteTable().run();
-        break;
-    }
-  };
-
-  // Add global functions for table controls
-  React.useEffect(() => {
-    (window as unknown as { addTableColumn: (element: HTMLElement) => void }).addTableColumn = (buttonElement: HTMLElement) => {
-      if (editor) {
-        // Find the table and add column
-        const tableWrapper = buttonElement.closest('.table-wrapper');
-        if (tableWrapper) {
-          // Try to focus on the table first
-          const table = tableWrapper.querySelector('table');
-          if (table) {
-            // Use a more direct approach for HTML tables
-            const firstRow = table.querySelector('tr');
-            if (firstRow) {
-              const newHeaderCell = document.createElement('th');
-              newHeaderCell.className = 'notion-table-header';
-              newHeaderCell.textContent = 'New Column';
-              firstRow.appendChild(newHeaderCell);
-
-              // Add cells to all other rows
-              const allRows = table.querySelectorAll('tr');
-              for (let i = 1; i < allRows.length; i++) {
-                const newCell = document.createElement('td');
-                newCell.className = 'notion-table-cell';
-                newCell.textContent = `Cell ${i}`;
-                allRows[i].appendChild(newCell);
+      doc.descendants((node: EditorNode) => {
+        if (node.marks) {
+          node.marks.forEach((mark) => {
+            if (mark.type.name === 'link' && mark.attrs?.href) {
+              const href = mark.attrs.href;
+              if (typeof href === 'string' && href.startsWith('http')) {
+                linkUrls.push(href);
               }
             }
-          }
+          });
         }
-      }
-    };
+      });
 
-    (window as unknown as { addTableRow: (element: HTMLElement) => void }).addTableRow = (buttonElement: HTMLElement) => {
-      if (editor) {
-        const tableWrapper = buttonElement.closest('.table-wrapper');
-        if (tableWrapper) {
-          const table = tableWrapper.querySelector('table tbody');
-          if (table) {
-            const firstRow = tableWrapper.querySelector('tr');
-            const columnCount = firstRow ? firstRow.children.length : 3;
+      // Remove duplicates and update link previews state
+      const uniqueUrls = Array.from(new Set(linkUrls));
+      const newPreviews = uniqueUrls.map((url, index) => ({
+        url,
+        id: `link-${url.replace(/[^a-zA-Z0-9]/g, '-')}-${index}`,
+      }));
 
-            const newRow = document.createElement('tr');
-            newRow.className = 'notion-table-row';
-
-            for (let i = 0; i < columnCount; i++) {
-              const newCell = document.createElement('td');
-              newCell.className = 'notion-table-cell';
-              newCell.textContent = `Cell ${i + 1}`;
-              newRow.appendChild(newCell);
-            }
-
-            table.appendChild(newRow);
-          }
-        }
-      }
-    };
-
-    // Cleanup
-    return () => {
-      delete (window as unknown as { addTableColumn?: unknown }).addTableColumn;
-      delete (window as unknown as { addTableRow?: unknown }).addTableRow;
-    };
-  }, [editor]);
-
-  // Handle clicks on todo checkboxes
-  const handleTodoClick = (event: React.MouseEvent) => {
-    console.log('Click detected on:', event.target);
-    const target = event.target as HTMLElement;
-
-    console.log('Target classes:', target.className);
-    console.log('Target classList contains todo-checkbox:', target.classList.contains('todo-checkbox'));
-
-    if (target.classList.contains('todo-checkbox')) {
-      console.log('Todo checkbox clicked!');
-      event.preventDefault();
-      event.stopPropagation();
-
-      const todoId = target.getAttribute('data-todo-id');
-      const isChecked = target.getAttribute('data-checked') === 'true';
-      const newChecked = !isChecked;
-
-      console.log(`Toggling todo ${todoId} from ${isChecked} to ${newChecked}`);
-
-      // Find the text element - it should be the next sibling
-      const todoText = target.nextElementSibling as HTMLElement;
-
-      // Toggle the checked state
-      target.setAttribute('data-checked', newChecked.toString());
-
-      // Update visual appearance
-      if (newChecked) {
-        // Checked state
-        target.style.backgroundColor = '#3b82f6';
-        target.style.borderColor = '#3b82f6';
-        target.style.color = '#ffffff';
-        target.textContent = '✓';
-
-        if (todoText) {
-          todoText.style.textDecoration = 'line-through';
-          todoText.style.color = '#6b7280';
-        }
-      } else {
-        // Unchecked state
-        target.style.backgroundColor = '#2a2a2a';
-        target.style.borderColor = '#ffffff';
-        target.style.color = '#ffffff';
-        target.textContent = '☐';
-
-        if (todoText) {
-          todoText.style.textDecoration = 'none';
-          todoText.style.color = '#ffffff';
-        }
-      }
-
-      console.log(`Todo ${todoId} toggled to: ${newChecked}`);
-    } else {
-      console.log('Click not on todo checkbox');
+      setLinkPreviews(newPreviews);
+    } catch (error) {
+      // Silently handle link detection errors
+      setLinkPreviews([]);
     }
-  };
+  }, []);
 
-  return (
+  const handleLinkPreviewClose = useCallback((id: string) => {
+    setLinkPreviews(prev => prev.filter(preview => preview.id !== id));
+  }, []);
+
+  const EditorComponent = useMemo(() => (
     <div className="notion-editor h-full relative bg-[#191919]">
       <style jsx global>{`
         .notion-editor-content {
@@ -642,176 +576,47 @@ export const RichEditor: React.FC<RichEditorProps> = ({ value, onChange }) => {
           transition: all 0.2s ease !important;
         }
 
-        /* Table styles */
-        .notion-editor-content .table-wrapper {
-          position: relative !important;
-          margin: 1rem 0 !important;
-        }
-
-        .notion-editor-content table,
-        .notion-editor-content .notion-table {
-          border-collapse: collapse !important;
-          width: 100% !important;
-          table-layout: fixed !important;
-          border: 1px solid #4b5563 !important;
-          display: table !important;
-          visibility: visible !important;
-          position: relative !important;
-        }
-
-        /* Add column button */
-        .notion-editor-content .add-column-btn {
-          position: absolute !important;
-          top: 0 !important;
-          right: -30px !important;
-          width: 24px !important;
-          height: 100% !important;
-          background: transparent !important;
-          border: none !important;
-          color: #6b7280 !important;
+        /* Link styles */
+        .notion-editor-content .notion-link {
+          color: #60a5fa !important;
+          text-decoration: underline !important;
           cursor: pointer !important;
-          opacity: 0 !important;
-          transition: all 0.2s ease !important;
-          display: flex !important;
-          align-items: center !important;
-          justify-content: center !important;
-          font-size: 16px !important;
-          z-index: 10 !important;
-          font-weight: bold !important;
+          transition: color 0.2s ease !important;
         }
 
-        .notion-editor-content .table-wrapper:hover .add-column-btn {
-          opacity: 1 !important;
+        .notion-editor-content .notion-link:hover {
+          color: #93c5fd !important;
+          text-decoration: underline !important;
         }
 
-        .notion-editor-content .add-column-btn:hover {
-          color: #ffffff !important;
-          background: rgba(55, 65, 81, 0.8) !important;
-          border-radius: 4px !important;
+        .notion-editor-content .notion-link:visited {
+          color: #a78bfa !important;
         }
 
-        /* Add row button */
-        .notion-editor-content .add-row-btn {
-          position: absolute !important;
-          bottom: -30px !important;
-          left: 0 !important;
-          width: 100% !important;
-          height: 24px !important;
-          background: transparent !important;
-          border: none !important;
-          color: #6b7280 !important;
-          cursor: pointer !important;
-          opacity: 0 !important;
-          transition: all 0.2s ease !important;
-          display: flex !important;
-          align-items: center !important;
-          justify-content: center !important;
-          font-size: 16px !important;
-          z-index: 10 !important;
-          font-weight: bold !important;
+        /* Link preview styles */
+        .link-preview-card {
+          position: relative;
+          margin: 8px 0;
+          background: #2a2a2a;
+          border: 1px solid #374151;
+          border-radius: 8px;
+          overflow: hidden;
+          max-width: 500px;
         }
 
-        .notion-editor-content .table-wrapper:hover .add-row-btn {
-          opacity: 1 !important;
+        .link-preview-card:hover {
+          border-color: #4b5563;
+          background: #333333;
         }
 
-        .notion-editor-content .add-row-btn:hover {
-          color: #ffffff !important;
-          background: rgba(55, 65, 81, 0.8) !important;
-          border-radius: 4px !important;
+        .line-clamp-2 {
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
         }
 
-        /* Drag handle for columns */
-        .column-drag-handle {
-          position: absolute;
-          top: -10px;
-          left: -5px;
-          width: 10px;
-          height: 10px;
-          background: #6b7280;
-          border-radius: 2px;
-          cursor: pointer;
-          opacity: 0;
-          transition: all 0.2s ease;
-          z-index: 15;
-        }
 
-        .table-wrapper:hover .column-drag-handle {
-          opacity: 1;
-        }
-
-        .column-drag-handle:hover {
-          background: #ffffff;
-        }
-
-        /* Tooltip styles */
-        .table-tooltip {
-          position: absolute;
-          background: #1f2937;
-          color: #ffffff;
-          padding: 6px 8px;
-          border-radius: 4px;
-          font-size: 12px;
-          white-space: nowrap;
-          z-index: 20;
-          pointer-events: none;
-          opacity: 0;
-          transition: opacity 0.2s ease;
-        }
-
-        .add-column-btn:hover + .table-tooltip,
-        .add-row-btn:hover + .table-tooltip {
-          opacity: 1;
-        }
-
-        .notion-editor-content th,
-        .notion-editor-content td,
-        .notion-editor-content .notion-table-header,
-        .notion-editor-content .notion-table-cell {
-          border: 1px solid #4b5563 !important;
-          padding: 8px 12px !important;
-          position: relative !important;
-          vertical-align: top !important;
-          background-color: #191919 !important;
-          color: #ffffff !important;
-          min-width: 100px !important;
-          min-height: 40px !important;
-          display: table-cell !important;
-        }
-
-        .notion-editor-content th {
-          background-color: #374151 !important;
-          font-weight: 600 !important;
-          text-align: left !important;
-        }
-
-        .notion-editor-content .selectedCell:after {
-          z-index: 2;
-          position: absolute;
-          content: "";
-          left: 0; right: 0; top: 0; bottom: 0;
-          background: rgba(59, 130, 246, 0.3);
-          pointer-events: none;
-        }
-
-        .notion-editor-content .column-resize-handle {
-          position: absolute;
-          right: -2px;
-          top: 0;
-          bottom: 0;
-          width: 4px;
-          background-color: #3b82f6;
-          pointer-events: none;
-        }
-
-        .notion-editor-content .tableWrapper {
-          overflow-x: auto;
-        }
-
-        .notion-editor-content .resize-cursor {
-          cursor: ew-resize;
-          cursor: col-resize;
-        }
 
         /* Placeholder when empty */
         .notion-editor-content .is-empty::before {
@@ -823,11 +628,24 @@ export const RichEditor: React.FC<RichEditorProps> = ({ value, onChange }) => {
         }
       `}</style>
 
-      <div onClick={handleTodoClick}>
+      <div>
         <EditorContent
           editor={editor}
           className="h-full"
         />
+
+        {/* Link Previews */}
+        {linkPreviews.length > 0 && (
+          <div className="link-previews-container" style={{ marginTop: '16px' }}>
+            {linkPreviews.map((preview) => (
+              <LinkPreview
+                key={preview.id}
+                url={preview.url}
+                onClose={() => handleLinkPreviewClose(preview.id)}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
       {showSlashMenu && (
@@ -847,6 +665,12 @@ export const RichEditor: React.FC<RichEditorProps> = ({ value, onChange }) => {
         </div>
       )}
     </div>
+  ), [editor, linkPreviews, showSlashMenu, menuPosition, slashQuery, handleLinkPreviewClose, handleSlashCommandSelect]);
+
+  return (
+    <RichEditorErrorBoundary>
+      {EditorComponent}
+    </RichEditorErrorBoundary>
   );
 };
 
