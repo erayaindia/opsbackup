@@ -223,102 +223,6 @@ export const RichEditor: React.FC<RichEditorProps> = ({ value, onChange }) => {
   const [uploadProgress, setUploadProgress] = useState<FileUploadProgress[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // File upload functions
-  const handleFileUpload = useCallback(async (files: FileList) => {
-    const fileArray = Array.from(files);
-
-    for (const file of fileArray) {
-      const id = Math.random().toString(36).substr(2, 9);
-
-      // Add upload progress tracker
-      setUploadProgress(prev => [...prev, { id, file, progress: 0 }]);
-
-      try {
-        // Insert placeholder
-        const placeholderNode = {
-          type: 'fileBlock',
-          attrs: {
-            url: '',
-            name: file.name,
-            size: file.size,
-            mime: file.type,
-          },
-        };
-
-        editor?.commands.insertContent(placeholderNode);
-
-        // Simulate progress updates
-        const progressInterval = setInterval(() => {
-          setUploadProgress(prev =>
-            prev.map(p => p.id === id ? { ...p, progress: Math.min(p.progress + 10, 90) } : p)
-          );
-        }, 100);
-
-        // Upload file
-        const result = await uploadFile(file);
-
-        clearInterval(progressInterval);
-
-        // Update progress to complete
-        setUploadProgress(prev =>
-          prev.map(p => p.id === id ? { ...p, progress: 100 } : p)
-        );
-
-        // Replace placeholder with actual file block
-        setTimeout(() => {
-          setUploadProgress(prev => prev.filter(p => p.id !== id));
-        }, 500);
-
-        // Get image dimensions for images
-        let width, height;
-        if (result.type.startsWith('image/')) {
-          try {
-            const img = new Image();
-            img.src = result.url;
-            await new Promise((resolve) => {
-              img.onload = () => {
-                width = img.naturalWidth;
-                height = img.naturalHeight;
-                resolve(void 0);
-              };
-            });
-          } catch (error) {
-            // Failed to get dimensions, continue without them
-          }
-        }
-
-        // Find and update the placeholder (this is simplified - in a real implementation
-        // you'd want to track the exact position)
-        const fileNode = {
-          type: 'fileBlock',
-          attrs: {
-            url: result.url,
-            name: result.name,
-            size: result.size,
-            mime: result.type,
-            width,
-            height,
-          },
-        };
-
-        // For now, just insert the completed file block
-        editor?.commands.insertContent(fileNode);
-
-      } catch (error) {
-        // Update progress with error
-        setUploadProgress(prev =>
-          prev.map(p => p.id === id ? { ...p, error: 'Upload failed' } : p)
-        );
-
-        console.error('File upload failed:', error);
-      }
-    }
-  }, [editor]);
-
-  const handleFilePickerClick = useCallback(() => {
-    fileInputRef.current?.click();
-  }, []);
-
   // Load task list extensions dynamically
   React.useEffect(() => {
     const loadTaskExtensions = async () => {
@@ -506,7 +410,7 @@ export const RichEditor: React.FC<RichEditorProps> = ({ value, onChange }) => {
         const files = event.dataTransfer?.files;
         if (files && files.length > 0) {
           event.preventDefault();
-          handleFileUpload(files);
+          // We'll handle this after the editor is created
           return true;
         }
         return false;
@@ -515,13 +419,142 @@ export const RichEditor: React.FC<RichEditorProps> = ({ value, onChange }) => {
         const files = event.clipboardData?.files;
         if (files && files.length > 0) {
           event.preventDefault();
-          handleFileUpload(files);
+          // We'll handle this after the editor is created
           return true;
         }
         return false;
       },
     },
-  }, [extensionsLoaded, handleFileUpload]);
+  }, [extensionsLoaded]);
+
+  // File upload functions (defined after editor is created)
+  const handleFileUpload = useCallback(async (files: FileList) => {
+    if (!editor) return;
+
+    const fileArray = Array.from(files);
+
+    for (const file of fileArray) {
+      const id = Math.random().toString(36).substr(2, 9);
+
+      // Add upload progress tracker
+      setUploadProgress(prev => [...prev, { id, file, progress: 0 }]);
+
+      try {
+        // Insert placeholder
+        const placeholderNode = {
+          type: 'fileBlock',
+          attrs: {
+            url: '',
+            name: file.name,
+            size: file.size,
+            mime: file.type,
+          },
+        };
+
+        editor.commands.insertContent(placeholderNode);
+
+        // Simulate progress updates
+        const progressInterval = setInterval(() => {
+          setUploadProgress(prev =>
+            prev.map(p => p.id === id ? { ...p, progress: Math.min(p.progress + 10, 90) } : p)
+          );
+        }, 100);
+
+        // Upload file
+        const result = await uploadFile(file);
+
+        clearInterval(progressInterval);
+
+        // Update progress to complete
+        setUploadProgress(prev =>
+          prev.map(p => p.id === id ? { ...p, progress: 100 } : p)
+        );
+
+        // Replace placeholder with actual file block
+        setTimeout(() => {
+          setUploadProgress(prev => prev.filter(p => p.id !== id));
+        }, 500);
+
+        // Get image dimensions for images
+        let width, height;
+        if (result.type.startsWith('image/')) {
+          try {
+            const img = new Image();
+            img.src = result.url;
+            await new Promise((resolve) => {
+              img.onload = () => {
+                width = img.naturalWidth;
+                height = img.naturalHeight;
+                resolve(void 0);
+              };
+            });
+          } catch (error) {
+            // Failed to get dimensions, continue without them
+          }
+        }
+
+        // Find and update the placeholder (this is simplified - in a real implementation
+        // you'd want to track the exact position)
+        const fileNode = {
+          type: 'fileBlock',
+          attrs: {
+            url: result.url,
+            name: result.name,
+            size: result.size,
+            mime: result.type,
+            width,
+            height,
+          },
+        };
+
+        // For now, just insert the completed file block
+        editor.commands.insertContent(fileNode);
+
+      } catch (error) {
+        // Update progress with error
+        setUploadProgress(prev =>
+          prev.map(p => p.id === id ? { ...p, error: 'Upload failed' } : p)
+        );
+
+        console.error('File upload failed:', error);
+      }
+    }
+  }, [editor]);
+
+  const handleFilePickerClick = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  // Add drag and drop handlers after editor is created
+  React.useEffect(() => {
+    if (!editor) return;
+
+    const editorElement = editor.view.dom;
+
+    const handleDrop = (event: DragEvent) => {
+      const files = event.dataTransfer?.files;
+      if (files && files.length > 0) {
+        event.preventDefault();
+        handleFileUpload(files);
+      }
+    };
+
+    const handlePaste = (event: ClipboardEvent) => {
+      const files = event.clipboardData?.files;
+      if (files && files.length > 0) {
+        event.preventDefault();
+        handleFileUpload(files);
+      }
+    };
+
+    editorElement.addEventListener('drop', handleDrop);
+    editorElement.addEventListener('paste', handlePaste);
+
+    return () => {
+      editorElement.removeEventListener('drop', handleDrop);
+      editorElement.removeEventListener('paste', handlePaste);
+    };
+  }, [editor, handleFileUpload]);
 
   // Update content separately to preserve cursor position
   React.useEffect(() => {
