@@ -7,6 +7,7 @@ import Underline from '@tiptap/extension-underline';
 import Placeholder from '@tiptap/extension-placeholder';
 import { Plugin, PluginKey } from 'prosemirror-state';
 import { Extension } from '@tiptap/core';
+import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import {
   Bold,
@@ -1625,19 +1626,22 @@ export const RichEditor: React.FC<RichEditorProps> = ({
         </div>
       )}
 
-      {showSlashMenu && (
+      {showSlashMenu && createPortal(
         <>
           {/* Backdrop */}
           <div
-            className="fixed inset-0 z-[9998]"
+            className="fixed inset-0 z-[99998]"
             onClick={handleSlashMenuClose}
+            style={{ zIndex: 99998 }}
           />
           {/* Menu */}
           <div
-            className="fixed z-[9999]"
+            className="fixed z-[99999]"
             style={{
               top: menuPosition.top,
               left: menuPosition.left,
+              zIndex: 99999,
+              position: 'fixed',
             }}
           >
             <SlashCommandMenu
@@ -1647,7 +1651,8 @@ export const RichEditor: React.FC<RichEditorProps> = ({
               onClose={handleSlashMenuClose}
             />
           </div>
-        </>
+        </>,
+        document.body
       )}
     </div>
   ), [editor, showSlashMenu, menuPosition, slashQuery, handleSlashCommandSelect, showFindReplace, findText, replaceText, currentMatch, totalMatches, findInEditor, findNext, replaceCurrent, replaceAll, debouncedSearch]);
