@@ -41,6 +41,7 @@ import Planning from "./pages/content/Planning";
 import ContentLibrary from "./pages/content/ContentLibrary";
 import ContentCreator from "./pages/content/ContentCreator";
 import ContentDetail from "./pages/content/ContentDetail";
+import CreatorOnboard from "./pages/content/CreatorOnboard";
 
 // Customer Support pages
 import FeedbackComplaints from "./pages/support/FeedbackComplaints";
@@ -141,6 +142,7 @@ const App = () => (
       <Routes>
         <Route path="/auth" element={<Auth />} />
         <Route path="/onboard" element={<Onboard />} />
+        <Route path="/creator-onboard" element={<CreatorOnboard />} />
         <Route path="/*" element={
           <AuthWrapper>
             <Routes>

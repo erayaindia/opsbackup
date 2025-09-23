@@ -362,6 +362,7 @@ export function CreateTaskForm({ open, onOpenChange, onTaskCreated }: CreateTask
                   <RichEditor
                     value={formData.description as EditorContent}
                     onChange={(content) => handleInputChange('description', content)}
+                    disableUndoRedo={true}
                   />
                 </div>
               </div>

@@ -1,6 +1,7 @@
-export type CreatorRole = 
+export type CreatorRole =
   | 'Videographer'
-  | 'Editor' 
+  | 'Editor'
+  | 'UGC Creator'
   | 'Influencer'
   | 'Agency'
   | 'Model'
@@ -10,7 +11,7 @@ export type CreatorRole =
   | 'Voice Actor'
   | 'Animator';
 
-export type CreatorStatus = 'Active' | 'Onboarding' | 'Paused' | 'Archived';
+export type CreatorStatus = 'Active' | 'Onboarding' | 'Paused' | 'Rejected';
 
 export type CreatorAvailability = 'Free' | 'Limited' | 'Busy';
 

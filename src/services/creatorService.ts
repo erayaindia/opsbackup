@@ -4,11 +4,18 @@ import { ContentCreator, CreatorProject, CreatorPayment } from '@/types/contentC
 export class CreatorService {
   static async createCreator(creatorData: Omit<ContentCreator, 'id' | 'createdAt' | 'updatedAt'>): Promise<ContentCreator> {
     try {
+      // Check authentication first
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        throw new Error('User must be authenticated to create creators');
+      }
+
       console.log('🔍 CreatorService.createCreator called with data:', {
         name: creatorData.name,
         email: creatorData.email,
         shippingAddress: creatorData.shippingAddress,
-        hasShippingAddress: !!creatorData.shippingAddress
+        hasShippingAddress: !!creatorData.shippingAddress,
+        authenticatedUser: user.email
       });
       // Convert current and past projects to the format expected by the database
       const currentProjectsJson = creatorData.currentProjects?.map(project => ({
@@ -77,7 +84,7 @@ export class CreatorService {
           weaknesses: creatorData.weaknesses || [],
           special_requirements: creatorData.specialRequirements || [],
           internal_notes: creatorData.internalNotes || '',
-          created_by: null // Will be set by auth context if needed
+          created_by: user.id
       };
 
       console.log('📤 Inserting creator data:', insertData);
@@ -91,6 +98,14 @@ export class CreatorService {
       if (creatorError) {
         console.error('❌ Error creating creator:', creatorError);
         console.error('❌ Insert data that failed:', insertData);
+
+        if (creatorError.code === '42501') {
+          throw new Error('Authentication required. Please make sure you are logged in.');
+        }
+        if (creatorError.code === '23505') {
+          throw new Error('A creator with this email already exists.');
+        }
+
         throw new Error(`Failed to create creator: ${creatorError.message}`);
       }
 
@@ -105,8 +120,14 @@ export class CreatorService {
 
   static async getAllCreators(): Promise<ContentCreator[]> {
     try {
+      // Check authentication first
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        throw new Error('User must be authenticated to view creators');
+      }
+
       console.log('🔍 Fetching all creators from database...');
-      
+
       const { data: creators, error: creatorsError } = await supabase
         .from('content_creators')
         .select('*')
@@ -144,6 +165,11 @@ export class CreatorService {
 
   static async updateCreator(id: string, updates: Partial<ContentCreator>): Promise<ContentCreator> {
     try {
+      // Check authentication first
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        throw new Error('User must be authenticated to update creators');
+      }
       // Convert projects and payments if they exist in updates
       const updateData: any = {
         name: updates.name,
@@ -243,6 +269,12 @@ export class CreatorService {
 
   static async deleteCreator(id: string): Promise<void> {
     try {
+      // Check authentication first
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        throw new Error('User must be authenticated to delete creators');
+      }
+
       console.log('🗑️  Attempting to delete creator with ID:', id);
       
       const { data, error } = await supabase
@@ -275,8 +307,12 @@ export class CreatorService {
   }
 
   // Debug helper method to check database state
-  static async checkDatabaseStatus(): Promise<{ tableExists: boolean; creatorCount: number; sampleIds: string[] }> {
+  static async checkDatabaseStatus(): Promise<{ tableExists: boolean; creatorCount: number; sampleIds: string[]; isAuthenticated: boolean }> {
     try {
+      // Check authentication
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      const isAuthenticated = !authError && !!user;
+
       const { data, error, count } = await supabase
         .from('content_creators')
         .select('id', { count: 'exact' })
@@ -284,17 +320,18 @@ export class CreatorService {
 
       if (error) {
         console.error('Database check error:', error);
-        return { tableExists: false, creatorCount: 0, sampleIds: [] };
+        return { tableExists: false, creatorCount: 0, sampleIds: [], isAuthenticated };
       }
 
       return {
         tableExists: true,
         creatorCount: count || 0,
-        sampleIds: data?.map(creator => creator.id) || []
+        sampleIds: data?.map(creator => creator.id) || [],
+        isAuthenticated
       };
     } catch (error) {
       console.error('Database status check failed:', error);
-      return { tableExists: false, creatorCount: 0, sampleIds: [] };
+      return { tableExists: false, creatorCount: 0, sampleIds: [], isAuthenticated: false };
     }
   }
 

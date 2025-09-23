@@ -19,7 +19,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Camera, Upload } from 'lucide-react';
 import {
   ContentCreator,
   CreatorRole,
@@ -36,14 +36,24 @@ interface AddCreatorModalProps {
 }
 
 const CREATOR_ROLES: CreatorRole[] = [
-  'Videographer', 'Editor', 'Influencer', 'Agency', 'Model', 
+  'Videographer', 'Editor', 'UGC Creator', 'Influencer', 'Agency', 'Model',
   'Designer', 'Photographer', 'Copywriter', 'Voice Actor', 'Animator'
 ];
 
-const CREATOR_STATUSES: CreatorStatus[] = ['Active', 'Onboarding', 'Paused', 'Archived'];
+const CREATOR_STATUSES: CreatorStatus[] = ['Active', 'Onboarding', 'Paused', 'Rejected'];
 const CREATOR_AVAILABILITIES: CreatorAvailability[] = ['Free', 'Limited', 'Busy'];
 const PAYMENT_CYCLES: PaymentCycle[] = ['Per Project', 'Monthly', 'Weekly', 'Custom'];
-const COMMUNICATION_CHANNELS: CommunicationChannel[] = ['Email', 'WhatsApp', 'Slack', 'Phone', 'Discord'];
+const COMMUNICATION_CHANNELS: CommunicationChannel[] = ['Email', 'WhatsApp', 'Phone'];
+
+const INDIAN_STATES = [
+  'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh', 'Goa', 'Gujarat',
+  'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka', 'Kerala', 'Madhya Pradesh',
+  'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram', 'Nagaland', 'Odisha', 'Punjab',
+  'Rajasthan', 'Sikkim', 'Tamil Nadu', 'Telangana', 'Tripura', 'Uttar Pradesh',
+  'Uttarakhand', 'West Bengal', 'Andaman and Nicobar Islands', 'Chandigarh',
+  'Dadra and Nagar Haveli and Daman and Diu', 'Delhi', 'Jammu and Kashmir', 'Ladakh',
+  'Lakshadweep', 'Puducherry'
+];
 
 export const AddCreatorModal: React.FC<AddCreatorModalProps> = ({
   open,
@@ -51,10 +61,12 @@ export const AddCreatorModal: React.FC<AddCreatorModalProps> = ({
   onCreateCreator,
 }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [activeTab, setActiveTab] = useState('basic');
+  const [activeTab, setActiveTab] = useState('info');
+  const [profileImage, setProfileImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string>('');
   
-  const tabs = ['basic', 'contact', 'rates', 'notes'];
-  const tabNames = ['Basic Info', 'Contact', 'Rates & Payment', 'Notes'];
+  const tabs = ['info', 'rates'];
+  const tabNames = ['Creator Info', 'Rates & Payment'];
   const currentTabIndex = tabs.indexOf(activeTab);
   const isLastTab = currentTabIndex === tabs.length - 1;
   const [formData, setFormData] = useState({
@@ -64,13 +76,7 @@ export const AddCreatorModal: React.FC<AddCreatorModalProps> = ({
     status: 'Active' as CreatorStatus,
     availability: 'Free' as CreatorAvailability,
     rating: 0,
-    
-    // Profile
-    profilePicture: '',
-    bio: '',
-    location: '',
-    timezone: '',
-    
+
     // Contact
     email: '',
     phone: '',
@@ -78,35 +84,28 @@ export const AddCreatorModal: React.FC<AddCreatorModalProps> = ({
     socialLinks: {
       instagram: '',
       youtube: '',
-      tiktok: '',
-      linkedin: '',
       portfolio: '',
     },
-    preferredCommunication: 'Email' as CommunicationChannel,
-    
+    preferredCommunication: 'WhatsApp' as CommunicationChannel,
+
     // Shipping Address
     shippingAddress: {
       fullAddress: '',
+      city: '',
+      state: '',
       pincode: '',
       phone: '',
       alternatePhone: '',
     },
-    
+
     // Rate Card
     baseRate: '' as any,
-    currency: 'INR',
-    unit: 'per hour',
+    unit: 'per deliverable',
     paymentCycle: 'Per Project' as PaymentCycle,
     advancePercentage: 0,
-    
+
     // Initial Payment
     initialPayment: 0,
-    
-    // Collaboration
-    strengths: '',
-    weaknesses: '',
-    specialRequirements: '',
-    internalNotes: '',
   });
 
   const handleInputChange = (field: string, value: string | number) => {
@@ -136,11 +135,61 @@ export const AddCreatorModal: React.FC<AddCreatorModalProps> = ({
     }
   };
 
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Check file size (5MB limit)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('File size must be less than 5MB');
+        return;
+      }
+
+      // Check file type
+      if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+        alert('Only JPG, PNG, and WebP formats are allowed');
+        return;
+      }
+
+      setProfileImage(file);
+
+      // Create preview URL
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setImagePreview(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeImage = () => {
+    setProfileImage(null);
+    setImagePreview('');
+  };
+
+  // Clean up image preview URL when modal closes
+  React.useEffect(() => {
+    if (!open) {
+      setProfileImage(null);
+      setImagePreview('');
+    }
+  }, [open]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.name || !formData.role || !formData.email || !formData.location || !formData.timezone) {
-      alert('Please fill in all required fields');
+    // Check required fields
+    if (!formData.name || !formData.role || !formData.email || !formData.phone || !formData.whatsapp ||
+        !formData.shippingAddress.fullAddress || !formData.shippingAddress.city || !formData.shippingAddress.state ||
+        !formData.shippingAddress.pincode || !formData.shippingAddress.phone ||
+        !formData.baseRate || formData.rating <= 0) {
+      alert('Please fill in all required fields including a valid rating (greater than 0)');
+      return;
+    }
+
+    // Check at least one social media link is provided
+    const hasSocialLink = formData.socialLinks.portfolio?.trim() || formData.socialLinks.instagram?.trim() || formData.socialLinks.youtube?.trim();
+    if (!hasSocialLink) {
+      alert('Please provide at least one social media link (Portfolio, Instagram, or YouTube)');
       return;
     }
 
@@ -153,19 +202,20 @@ export const AddCreatorModal: React.FC<AddCreatorModalProps> = ({
         status: formData.status,
         availability: formData.availability,
         rating: formData.rating,
-        profilePicture: formData.profilePicture || undefined,
-        bio: formData.bio || undefined,
-        location: formData.location,
-        timezone: formData.timezone,
+        profilePicture: imagePreview || undefined,
+        location: '',
+        timezone: '',
         email: formData.email,
-        phone: formData.phone || undefined,
-        whatsapp: formData.whatsapp || undefined,
+        phone: formData.phone,
+        whatsapp: formData.whatsapp,
         socialLinks: Object.fromEntries(
           Object.entries(formData.socialLinks).filter(([_, value]) => value.trim() !== '')
         ),
         preferredCommunication: formData.preferredCommunication,
         shippingAddress: {
           fullAddress: formData.shippingAddress.fullAddress,
+          city: formData.shippingAddress.city,
+          state: formData.shippingAddress.state,
           pincode: formData.shippingAddress.pincode,
           phone: formData.shippingAddress.phone,
           alternatePhone: formData.shippingAddress.alternatePhone || undefined,
@@ -181,7 +231,7 @@ export const AddCreatorModal: React.FC<AddCreatorModalProps> = ({
         },
         rateCard: {
           baseRate: typeof formData.baseRate === 'string' ? parseFloat(formData.baseRate) || 0 : formData.baseRate,
-          currency: formData.currency,
+          currency: 'INR',
           unit: formData.unit,
         },
         paymentCycle: formData.paymentCycle,
@@ -189,15 +239,15 @@ export const AddCreatorModal: React.FC<AddCreatorModalProps> = ({
         payments: formData.initialPayment > 0 ? [{
           id: `payment-${Date.now()}`,
           amount: formData.initialPayment,
-          currency: formData.currency,
+          currency: 'INR',
           status: 'Pending' as const,
           dueDate: new Date(),
           description: 'Initial payment setup',
         }] : [],
-        strengths: formData.strengths ? formData.strengths.split(',').map(s => s.trim()).filter(s => s) : [],
-        weaknesses: formData.weaknesses ? formData.weaknesses.split(',').map(s => s.trim()).filter(s => s) : [],
-        specialRequirements: formData.specialRequirements ? formData.specialRequirements.split(',').map(s => s.trim()).filter(s => s) : [],
-        internalNotes: formData.internalNotes,
+        strengths: [],
+        weaknesses: [],
+        specialRequirements: [],
+        internalNotes: '',
         createdBy: 'admin', // TODO: Get from auth context
       };
 
@@ -210,40 +260,35 @@ export const AddCreatorModal: React.FC<AddCreatorModalProps> = ({
         status: 'Active',
         availability: 'Free',
         rating: 0,
-        profilePicture: '',
-        bio: '',
-        location: '',
-        timezone: '',
         email: '',
         phone: '',
         whatsapp: '',
         socialLinks: {
           instagram: '',
           youtube: '',
-          tiktok: '',
-          linkedin: '',
           portfolio: '',
         },
-        preferredCommunication: 'Email',
+        preferredCommunication: 'WhatsApp',
         shippingAddress: {
           fullAddress: '',
+          city: '',
+          state: '',
           pincode: '',
           phone: '',
           alternatePhone: '',
         },
         baseRate: '' as any,
-        currency: 'INR',
-        unit: 'per hour',
+        unit: 'per deliverable',
         paymentCycle: 'Per Project',
         advancePercentage: 0,
         initialPayment: 0,
-        strengths: '',
-        weaknesses: '',
-        specialRequirements: '',
-        internalNotes: '',
       });
-      
-      setActiveTab('basic');
+
+      // Reset image states
+      setProfileImage(null);
+      setImagePreview('');
+
+      setActiveTab('info');
       onOpenChange(false);
     } catch (error) {
       console.error('Error creating creator:', error);
@@ -255,26 +300,91 @@ export const AddCreatorModal: React.FC<AddCreatorModalProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden rounded-none">
         <DialogHeader>
           <DialogTitle>Add New Creator</DialogTitle>
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-6 overflow-y-auto max-h-[calc(90vh-100px)]">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="basic">Basic Info</TabsTrigger>
-              <TabsTrigger value="contact">Contact</TabsTrigger>
-              <TabsTrigger value="rates">Rates & Payment</TabsTrigger>
-              <TabsTrigger value="notes">Notes</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-2 rounded-none">
+              <TabsTrigger value="info" className="rounded-none">Creator Info</TabsTrigger>
+              <TabsTrigger value="rates" className="rounded-none">Rates & Payment</TabsTrigger>
             </TabsList>
             
-            <TabsContent value="basic" className="space-y-4">
-              <Card>
+            <TabsContent value="info" className="space-y-4">
+              <Card className="rounded-none">
                 <CardHeader>
                   <CardTitle>Basic Information</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  {/* Profile Photo Upload */}
+                  <div className="mb-4">
+                    <h3 className="text-base font-medium text-white mb-3">Profile Photo</h3>
+                    <div className="flex gap-4">
+                      {/* Upload Area */}
+                      <div className="flex-shrink-0">
+                        {imagePreview ? (
+                          <div className="relative">
+                            <div className="w-24 h-24 border-2 border-dashed border-gray-600 rounded-none flex items-center justify-center bg-gray-800 relative overflow-hidden">
+                              <img
+                                src={imagePreview}
+                                alt="Profile preview"
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                            <div className="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={removeImage}
+                                className="rounded-none bg-white/90 hover:bg-white text-xs px-2 py-1"
+                              >
+                                Remove
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => document.getElementById('profile-upload')?.click()}
+                                className="rounded-none bg-white/90 hover:bg-white text-xs px-2 py-1"
+                              >
+                                Change
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div
+                            className="w-24 h-24 border-2 border-dashed border-gray-600 rounded-none flex flex-col items-center justify-center bg-gray-800 cursor-pointer hover:bg-gray-700 transition-colors"
+                            onClick={() => document.getElementById('profile-upload')?.click()}
+                          >
+                            <Camera className="h-6 w-6 text-gray-400 mb-1" />
+                            <p className="text-gray-300 text-xs font-medium">Add Image</p>
+                          </div>
+                        )}
+                        <input
+                          id="profile-upload"
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          onChange={handleImageUpload}
+                          className="hidden"
+                        />
+                      </div>
+
+                      {/* Instructions */}
+                      <div className="flex-1">
+                        <p className="text-gray-300 text-sm mb-2">Click the image area to upload a profile photo</p>
+                        <ul className="text-gray-400 text-xs space-y-0.5">
+                          <li>• Recommended size: 400×400 pixels</li>
+                          <li>• Formats: JPG, PNG, WebP</li>
+                          <li>• Maximum size: 5MB</li>
+                          <li>• Hover over existing image to edit or delete</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="name">Full Name *</Label>
@@ -283,16 +393,17 @@ export const AddCreatorModal: React.FC<AddCreatorModalProps> = ({
                         value={formData.name}
                         onChange={(e) => handleInputChange('name', e.target.value)}
                         placeholder="Enter full name"
+                        className="rounded-none"
                         required
                       />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="role">Role *</Label>
                       <Select value={formData.role} onValueChange={(value) => handleInputChange('role', value as CreatorRole)}>
-                        <SelectTrigger>
+                        <SelectTrigger className="rounded-none">
                           <SelectValue placeholder="Select role" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="rounded-none">
                           {CREATOR_ROLES.map((role) => (
                             <SelectItem key={role} value={role}>{role}</SelectItem>
                           ))}
@@ -303,12 +414,12 @@ export const AddCreatorModal: React.FC<AddCreatorModalProps> = ({
                   
                   <div className="grid grid-cols-3 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="status">Status</Label>
-                      <Select value={formData.status} onValueChange={(value) => handleInputChange('status', value as CreatorStatus)}>
-                        <SelectTrigger>
+                      <Label htmlFor="status">Status *</Label>
+                      <Select value={formData.status} onValueChange={(value) => handleInputChange('status', value as CreatorStatus)} required>
+                        <SelectTrigger className="rounded-none">
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="rounded-none">
                           {CREATOR_STATUSES.map((status) => (
                             <SelectItem key={status} value={status}>{status}</SelectItem>
                           ))}
@@ -316,12 +427,12 @@ export const AddCreatorModal: React.FC<AddCreatorModalProps> = ({
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="availability">Availability</Label>
-                      <Select value={formData.availability} onValueChange={(value) => handleInputChange('availability', value as CreatorAvailability)}>
-                        <SelectTrigger>
+                      <Label htmlFor="availability">Availability *</Label>
+                      <Select value={formData.availability} onValueChange={(value) => handleInputChange('availability', value as CreatorAvailability)} required>
+                        <SelectTrigger className="rounded-none">
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="rounded-none">
                           {CREATOR_AVAILABILITIES.map((availability) => (
                             <SelectItem key={availability} value={availability}>{availability}</SelectItem>
                           ))}
@@ -329,7 +440,7 @@ export const AddCreatorModal: React.FC<AddCreatorModalProps> = ({
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="rating">Initial Rating</Label>
+                      <Label htmlFor="rating">Initial Rating *</Label>
                       <Input
                         id="rating"
                         type="number"
@@ -339,59 +450,15 @@ export const AddCreatorModal: React.FC<AddCreatorModalProps> = ({
                         value={formData.rating}
                         onChange={(e) => handleInputChange('rating', parseFloat(e.target.value) || 0)}
                         placeholder="0.0"
-                      />
-                    </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="location">Location *</Label>
-                      <Input
-                        id="location"
-                        value={formData.location}
-                        onChange={(e) => handleInputChange('location', e.target.value)}
-                        placeholder="City, State/Country"
+                        className="rounded-none"
                         required
                       />
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="timezone">Timezone *</Label>
-                      <Input
-                        id="timezone"
-                        value={formData.timezone}
-                        onChange={(e) => handleInputChange('timezone', e.target.value)}
-                        placeholder="EST, PST, GMT, etc."
-                        required
-                      />
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="profilePicture">Profile Picture URL</Label>
-                    <Input
-                      id="profilePicture"
-                      value={formData.profilePicture}
-                      onChange={(e) => handleInputChange('profilePicture', e.target.value)}
-                      placeholder="https://..."
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="bio">Bio</Label>
-                    <Textarea
-                      id="bio"
-                      value={formData.bio}
-                      onChange={(e) => handleInputChange('bio', e.target.value)}
-                      placeholder="Brief description about the creator..."
-                      rows={3}
-                    />
                   </div>
                 </CardContent>
               </Card>
-            </TabsContent>
-            
-            <TabsContent value="contact" className="space-y-4">
-              <Card>
+
+              <Card className="rounded-none">
                 <CardHeader>
                   <CardTitle>Contact Information</CardTitle>
                 </CardHeader>
@@ -405,40 +472,46 @@ export const AddCreatorModal: React.FC<AddCreatorModalProps> = ({
                         value={formData.email}
                         onChange={(e) => handleInputChange('email', e.target.value)}
                         placeholder="email@example.com"
+                        className="rounded-none"
                         required
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="phone">Phone</Label>
+                      <Label htmlFor="phone">Phone *</Label>
                       <Input
                         id="phone"
                         value={formData.phone}
                         onChange={(e) => handleInputChange('phone', e.target.value)}
-                        placeholder="+1 (555) 123-4567"
+                        placeholder="+91 12345 67890"
+                        className="rounded-none"
+                        required
                       />
                     </div>
                   </div>
-                  
+
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="whatsapp">WhatsApp</Label>
+                      <Label htmlFor="whatsapp">WhatsApp *</Label>
                       <Input
                         id="whatsapp"
                         value={formData.whatsapp}
                         onChange={(e) => handleInputChange('whatsapp', e.target.value)}
-                        placeholder="+1 (555) 123-4567"
+                        placeholder="+91 12345 67890"
+                        className="rounded-none"
+                        required
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="preferredCommunication">Preferred Communication</Label>
-                      <Select 
-                        value={formData.preferredCommunication} 
+                      <Label htmlFor="preferredCommunication">Preferred Communication *</Label>
+                      <Select
+                        value={formData.preferredCommunication}
                         onValueChange={(value) => handleInputChange('preferredCommunication', value as CommunicationChannel)}
+                        required
                       >
-                        <SelectTrigger>
+                        <SelectTrigger className="rounded-none">
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="rounded-none">
                           {COMMUNICATION_CHANNELS.map((channel) => (
                             <SelectItem key={channel} value={channel}>{channel}</SelectItem>
                           ))}
@@ -450,8 +523,18 @@ export const AddCreatorModal: React.FC<AddCreatorModalProps> = ({
                   <Separator />
                   
                   <div className="space-y-4">
-                    <h4 className="text-sm font-medium">Social Media Links</h4>
-                    <div className="grid grid-cols-2 gap-4">
+                    <h4 className="text-sm font-medium">Social Media Links * (At least one required)</h4>
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="portfolio">Portfolio Website</Label>
+                        <Input
+                          id="portfolio"
+                          value={formData.socialLinks.portfolio}
+                          onChange={(e) => handleInputChange('socialLinks.portfolio', e.target.value)}
+                          placeholder="https://portfolio.com"
+                          className="rounded-none"
+                        />
+                      </div>
                       <div className="space-y-2">
                         <Label htmlFor="instagram">Instagram</Label>
                         <Input
@@ -459,6 +542,7 @@ export const AddCreatorModal: React.FC<AddCreatorModalProps> = ({
                           value={formData.socialLinks.instagram}
                           onChange={(e) => handleInputChange('socialLinks.instagram', e.target.value)}
                           placeholder="@username or full URL"
+                          className="rounded-none"
                         />
                       </div>
                       <div className="space-y-2">
@@ -468,33 +552,7 @@ export const AddCreatorModal: React.FC<AddCreatorModalProps> = ({
                           value={formData.socialLinks.youtube}
                           onChange={(e) => handleInputChange('socialLinks.youtube', e.target.value)}
                           placeholder="@channel or full URL"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="tiktok">TikTok</Label>
-                        <Input
-                          id="tiktok"
-                          value={formData.socialLinks.tiktok}
-                          onChange={(e) => handleInputChange('socialLinks.tiktok', e.target.value)}
-                          placeholder="@username or full URL"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="linkedin">LinkedIn</Label>
-                        <Input
-                          id="linkedin"
-                          value={formData.socialLinks.linkedin}
-                          onChange={(e) => handleInputChange('socialLinks.linkedin', e.target.value)}
-                          placeholder="profile name or full URL"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="portfolio">Portfolio Website</Label>
-                        <Input
-                          id="portfolio"
-                          value={formData.socialLinks.portfolio}
-                          onChange={(e) => handleInputChange('socialLinks.portfolio', e.target.value)}
-                          placeholder="https://portfolio.com"
+                          className="rounded-none"
                         />
                       </div>
                     </div>
@@ -506,17 +564,44 @@ export const AddCreatorModal: React.FC<AddCreatorModalProps> = ({
                     <h4 className="text-sm font-medium">Shipping Address</h4>
                     <div className="space-y-4">
                       <div>
-                        <Label htmlFor="fullAddress">Full Address *</Label>
+                        <Label htmlFor="fullAddress">Street Address *</Label>
                         <Textarea
                           id="fullAddress"
                           value={formData.shippingAddress.fullAddress}
                           onChange={(e) => handleInputChange('shippingAddress.fullAddress', e.target.value)}
-                          placeholder="Complete shipping address with street, area, city, state"
-                          rows={3}
+                          placeholder="House number, street name, area, locality"
+                          className="rounded-none"
+                          rows={2}
                         />
                       </div>
-                      
-                      <div className="grid grid-cols-2 gap-4">
+
+                      <div className="grid grid-cols-3 gap-4">
+                        <div>
+                          <Label htmlFor="city">City *</Label>
+                          <Input
+                            id="city"
+                            value={formData.shippingAddress.city}
+                            onChange={(e) => handleInputChange('shippingAddress.city', e.target.value)}
+                            placeholder="Mumbai"
+                            className="rounded-none"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="state">State *</Label>
+                          <Select
+                            value={formData.shippingAddress.state}
+                            onValueChange={(value) => handleInputChange('shippingAddress.state', value)}
+                          >
+                            <SelectTrigger className="rounded-none">
+                              <SelectValue placeholder="Select state" />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-none max-h-60">
+                              {INDIAN_STATES.map((state) => (
+                                <SelectItem key={state} value={state}>{state}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
                         <div>
                           <Label htmlFor="pincode">Pincode *</Label>
                           <Input
@@ -524,8 +609,12 @@ export const AddCreatorModal: React.FC<AddCreatorModalProps> = ({
                             value={formData.shippingAddress.pincode}
                             onChange={(e) => handleInputChange('shippingAddress.pincode', e.target.value)}
                             placeholder="123456"
+                            className="rounded-none"
                           />
                         </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
                         <div>
                           <Label htmlFor="shippingPhone">Phone for Delivery *</Label>
                           <Input
@@ -533,18 +622,19 @@ export const AddCreatorModal: React.FC<AddCreatorModalProps> = ({
                             value={formData.shippingAddress.phone}
                             onChange={(e) => handleInputChange('shippingAddress.phone', e.target.value)}
                             placeholder="+91 12345 67890"
+                            className="rounded-none"
                           />
                         </div>
-                      </div>
-                      
-                      <div>
-                        <Label htmlFor="alternatePhone">Alternate Phone (Optional)</Label>
-                        <Input
-                          id="alternatePhone"
-                          value={formData.shippingAddress.alternatePhone}
-                          onChange={(e) => handleInputChange('shippingAddress.alternatePhone', e.target.value)}
-                          placeholder="+91 12345 67890"
-                        />
+                        <div>
+                          <Label htmlFor="alternatePhone">Alternate Phone (Optional)</Label>
+                          <Input
+                            id="alternatePhone"
+                            value={formData.shippingAddress.alternatePhone}
+                            onChange={(e) => handleInputChange('shippingAddress.alternatePhone', e.target.value)}
+                            placeholder="+91 12345 67890"
+                            className="rounded-none"
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -553,14 +643,14 @@ export const AddCreatorModal: React.FC<AddCreatorModalProps> = ({
             </TabsContent>
             
             <TabsContent value="rates" className="space-y-4">
-              <Card>
+              <Card className="rounded-none">
                 <CardHeader>
                   <CardTitle>Rates & Payment</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="baseRate">Base Rate *</Label>
+                      <Label htmlFor="baseRate">Base Rate (₹) *</Label>
                       <Input
                         id="baseRate"
                         type="number"
@@ -569,25 +659,17 @@ export const AddCreatorModal: React.FC<AddCreatorModalProps> = ({
                         value={formData.baseRate}
                         onChange={(e) => handleInputChange('baseRate', e.target.value === '' ? '' : parseFloat(e.target.value) || 0)}
                         placeholder="Enter base rate"
+                        className="rounded-none"
                         required
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="currency">Currency</Label>
-                      <Input
-                        id="currency"
-                        value={formData.currency}
-                        onChange={(e) => handleInputChange('currency', e.target.value)}
-                        placeholder="USD"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="unit">Rate Unit</Label>
-                      <Select value={formData.unit} onValueChange={(value) => handleInputChange('unit', value)}>
-                        <SelectTrigger>
+                      <Label htmlFor="unit">Rate Unit *</Label>
+                      <Select value={formData.unit} onValueChange={(value) => handleInputChange('unit', value)} required>
+                        <SelectTrigger className="rounded-none">
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="rounded-none">
                           <SelectItem value="per hour">Per Hour</SelectItem>
                           <SelectItem value="per project">Per Project</SelectItem>
                           <SelectItem value="per deliverable">Per Deliverable</SelectItem>
@@ -599,12 +681,12 @@ export const AddCreatorModal: React.FC<AddCreatorModalProps> = ({
                   
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="paymentCycle">Payment Cycle</Label>
-                      <Select value={formData.paymentCycle} onValueChange={(value) => handleInputChange('paymentCycle', value as PaymentCycle)}>
-                        <SelectTrigger>
+                      <Label htmlFor="paymentCycle">Payment Cycle *</Label>
+                      <Select value={formData.paymentCycle} onValueChange={(value) => handleInputChange('paymentCycle', value as PaymentCycle)} required>
+                        <SelectTrigger className="rounded-none">
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="rounded-none">
                           {PAYMENT_CYCLES.map((cycle) => (
                             <SelectItem key={cycle} value={cycle}>{cycle}</SelectItem>
                           ))}
@@ -621,6 +703,7 @@ export const AddCreatorModal: React.FC<AddCreatorModalProps> = ({
                         value={formData.advancePercentage}
                         onChange={(e) => handleInputChange('advancePercentage', parseInt(e.target.value) || 0)}
                         placeholder="0"
+                        className="rounded-none"
                       />
                     </div>
                   </div>
@@ -635,64 +718,13 @@ export const AddCreatorModal: React.FC<AddCreatorModalProps> = ({
                       value={formData.initialPayment}
                       onChange={(e) => handleInputChange('initialPayment', parseFloat(e.target.value) || 0)}
                       placeholder="0.00"
+                      className="rounded-none"
                     />
                   </div>
                 </CardContent>
               </Card>
             </TabsContent>
             
-            <TabsContent value="notes" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Collaboration Notes</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="strengths">Strengths (comma-separated)</Label>
-                    <Textarea
-                      id="strengths"
-                      value={formData.strengths}
-                      onChange={(e) => handleInputChange('strengths', e.target.value)}
-                      placeholder="Creative storytelling, Quick turnaround, Professional equipment"
-                      rows={2}
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="weaknesses">Areas for Improvement (comma-separated)</Label>
-                    <Textarea
-                      id="weaknesses"
-                      value={formData.weaknesses}
-                      onChange={(e) => handleInputChange('weaknesses', e.target.value)}
-                      placeholder="Limited animation skills, Prefers outdoor shoots"
-                      rows={2}
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="specialRequirements">Special Requirements (comma-separated)</Label>
-                    <Textarea
-                      id="specialRequirements"
-                      value={formData.specialRequirements}
-                      onChange={(e) => handleInputChange('specialRequirements', e.target.value)}
-                      placeholder="Requires 48h notice for shoots, Not available Sundays"
-                      rows={2}
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="internalNotes">Internal Notes</Label>
-                    <Textarea
-                      id="internalNotes"
-                      value={formData.internalNotes}
-                      onChange={(e) => handleInputChange('internalNotes', e.target.value)}
-                      placeholder="Any additional notes about working with this creator..."
-                      rows={3}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
           </Tabs>
           
           <div className="flex justify-between pt-4 border-t">
@@ -703,6 +735,7 @@ export const AddCreatorModal: React.FC<AddCreatorModalProps> = ({
                   variant="outline"
                   onClick={() => setActiveTab(tabs[currentTabIndex - 1])}
                   disabled={isSubmitting}
+                  className="rounded-none"
                 >
                   Previous
                 </Button>
@@ -714,6 +747,7 @@ export const AddCreatorModal: React.FC<AddCreatorModalProps> = ({
                 variant="outline"
                 onClick={() => onOpenChange(false)}
                 disabled={isSubmitting}
+                className="rounded-none"
               >
                 Cancel
               </Button>
@@ -722,11 +756,12 @@ export const AddCreatorModal: React.FC<AddCreatorModalProps> = ({
                   type="button"
                   onClick={() => setActiveTab(tabs[currentTabIndex + 1])}
                   disabled={isSubmitting}
+                  className="rounded-none"
                 >
                   Next
                 </Button>
               ) : (
-                <Button type="submit" disabled={isSubmitting}>
+                <Button type="submit" disabled={isSubmitting} className="rounded-none">
                   {isSubmitting ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />

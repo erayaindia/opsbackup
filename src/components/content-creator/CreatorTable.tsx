@@ -28,13 +28,14 @@ import {
   useTableState,
   type ExportColumn
 } from '@/components/shared/tables';
-import { Search, Star, Filter, Plus, Users, Zap, DollarSign } from 'lucide-react';
+import { Search, Star, Filter, Plus, Users, Zap, DollarSign, Edit, MoreHorizontal, ExternalLink } from 'lucide-react';
 import { ContentCreator, CreatorFilters, CreatorView, CreatorRole, CreatorStatus, CreatorAvailability } from '@/types/contentCreator';
 
 interface CreatorTableProps {
   creators: ContentCreator[];
   onCreatorSelect: (creator: ContentCreator) => void;
   onAddCreator: () => void;
+  onEditCreator: (creator: ContentCreator) => void;
 }
 
 const CREATOR_VIEWS: { value: CreatorView; label: string; icon: any; description: string }[] = [
@@ -46,7 +47,7 @@ const CREATOR_VIEWS: { value: CreatorView; label: string; icon: any; description
 ];
 
 const CREATOR_ROLES: CreatorRole[] = [
-  'Videographer', 'Editor', 'Influencer', 'Agency', 'Model', 
+  'Videographer', 'Editor', 'UGC Creator', 'Influencer', 'Agency', 'Model',
   'Designer', 'Photographer', 'Copywriter', 'Voice Actor', 'Animator'
 ];
 
@@ -55,7 +56,7 @@ const getStatusColor = (status: CreatorStatus) => {
     case 'Active': return 'bg-green-100 text-green-800';
     case 'Onboarding': return 'bg-blue-100 text-blue-800';
     case 'Paused': return 'bg-yellow-100 text-yellow-800';
-    case 'Archived': return 'bg-gray-100 text-gray-800';
+    case 'Rejected': return 'bg-red-100 text-red-800';
     default: return 'bg-gray-100 text-gray-800';
   }
 };
@@ -73,6 +74,7 @@ export const CreatorTable: React.FC<CreatorTableProps> = ({
   creators,
   onCreatorSelect,
   onAddCreator,
+  onEditCreator,
 }) => {
   const [filters, setFilters] = useState<CreatorFilters>({
     role: 'All',
@@ -89,11 +91,12 @@ export const CreatorTable: React.FC<CreatorTableProps> = ({
     // Search query filter
     if (filters.searchQuery) {
       const searchTerm = filters.searchQuery.toLowerCase();
-      const matchesSearch = 
+      const matchesSearch =
         creator.name.toLowerCase().includes(searchTerm) ||
         creator.role.toLowerCase().includes(searchTerm) ||
         creator.email.toLowerCase().includes(searchTerm) ||
-        creator.location.toLowerCase().includes(searchTerm);
+        creator.location.toLowerCase().includes(searchTerm) ||
+        (creator.shippingAddress?.state && creator.shippingAddress.state.toLowerCase().includes(searchTerm));
       if (!matchesSearch) return false;
     }
 
@@ -144,7 +147,11 @@ export const CreatorTable: React.FC<CreatorTableProps> = ({
     { key: 'status', header: 'Status' },
     { key: 'availability', header: 'Availability' },
     { key: 'rating', header: 'Rating' },
-    { key: 'location', header: 'Location' },
+    {
+      key: 'location',
+      header: 'State',
+      transform: (creator) => creator.shippingAddress?.state || creator.location
+    },
     {
       key: 'rateCard',
       header: 'Base Rate',
@@ -157,7 +164,7 @@ export const CreatorTable: React.FC<CreatorTableProps> = ({
     data: sortedCreators,
     defaultSortField: 'name',
     defaultSortDirection: 'asc',
-    searchFields: ['name', 'email', 'role', 'location'],
+    searchFields: ['name', 'email', 'role', 'location', 'state'],
     filterConfig: {}
   });
 
@@ -191,28 +198,28 @@ export const CreatorTable: React.FC<CreatorTableProps> = ({
             Manage your content creator network and assignments
           </p>
         </div>
-        <Button onClick={onAddCreator} className="flex items-center gap-2 rounded-none">
-          <Plus className="h-4 w-4" />
-          Add Creator
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            onClick={() => window.open('/creator-onboard', '_blank')}
+            variant="outline"
+            className="flex items-center gap-2 rounded-none"
+          >
+            <ExternalLink className="h-4 w-4" />
+            Creator Onboard
+          </Button>
+          <Button onClick={onAddCreator} className="flex items-center gap-2 rounded-none">
+            <Plus className="h-4 w-4" />
+            Add Creator
+          </Button>
+          <TableExport
+            data={sortedCreators}
+            columns={exportColumns}
+            filename={`creators_export_${new Date().toISOString().split('T')[0]}.csv`}
+            className="rounded-none"
+          />
+        </div>
       </div>
 
-      {/* Views Tabs */}
-      <Tabs value={currentView} onValueChange={(value) => setCurrentView(value as CreatorView)}>
-        <TabsList className="grid w-full grid-cols-5 rounded-none">
-          {CREATOR_VIEWS.map((view) => (
-            <TabsTrigger
-              key={view.value}
-              value={view.value}
-              className="text-xs sm:text-sm rounded-none"
-              title={view.description}
-            >
-              <view.icon className="h-4 w-4 mr-1 sm:mr-2" />
-              <span className="hidden sm:inline">{view.label}</span>
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
 
       {/* Filters */}
       <Card className="rounded-none">
@@ -224,31 +231,23 @@ export const CreatorTable: React.FC<CreatorTableProps> = ({
                 Clear All ({activeFiltersCount})
               </Button>
             )}
-            <TableExport
-              data={sortedCreators}
-              columns={exportColumns}
-              filename={`creators_export_${new Date().toISOString().split('T')[0]}.csv`}
-              className="rounded-none"
-            />
           </div>
         </CardHeader>
         <CardContent>
-          {/* Search Bar */}
-          <div className="mb-4">
-            <div className="relative max-w-md">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          {/* Search Bar and Filter Dropdowns in one row */}
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            {/* Search Bar */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Search</label>
               <Input
                 type="search"
-                placeholder="Search by name, role, email..."
+                placeholder="Search by name, role, email, state..."
                 value={filters.searchQuery}
                 onChange={(e) => handleFilterChange('searchQuery', e.target.value)}
-                className="pl-10 rounded-none"
+                className="rounded-none"
               />
             </div>
-          </div>
 
-          {/* Filter Dropdowns */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {/* Role Filter */}
             <div className="space-y-2">
               <label className="text-sm font-medium">Role</label>
@@ -283,7 +282,7 @@ export const CreatorTable: React.FC<CreatorTableProps> = ({
                   <SelectItem value="Active">Active</SelectItem>
                   <SelectItem value="Onboarding">Onboarding</SelectItem>
                   <SelectItem value="Paused">Paused</SelectItem>
-                  <SelectItem value="Archived">Archived</SelectItem>
+                  <SelectItem value="Rejected">Rejected</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -351,13 +350,14 @@ export const CreatorTable: React.FC<CreatorTableProps> = ({
               <TableHead>Charge</TableHead>
               <TableHead>Availability</TableHead>
               <TableHead>Rating</TableHead>
-              <TableHead className="hidden md:table-cell">Location</TableHead>
+              <TableHead className="hidden md:table-cell">State</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {tableState.paginatedData.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8">
+                <TableCell colSpan={8} className="text-center py-8">
                   <div className="flex flex-col items-center gap-3">
                     <Users className="h-8 w-8 text-muted-foreground" />
                     <div>
@@ -427,7 +427,20 @@ export const CreatorTable: React.FC<CreatorTableProps> = ({
                     </div>
                   </TableCell>
                   <TableCell className="hidden md:table-cell">
-                    {creator.location}
+                    {creator.shippingAddress?.state || creator.location}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="rounded-none h-8 w-8 p-0"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onEditCreator(creator);
+                      }}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))
