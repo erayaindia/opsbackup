@@ -701,9 +701,9 @@ export function AppSidebar() {
               ]
             )}
             
-            {/* 3. Customer Support - Collapsible */}
+            {/* 3. Support - Collapsible */}
             {renderCollapsibleSection(
-              "Customer Support",
+              "Support",
               customerSupportOpen,
               setCustomerSupportOpen,
               isCustomerSupportActive,
@@ -794,8 +794,51 @@ export function AppSidebar() {
                 </SidebarGroupContent>
               </SidebarGroup>
             )}
-            
-            {/* 5. Content - Collapsible */}
+
+            {/* 5. Products - Collapsible */}
+            {renderCollapsibleSection(
+              "Products",
+              productManagementOpen,
+              setProductManagementOpen,
+              isProductManagementActive,
+              Box,
+              "products"
+            )}
+            {shouldShowLabels && productManagementOpen && (
+              <SidebarGroup className="px-3 py-0 -mt-1">
+                <SidebarGroupContent>
+                  <SidebarMenu className="space-y-0.5 animate-fade-in">
+                    {productManagementItems.map((item, index) => {
+                      const active = isActive(item.url);
+                      return (
+                        <SidebarMenuItem key={item.title} className="animate-stagger-in" style={{ animationDelay: `${index * 50}ms` }}>
+                          <RippleEffect className="rounded-none">
+                            <SidebarMenuButton
+                              asChild
+                              className={`
+                                h-8 rounded-none transition-all duration-400 ease-in-out ml-6 group
+                                hover:scale-105 active:scale-95
+                                ${active
+                                  ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium shadow-sm'
+                                  : 'hover:bg-sidebar-accent/50 text-sidebar-foreground/70 hover:text-sidebar-foreground hover:shadow-sm'
+                                }
+                              `}
+                            >
+                              <NavLink to={item.url} className="flex items-center">
+                                <item.icon className="h-4 w-4 mr-2 transition-transform duration-300 ease-in-out group-hover:scale-110 flex-shrink-0" />
+                                <span className="whitespace-nowrap text-sm">{item.title}</span>
+                              </NavLink>
+                            </SidebarMenuButton>
+                          </RippleEffect>
+                        </SidebarMenuItem>
+                      );
+                    })}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </SidebarGroup>
+            )}
+
+            {/* 6. Content - Collapsible */}
             {renderCollapsibleSection(
               "Content",
               contentOpen,
@@ -838,9 +881,9 @@ export function AppSidebar() {
               </SidebarGroup>
             )}
             
-            {/* 7. Marketing & Growth - Collapsible */}
+            {/* 7. Marketing - Collapsible */}
             {renderCollapsibleSection(
-              "Marketing & Growth",
+              "Marketing",
               marketingGrowthOpen,
               setMarketingGrowthOpen,
               isMarketingGrowthActive,
@@ -880,51 +923,8 @@ export function AppSidebar() {
                 </SidebarGroupContent>
               </SidebarGroup>
             )}
-            
-            {/* 8. Product Management - Collapsible */}
-            {renderCollapsibleSection(
-              "Product Management",
-              productManagementOpen,
-              setProductManagementOpen,
-              isProductManagementActive,
-              Box,
-              "products"
-            )}
-            {shouldShowLabels && productManagementOpen && (
-              <SidebarGroup className="px-3 py-0 -mt-1">
-                <SidebarGroupContent>
-                  <SidebarMenu className="space-y-0.5 animate-fade-in">
-                    {productManagementItems.map((item, index) => {
-                      const active = isActive(item.url);
-                      return (
-                        <SidebarMenuItem key={item.title} className="animate-stagger-in" style={{ animationDelay: `${index * 50}ms` }}>
-                          <RippleEffect className="rounded-none">
-                            <SidebarMenuButton 
-                              asChild 
-                              className={`
-                                h-8 rounded-none transition-all duration-400 ease-in-out ml-6 group
-                                hover:scale-105 active:scale-95
-                                ${active 
-                                  ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium shadow-sm' 
-                                  : 'hover:bg-sidebar-accent/50 text-sidebar-foreground/70 hover:text-sidebar-foreground hover:shadow-sm'
-                                }
-                              `}
-                            >
-                              <NavLink to={item.url} className="flex items-center">
-                                <item.icon className="h-4 w-4 mr-2 transition-transform duration-300 ease-in-out group-hover:scale-110 flex-shrink-0" />
-                                <span className="whitespace-nowrap text-sm">{item.title}</span>
-                              </NavLink>
-                            </SidebarMenuButton>
-                          </RippleEffect>
-                        </SidebarMenuItem>
-                      );
-                    })}
-                  </SidebarMenu>
-                </SidebarGroupContent>
-              </SidebarGroup>
-            )}
-            
-            {/* 9. Accounts - Collapsible */}
+
+            {/* 8. Accounts - Collapsible */}
             {renderCollapsibleSection(
               "Accounts",
               accountsOpen,
@@ -967,7 +967,7 @@ export function AppSidebar() {
               </SidebarGroup>
             )}
             
-            {/* 10. Training - Collapsible */}
+            {/* 9. Training - Collapsible */}
             {renderCollapsibleSection(
               "Training",
               trainingOpen,
@@ -1010,7 +1010,7 @@ export function AppSidebar() {
               </SidebarGroup>
             )}
             
-            {/* 11. Analytics - Collapsible */}
+            {/* 10. Analytics - Collapsible */}
             {renderCollapsibleSection(
               "Analytics",
               analyticsOpen,
@@ -1053,7 +1053,7 @@ export function AppSidebar() {
               </SidebarGroup>
             )}
             
-            {/* 12. Admin - Collapsible */}
+            {/* 11. Admin - Collapsible */}
             {renderCollapsibleSection(
               "Admin",
               managementAdminOpen,
@@ -1096,7 +1096,7 @@ export function AppSidebar() {
               </SidebarGroup>
             )}
             
-            {/* 13. Alerts - Collapsible */}
+            {/* 12. Alerts - Collapsible */}
             {renderCollapsibleSection(
               "Alerts",
               alertsOpen,
@@ -1146,10 +1146,10 @@ export function AppSidebar() {
               </div>
             )}
             
-            {/* 14. Logs - Standalone */}
+            {/* 13. Logs - Standalone */}
             {renderMenuSection([{ title: "Logs", url: "/logs", icon: ScrollText }], "", "management")}
 
-            {/* 15. Notion - Standalone */}
+            {/* 14. Notion - Standalone */}
             {renderMenuSection([{ title: "Notion", url: "/notion", icon: BookText }], "", "management")}
               </>
             )}
