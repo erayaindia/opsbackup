@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { X, ImagePlus, VideoIcon, Eye } from 'lucide-react'
 import { ImagePreviewModal } from '@/components/fulfillment/packing/ImagePreviewModal'
 import ProductImageCarousel from './ProductImageCarousel'
+import RichEditor from '@/components/RichEditor'
 import type { ProductImage } from '@/services/productImagesService'
 
 interface FormContentProps {
@@ -330,43 +331,40 @@ export const FormContent: React.FC<FormContentProps> = ({
               {/* Problem Statement */}
               <div>
                 <Label className="text-sm font-medium text-foreground">Problem Statement</Label>
-                <Textarea
-                  value={newIdeaForm.problemStatement}
-                  onChange={(e) => {
-                    setNewIdeaForm(prev => ({ ...prev, problemStatement: e.target.value }))
-                    autoResizeTextarea(e)
-                  }}
-                  placeholder="What customer problem does this product solve?"
-                  className="mt-2 min-h-[72px] resize-none rounded-none"
-                />
+                <div className="mt-2">
+                  <RichEditor
+                    value={newIdeaForm.problemStatement}
+                    onChange={(content) => setNewIdeaForm(prev => ({ ...prev, problemStatement: content }))}
+                    placeholder="What customer problem does this product solve? "
+                    className="min-h-[100px]"
+                  />
+                </div>
               </div>
 
-              {/* Opportunity Statement */}
+              {/* Market Opportunity */}
               <div>
                 <Label className="text-sm font-medium text-foreground">Market Opportunity</Label>
-                <Textarea
-                  value={newIdeaForm.opportunityStatement}
-                  onChange={(e) => {
-                    setNewIdeaForm(prev => ({ ...prev, opportunityStatement: e.target.value }))
-                    autoResizeTextarea(e)
-                  }}
-                  placeholder="Describe the market opportunity and potential..."
-                  className="mt-2 min-h-[72px] resize-none rounded-none"
-                />
+                <div className="mt-2">
+                  <RichEditor
+                    value={newIdeaForm.opportunityStatement}
+                    onChange={(content) => setNewIdeaForm(prev => ({ ...prev, opportunityStatement: content }))}
+                    placeholder="Describe the market opportunity and potential. "
+                    className="min-h-[100px]"
+                  />
+                </div>
               </div>
 
               {/* Additional Notes */}
               <div>
                 <Label className="text-sm font-medium text-foreground">Additional Notes</Label>
-                <Textarea
-                  value={newIdeaForm.notes}
-                  onChange={(e) => {
-                    setNewIdeaForm(prev => ({ ...prev, notes: e.target.value }))
-                    autoResizeTextarea(e)
-                  }}
-                  placeholder="Key features, target audience, concept notes..."
-                  className="mt-2 min-h-[100px] resize-none rounded-none"
-                />
+                <div className="mt-2">
+                  <RichEditor
+                    value={newIdeaForm.notes}
+                    onChange={(content) => setNewIdeaForm(prev => ({ ...prev, notes: content }))}
+                    placeholder="Key features, target audience, concept notes... "
+                    className="min-h-[120px]"
+                  />
+                </div>
               </div>
             </div>
           </div>

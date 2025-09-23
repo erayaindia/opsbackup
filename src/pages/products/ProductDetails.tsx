@@ -43,7 +43,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Separator } from '@/components/ui/separator'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
-import { RichTextEditor } from '@/components/ui/rich-text-editor'
+import RichEditor from '@/components/RichEditor'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 
 import {
@@ -290,6 +290,13 @@ export default function ProductDetails() {
   const [scalingStage, setScalingStage] = useState('')
   const [nextScalingAction, setNextScalingAction] = useState('')
   const [scalingConstraints, setScalingConstraints] = useState('')
+
+  // Video Scripts state
+  const [heroVideoScript, setHeroVideoScript] = useState('')
+  const [lifestyleScript, setLifestyleScript] = useState('')
+  const [unboxingScript, setUnboxingScript] = useState('')
+  const [script15s, setScript15s] = useState('')
+  const [script30s, setScript30s] = useState('')
 
   // Market Analysis state
   const [marketSizeEstimate, setMarketSizeEstimate] = useState('')
@@ -1088,6 +1095,18 @@ export default function ProductDetails() {
   const stageConfig = STAGE_CONFIG[product.stage]
   const StageIcon = stageConfig?.icon || Package
 
+  // Helper function to extract text from RichEditor HTML content
+  const getTextFromHTML = (htmlContent: any) => {
+    if (typeof htmlContent === 'string') return htmlContent.trim();
+    if (typeof htmlContent === 'object' && htmlContent) {
+      // For HTML content object, extract text content
+      const div = document.createElement('div');
+      div.innerHTML = typeof htmlContent === 'string' ? htmlContent : JSON.stringify(htmlContent);
+      return div.textContent || div.innerText || '';
+    }
+    return '';
+  };
+
   const handleUpdateProduct = async () => {
     try {
       setIsUpdating(true)
@@ -1118,9 +1137,9 @@ export default function ProductDetails() {
         category: selectedCategories.length > 0 ? selectedCategories : [],
         competitorLinks: referenceLinks.filter(link => link.type === 'competitor').map(link => link.url),
         adLinks: referenceLinks.filter(link => link.type === 'ad').map(link => link.url),
-        notes: editForm.notes.trim() || undefined,
-        problemStatement: editForm.problemStatement.trim() || undefined,
-        opportunityStatement: editForm.opportunityStatement.trim() || undefined,
+        notes: editForm.notes || undefined,
+        problemStatement: editForm.problemStatement || undefined,
+        opportunityStatement: editForm.opportunityStatement || undefined,
         estimatedSourcePriceMin: editForm.estimatedSourcePriceMin.trim() || undefined,
         estimatedSourcePriceMax: editForm.estimatedSourcePriceMax.trim() || undefined,
         estimatedSellingPrice: editForm.estimatedSellingPrice.trim() || undefined,
@@ -1810,11 +1829,12 @@ export default function ProductDetails() {
                       <div className="space-y-4 p-4 bg-muted/5">
                         <div>
                           <Label className="text-xs font-medium text-muted-foreground mb-2 block">Product Vision</Label>
-                          <RichTextEditor
-                            content={productVision}
+                          <RichEditor
+                            value={productVision}
                             onChange={setProductVision}
                             placeholder="Describe the overall design vision and aesthetic goals..."
                             className="min-h-[100px]"
+                            hideToolbar={true}
                           />
                         </div>
                         <div className="grid grid-cols-2 gap-4">
@@ -1896,12 +1916,12 @@ export default function ProductDetails() {
                         </div>
                         <div>
                           <Label className="text-xs font-medium text-muted-foreground mb-2 block">Material Preferences</Label>
-                          <RichTextEditor
-                            content={materialPreferences}
+                          <RichEditor
+                            value={materialPreferences}
                             onChange={setMaterialPreferences}
                             placeholder="Describe preferred materials, textures, and finishes..."
-                            className="rounded-none"
-                            minHeight="80px"
+                            className="min-h-[80px]"
+                            hideToolbar={true}
                           />
                         </div>
                       </div>
@@ -2085,12 +2105,12 @@ export default function ProductDetails() {
                       <div className="space-y-4 p-4 bg-muted/5">
                         <div>
                           <Label className="text-xs font-medium text-muted-foreground mb-2 block">Feedback & Revisions</Label>
-                          <RichTextEditor
-                            content={designFeedback}
+                          <RichEditor
+                            value={designFeedback}
                             onChange={setDesignFeedback}
                             placeholder="Design feedback, revision requests, approval notes..."
-                            className="rounded-none"
-                            minHeight="120px"
+                            className="min-h-[120px]"
+                            hideToolbar={true}
                           />
                         </div>
                       </div>
@@ -2127,12 +2147,12 @@ export default function ProductDetails() {
                     {/* Packaging Concept Notes */}
                     <div>
                       <Label className="text-xs font-medium text-muted-foreground mb-2 block">Packaging Concept Notes</Label>
-                      <RichTextEditor
-                        content={packagingConcept}
+                      <RichEditor
+                        value={packagingConcept}
                         onChange={setPackagingConcept}
                         placeholder="Describe dieline ideas, ribbon choices, insert concepts, seasonal editions..."
-                        className="rounded-none"
-                        minHeight="120px"
+                        className="min-h-[120px]"
+                        hideToolbar={true}
                       />
                     </div>
 
@@ -3006,11 +3026,12 @@ export default function ProductDetails() {
                       </div>
                       <div>
                         <Label className="text-xs font-medium text-muted-foreground mb-2 block">Sample Notes</Label>
-                        <Textarea
+                        <RichEditor
                           value={sampleNotes}
-                          onChange={(e) => setSampleNotes(e.target.value)}
+                          onChange={setSampleNotes}
                           placeholder="Notes about sample quality, feedback..."
-                          className="rounded-none min-h-[80px]"
+                          className="min-h-[80px]"
+                          hideToolbar={true}
                         />
                       </div>
                         </div>
@@ -3063,11 +3084,12 @@ export default function ProductDetails() {
                       </div>
                       <div>
                         <Label className="text-xs font-medium text-muted-foreground mb-2 block">Production Milestones</Label>
-                        <Textarea
+                        <RichEditor
                           value={productionMilestones}
-                          onChange={(e) => setProductionMilestones(e.target.value)}
+                          onChange={setProductionMilestones}
                           placeholder="Key milestones and deadlines..."
-                          className="rounded-none min-h-[100px]"
+                          className="min-h-[100px]"
+                          hideToolbar={true}
                         />
                       </div>
                         </div>
@@ -3123,12 +3145,12 @@ export default function ProductDetails() {
                     </div>
                     <div>
                       <Label className="text-xs font-medium text-muted-foreground mb-2 block">Materials</Label>
-                      <RichTextEditor
-                        content={materialsSpecification}
+                      <RichEditor
+                        value={materialsSpecification}
                         onChange={setMaterialsSpecification}
                         placeholder="Describe materials used..."
-                        className="rounded-none"
-                        minHeight="80px"
+                        className="min-h-[80px]"
+                        hideToolbar={true}
                       />
                     </div>
                       </div>
@@ -3172,22 +3194,22 @@ export default function ProductDetails() {
                         </div>
                         <div>
                           <Label className="text-xs font-medium text-muted-foreground mb-2 block">Quality Standards</Label>
-                          <RichTextEditor
-                            content={qualityStandards}
+                          <RichEditor
+                            value={qualityStandards}
                             onChange={setQualityStandards}
                             placeholder="ISO standards, quality requirements..."
-                            className="rounded-none"
-                            minHeight="80px"
+                            className="min-h-[80px]"
+                            hideToolbar={true}
                           />
                         </div>
                         <div>
                           <Label className="text-xs font-medium text-muted-foreground mb-2 block">Compliance Requirements</Label>
-                          <RichTextEditor
-                            content={complianceRequirements}
+                          <RichEditor
+                            value={complianceRequirements}
                             onChange={setComplianceRequirements}
                             placeholder="Safety standards, regulatory compliance..."
-                            className="rounded-none"
-                            minHeight="80px"
+                            className="min-h-[80px]"
+                            hideToolbar={true}
                           />
                         </div>
                       </div>
@@ -3294,12 +3316,12 @@ export default function ProductDetails() {
                         <div className="space-y-4 p-4 bg-muted/5">
                           <div>
                             <Label className="text-xs font-medium text-muted-foreground mb-2 block">QC Requirements</Label>
-                            <RichTextEditor
-                              content={qcRequirements}
+                            <RichEditor
+                              value={qcRequirements}
                               onChange={setQcRequirements}
                               placeholder="Quality control procedures and requirements..."
-                              className="rounded-none"
-                              minHeight="80px"
+                              className="min-h-[80px]"
+                              hideToolbar={true}
                             />
                           </div>
                           <div>
@@ -3319,11 +3341,12 @@ export default function ProductDetails() {
                           </div>
                           <div>
                             <Label className="text-xs font-medium text-muted-foreground mb-2 block">QC Notes</Label>
-                            <Textarea
+                            <RichEditor
                               value={qcNotes}
-                              onChange={(e) => setQcNotes(e.target.value)}
+                              onChange={setQcNotes}
                               placeholder="Quality control notes and observations..."
-                              className="rounded-none min-h-[80px]"
+                              className="min-h-[80px]"
+                              hideToolbar={true}
                             />
                           </div>
                         </div>
@@ -3428,38 +3451,53 @@ export default function ProductDetails() {
                     <Label className="text-sm font-medium text-foreground">Video Scripts</Label>
                     <div>
                       <Label className="text-xs font-medium text-muted-foreground mb-2 block">Hero Video Script</Label>
-                      <Textarea
+                      <RichEditor
+                        value={heroVideoScript}
+                        onChange={setHeroVideoScript}
                         placeholder="Main hero video script..."
-                        className="rounded-none min-h-[100px]"
+                        className="min-h-[100px]"
+                        hideToolbar={true}
                       />
                     </div>
                     <div>
                       <Label className="text-xs font-medium text-muted-foreground mb-2 block">Lifestyle Script</Label>
-                      <Textarea
+                      <RichEditor
+                        value={lifestyleScript}
+                        onChange={setLifestyleScript}
                         placeholder="Lifestyle video script..."
-                        className="rounded-none min-h-[100px]"
+                        className="min-h-[100px]"
+                        hideToolbar={true}
                       />
                     </div>
                     <div>
                       <Label className="text-xs font-medium text-muted-foreground mb-2 block">Unboxing Script</Label>
-                      <Textarea
+                      <RichEditor
+                        value={unboxingScript}
+                        onChange={setUnboxingScript}
                         placeholder="Unboxing video script..."
-                        className="rounded-none min-h-[100px]"
+                        className="min-h-[100px]"
+                        hideToolbar={true}
                       />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <Label className="text-xs font-medium text-muted-foreground mb-2 block">15s Script</Label>
-                        <Textarea
+                        <RichEditor
+                          value={script15s}
+                          onChange={setScript15s}
                           placeholder="Short 15 second script..."
-                          className="rounded-none min-h-[80px]"
+                          className="min-h-[80px]"
+                          hideToolbar={true}
                         />
                       </div>
                       <div>
                         <Label className="text-xs font-medium text-muted-foreground mb-2 block">30s Script</Label>
-                        <Textarea
+                        <RichEditor
+                          value={script30s}
+                          onChange={setScript30s}
                           placeholder="30 second script..."
-                          className="rounded-none min-h-[80px]"
+                          className="min-h-[80px]"
+                          hideToolbar={true}
                         />
                       </div>
                     </div>
@@ -3817,12 +3855,12 @@ export default function ProductDetails() {
                     {showLearningsInsights && (
                       <div className="space-y-4 p-4 bg-muted/5">
                     <div>
-                      <RichTextEditor
-                        content={learningsInsights}
+                      <RichEditor
+                        value={learningsInsights}
                         onChange={setLearningsInsights}
                         placeholder="Key learnings, insights, and notes from this campaign..."
-                        className="rounded-none"
-                        minHeight="120px"
+                        className="min-h-[120px]"
+                        hideToolbar={true}
                       />
                     </div>
                       </div>

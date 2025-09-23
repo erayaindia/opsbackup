@@ -141,7 +141,7 @@ export const SlashCommandMenu = forwardRef<SlashCommandMenuRef, SlashCommandMenu
     };
 
     return (
-      <div className="bg-[#2f2f2f] border border-[#3f3f3f] rounded-lg shadow-2xl w-[460px] backdrop-blur-md max-h-[500px] overflow-y-auto">
+      <div className="bg-[#2f2f2f] border border-[#3f3f3f] rounded-lg shadow-2xl w-[460px] backdrop-blur-md max-h-[400px] overflow-y-auto z-[9999]">
         {/* Filter Input */}
         <div className="p-3 border-b border-[#3f3f3f] sticky top-0 bg-[#2f2f2f]">
           <div className="relative">
