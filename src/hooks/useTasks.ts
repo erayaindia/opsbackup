@@ -41,7 +41,7 @@ export function useTasks(initialFilters: TaskFilters = {}): UseTasksReturn {
       .select(`
         *,
         template:task_templates(*),
-        assigned_user:app_users!tasks_assigned_to_fkey(id, full_name, role, department),
+        assigned_user:app_users!tasks_assigned_to_fkey(id, full_name, role, department, employee_id),
         assigned_by_user:app_users!tasks_assigned_by_fkey(id, full_name),
         reviewer:app_users!tasks_reviewer_id_fkey(id, full_name, role),
         submissions:task_submissions(*),

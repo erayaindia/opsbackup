@@ -160,7 +160,7 @@ export function TaskCard({
             type="checkbox"
             checked={selected}
             onChange={(e) => onSelect?.(task, e.target.checked)}
-            className="rounded"
+            className=""
           />
         </div>
       )}

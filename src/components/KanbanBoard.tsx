@@ -130,7 +130,7 @@ export function KanbanBoard() {
             onDragOver={handleDragOver}
             onDrop={(e) => handleDrop(e, column.id)}
           >
-            <div className={`flex items-center justify-between p-4 border-l-4 ${column.color} bg-muted/30 rounded-t-lg`}>
+            <div className={`flex items-center justify-between p-4 border-l-4 ${column.color} bg-muted/30`}>
               <div className="flex items-center gap-2">
                 <h3 className="font-semibold text-sm">{column.title}</h3>
                 <Badge variant="secondary" className="text-xs">
@@ -142,7 +142,7 @@ export function KanbanBoard() {
               </Button>
             </div>
             
-            <div className="flex-1 p-2 bg-muted/10 rounded-b-lg space-y-3 overflow-y-auto">
+            <div className="flex-1 p-2 bg-muted/10 space-y-3 overflow-y-auto">
               {getTasksForColumn(column.id).map((task) => (
                 <Card
                   key={task.id}

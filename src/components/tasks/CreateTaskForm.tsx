@@ -49,7 +49,7 @@ import {
   CheckIcon,
 } from 'lucide-react';
 import { useTaskCreation } from '@/hooks/useTaskCreation';
-import { useTaskTemplates } from '@/hooks/useTasks';
+import { useTaskTemplates, useTasks } from '@/hooks/useTasks';
 import { useUsers } from '@/hooks/useUsers';
 import { useToast } from '@/components/ui/use-toast';
 import {
@@ -58,15 +58,18 @@ import {
   TaskPriorityValue,
   EvidenceTypeValue,
   ChecklistItem,
+  TaskWithDetails,
 } from '@/types/tasks';
 
 interface CreateTaskFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onTaskCreated?: () => void;
+  task?: TaskWithDetails | null;
+  mode?: 'create' | 'edit';
 }
 
-export function CreateTaskForm({ open, onOpenChange, onTaskCreated }: CreateTaskFormProps) {
+export function CreateTaskForm({ open, onOpenChange, onTaskCreated, task, mode = 'create' }: CreateTaskFormProps) {
   const [activeTab, setActiveTab] = useState('manual');
   const [formData, setFormData] = useState<CreateTaskData>({
     title: '',
@@ -100,6 +103,32 @@ export function CreateTaskForm({ open, onOpenChange, onTaskCreated }: CreateTask
   const { createTask, createTaskFromTemplate, loading: creationLoading } = useTaskCreation();
   const { templates, loading: templatesLoading } = useTaskTemplates();
   const { users, loading: usersLoading } = useUsers();
+  const { updateTask } = useTasks();
+
+  // Populate form data when editing a task
+  useEffect(() => {
+    if (task && mode === 'edit' && open) {
+      setFormData({
+        title: task.title || '',
+        description: task.description || {
+          type: 'doc',
+          content: [{ type: 'paragraph', content: [] }]
+        },
+        taskType: (task.task_type as TaskTypeValue) || 'one-off',
+        priority: (task.priority as TaskPriorityValue) || 'medium',
+        evidenceRequired: (task.evidence_required as EvidenceTypeValue) || 'none',
+        dueDate: task.due_date || '',
+        dueTime: task.due_time || '',
+        assignedTo: task.assigned_to ? [task.assigned_to] : [],
+        tags: task.tags || [],
+        checklistItems: task.checklist_items || [],
+      });
+
+      if (task.assigned_to) {
+        setSelectedUsers(new Set([task.assigned_to]));
+      }
+    }
+  }, [task, mode, open]);
 
   // Reset form when dialog opens/closes
   useEffect(() => {
@@ -203,7 +232,28 @@ export function CreateTaskForm({ open, onOpenChange, onTaskCreated }: CreateTask
     }
 
     try {
-      if (activeTab === 'template' && selectedTemplate) {
+      if (mode === 'edit' && task) {
+        // Update existing task
+        const updateData = {
+          title: formData.title.trim(),
+          description: formData.description,
+          task_type: formData.taskType,
+          priority: formData.priority,
+          evidence_required: formData.evidenceRequired,
+          due_date: formData.dueDate,
+          due_time: formData.dueTime || null,
+          assigned_to: formData.assignedTo.length > 0 ? formData.assignedTo[0] : null,
+          tags: formData.tags || [],
+          checklist_items: formData.checklistItems || [],
+        };
+
+        const result = await updateTask(task.id, updateData);
+
+        if (!result.error) {
+          onTaskCreated?.();
+          onOpenChange(false);
+        }
+      } else if (activeTab === 'template' && selectedTemplate) {
         // Create from template
         const result = await createTaskFromTemplate({
           template_id: selectedTemplate,
@@ -227,7 +277,7 @@ export function CreateTaskForm({ open, onOpenChange, onTaskCreated }: CreateTask
         }
       }
     } catch (error) {
-      console.error('Error creating task:', error);
+      console.error('Error creating/updating task:', error);
     }
   };
 
@@ -246,7 +296,7 @@ export function CreateTaskForm({ open, onOpenChange, onTaskCreated }: CreateTask
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <PlusIcon className="h-5 w-5" />
-            Create New Task
+            {mode === 'edit' ? 'Edit Task' : 'Create New Task'}
           </DialogTitle>
         </DialogHeader>
 
@@ -573,7 +623,10 @@ export function CreateTaskForm({ open, onOpenChange, onTaskCreated }: CreateTask
             disabled={creationLoading || (activeTab === 'template' && !selectedTemplate)}
             className="rounded-none"
           >
-            {creationLoading ? 'Creating...' : 'Create Task'}
+            {creationLoading
+              ? (mode === 'edit' ? 'Updating...' : 'Creating...')
+              : (mode === 'edit' ? 'Update Task' : 'Create Task')
+            }
           </Button>
         </DialogFooter>
       </DialogContent>

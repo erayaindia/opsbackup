@@ -208,7 +208,7 @@ export function TaskDrawer({
                   type="checkbox"
                   checked={item.completed || false}
                   readOnly
-                  className="rounded"
+                  className=""
                 />
                 <span className={`text-sm ${item.completed ? 'line-through text-muted-foreground' : ''}`}>
                   {item.text}
@@ -248,7 +248,7 @@ export function TaskDrawer({
             <h3 className="text-sm font-medium mb-3">Submitted Evidence</h3>
             <div className="space-y-3">
               {task.submissions?.map((submission) => (
-                <div key={submission.id} className="p-3 border rounded-lg">
+                <div key={submission.id} className="p-3 border">
                   <div className="flex items-center justify-between mb-2">
                     <Badge variant="outline">{submission.submission_type}</Badge>
                     <span className="text-xs text-muted-foreground">
@@ -357,7 +357,7 @@ export function TaskDrawer({
       <div className="space-y-4">
         {activities.map((activity, index) => (
           <div key={index} className="flex gap-3">
-            <div className="flex-shrink-0 w-2 h-2 bg-primary rounded-full mt-2" />
+            <div className="flex-shrink-0 w-2 h-2 bg-primary mt-2" />
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium">{activity.description}</span>

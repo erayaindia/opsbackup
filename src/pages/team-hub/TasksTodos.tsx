@@ -11,8 +11,8 @@ const TasksTodos = () => {
       </div>
       
       {/* Placeholder content */}
-      <div className="rounded-lg border bg-card p-8 text-center">
-        <div className="mx-auto mb-4 h-12 w-12 rounded-full bg-muted flex items-center justify-center">
+      <div className="border bg-card p-8 text-center">
+        <div className="mx-auto mb-4 h-12 w-12 bg-muted flex items-center justify-center">
           <span className="text-2xl">✅</span>
         </div>
         <p className="text-muted-foreground">

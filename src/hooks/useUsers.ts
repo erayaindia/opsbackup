@@ -8,6 +8,7 @@ interface User {
   role: string
   department: string
   status: string
+  employee_id: string
 }
 
 export function useUsers() {
@@ -23,7 +24,7 @@ export function useUsers() {
       // Fetch users from app_users table
       const { data, error: fetchError } = await supabase
         .from('app_users')
-        .select('id, full_name, company_email, role, department, status')
+        .select('id, full_name, company_email, role, department, status, employee_id')
         .eq('status', 'active')
         .order('full_name', { ascending: true })
 
@@ -45,7 +46,8 @@ export function useUsers() {
         company_email: user.company_email || 'No email',
         role: user.role || 'employee',
         department: user.department || 'Unassigned',
-        status: user.status
+        status: user.status,
+        employee_id: user.employee_id || user.id
       }))
 
       setUsers(transformedUsers)
