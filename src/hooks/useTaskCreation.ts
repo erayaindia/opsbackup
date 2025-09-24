@@ -44,6 +44,19 @@ export function useTaskCreation() {
       return [];
     }
 
+    // Check user permissions before attempting to create tasks
+    const userRole = profile.appUser.role;
+    const allowedRoles = ['admin', 'manager', 'team_lead', 'super_admin'];
+
+    if (!allowedRoles.includes(userRole)) {
+      toast({
+        title: "Permission Denied",
+        description: `You need admin, manager, team lead, or super admin permissions to create tasks. Your current role: ${userRole}`,
+        variant: "destructive",
+      });
+      return [];
+    }
+
     try {
       setLoading(true);
 
@@ -82,7 +95,16 @@ export function useTaskCreation() {
           .single();
 
         if (error) {
-          throw new Error(`Failed to create task for user ${userId}: ${error.message}`);
+          // Provide specific error messages for common RLS issues
+          let errorMessage = `Failed to create task for user ${userId}: ${error.message}`;
+
+          if (error.message.includes('row-level security policy')) {
+            errorMessage = `Permission denied: You don't have sufficient privileges to create tasks. Please contact your administrator to verify your role permissions.`;
+          } else if (error.message.includes('violates row-level security')) {
+            errorMessage = `Access denied: Your account may not be properly configured. Please contact support for assistance.`;
+          }
+
+          throw new Error(errorMessage);
         }
 
         createdTasks.push(task);
@@ -114,6 +136,19 @@ export function useTaskCreation() {
       toast({
         title: "Error",
         description: "User not authenticated",
+        variant: "destructive",
+      });
+      return [];
+    }
+
+    // Check user permissions before attempting to create tasks
+    const userRole = profile.appUser.role;
+    const allowedRoles = ['admin', 'manager', 'team_lead', 'super_admin'];
+
+    if (!allowedRoles.includes(userRole)) {
+      toast({
+        title: "Permission Denied",
+        description: `You need admin, manager, team lead, or super admin permissions to create tasks. Your current role: ${userRole}`,
         variant: "destructive",
       });
       return [];
@@ -168,7 +203,16 @@ export function useTaskCreation() {
           .single();
 
         if (error) {
-          throw new Error(`Failed to create task for user ${userId}: ${error.message}`);
+          // Provide specific error messages for common RLS issues
+          let errorMessage = `Failed to create task for user ${userId}: ${error.message}`;
+
+          if (error.message.includes('row-level security policy')) {
+            errorMessage = `Permission denied: You don't have sufficient privileges to create tasks. Please contact your administrator to verify your role permissions.`;
+          } else if (error.message.includes('violates row-level security')) {
+            errorMessage = `Access denied: Your account may not be properly configured. Please contact support for assistance.`;
+          }
+
+          throw new Error(errorMessage);
         }
 
         createdTasks.push(task);

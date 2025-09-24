@@ -594,7 +594,7 @@ export default function CreatorOnboard() {
                             step="0.01"
                             value={formData.baseRate}
                             onChange={(e) => handleInputChange('baseRate', parseFloat(e.target.value) || 0)}
-                            placeholder="5000"
+                            placeholder="Enter your rate"
                             className="rounded-none"
                             required
                           />

@@ -46,6 +46,7 @@ import {
 } from 'lucide-react';
 import { ContentCreator, CreatorDrawerProps } from '@/types/contentCreator';
 import { EditCreatorModal } from './EditCreatorModal';
+import { useModuleAccess } from '@/hooks/useModuleAccess';
 
 const getStatusColor = (status: string) => {
   switch (status) {
@@ -76,8 +77,26 @@ export const CreatorDrawer: React.FC<CreatorDrawerProps> = ({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
+  const { currentUser } = useModuleAccess();
 
   if (!creator) return null;
+
+  // Function to get display name for createdBy field
+  const getCreatedByDisplayName = (createdBy: string): string => {
+    // If it's 'admin' or a user ID, try to get a better display name
+    if (createdBy === 'admin') {
+      return 'System Admin';
+    }
+
+    // If it looks like a UUID or ID, try to get the actual name
+    // For now, we'll show it as is, but this could be enhanced to look up user names
+    if (createdBy.length > 20 || createdBy.includes('-')) {
+      return 'System User';
+    }
+
+    // Otherwise, assume it's already a display name
+    return createdBy;
+  };
 
   const handleContactEmail = () => {
     window.open(`mailto:${creator.email}`, '_blank');
@@ -128,10 +147,10 @@ export const CreatorDrawer: React.FC<CreatorDrawerProps> = ({
                 {creator.role}
               </SheetDescription>
               <div className="flex flex-wrap gap-2 mt-3">
-                <Badge variant="outline" className={getStatusColor(creator.status)}>
+                <Badge variant="outline" className={`${getStatusColor(creator.status)} rounded-none`}>
                   {creator.status}
                 </Badge>
-                <Badge variant="outline" className={getAvailabilityColor(creator.availability)}>
+                <Badge variant="outline" className={`${getAvailabilityColor(creator.availability)} rounded-none`}>
                   {creator.availability}
                 </Badge>
                 <div className="flex items-center gap-1">
@@ -144,21 +163,21 @@ export const CreatorDrawer: React.FC<CreatorDrawerProps> = ({
 
           {/* Quick Actions */}
           <div className="flex gap-2 pt-2">
-            <Button onClick={handleContactEmail} variant="outline" size="sm">
+            <Button onClick={handleContactEmail} variant="outline" size="sm" className="rounded-none">
               <Mail className="h-4 w-4 mr-2" />
               Email
             </Button>
             {creator.whatsapp && (
-              <Button onClick={handleContactWhatsApp} variant="outline" size="sm">
+              <Button onClick={handleContactWhatsApp} variant="outline" size="sm" className="rounded-none">
                 <MessageCircle className="h-4 w-4 mr-2" />
                 WhatsApp
               </Button>
             )}
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" className="rounded-none">
               <Plus className="h-4 w-4 mr-2" />
               Assign Project
             </Button>
-            <Button onClick={handleEdit} variant="outline" size="sm">
+            <Button onClick={handleEdit} variant="outline" size="sm" className="rounded-none">
               <Edit className="h-4 w-4 mr-2" />
               Edit
             </Button>
@@ -177,8 +196,74 @@ export const CreatorDrawer: React.FC<CreatorDrawerProps> = ({
 
           {/* Info Tab */}
           <TabsContent value="info" className="space-y-6">
+            {/* Basic Information */}
+            <Card className="rounded-none">
+              <CardHeader>
+                <CardTitle className="text-lg">Basic Information</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="h-8 w-8 bg-primary/10 flex items-center justify-center">
+                      <span className="text-sm font-medium text-primary">ID</span>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">Creator ID</p>
+                      <p className="text-xs text-muted-foreground font-mono">{creator.id}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                    <div>
+                      <p className="text-sm font-medium">Joined</p>
+                      <p className="text-sm text-muted-foreground">
+                        {new Date(creator.createdAt).toLocaleDateString('en-US', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric'
+                        })}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                    <div>
+                      <p className="text-sm font-medium">Last Updated</p>
+                      <p className="text-sm text-muted-foreground">
+                        {new Date(creator.updatedAt).toLocaleDateString('en-US', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric'
+                        })}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <div className="h-4 w-4 bg-blue-500"></div>
+                    <div>
+                      <p className="text-sm font-medium">Created By</p>
+                      <p className="text-sm text-muted-foreground">{getCreatedByDisplayName(creator.createdBy)}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bio Section */}
+                {creator.bio && (
+                  <div className="pt-4">
+                    <h4 className="font-medium mb-2">Bio</h4>
+                    <div className="bg-muted/30 p-3">
+                      <p className="text-sm text-muted-foreground">{creator.bio}</p>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
             {/* Contact & Communication */}
-            <Card>
+            <Card className="rounded-none">
               <CardHeader>
                 <CardTitle className="text-lg">Contact & Communication</CardTitle>
               </CardHeader>
@@ -191,7 +276,7 @@ export const CreatorDrawer: React.FC<CreatorDrawerProps> = ({
                       <p className="text-sm text-muted-foreground">{creator.email}</p>
                     </div>
                   </div>
-                  
+
                   {creator.phone && (
                     <div className="flex items-center gap-3">
                       <Phone className="h-4 w-4 text-muted-foreground" />
@@ -201,6 +286,24 @@ export const CreatorDrawer: React.FC<CreatorDrawerProps> = ({
                       </div>
                     </div>
                   )}
+
+                  {creator.whatsapp && (
+                    <div className="flex items-center gap-3">
+                      <MessageCircle className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <p className="text-sm font-medium">WhatsApp</p>
+                        <p className="text-sm text-muted-foreground">{creator.whatsapp}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-3">
+                    <div className="h-4 w-4 bg-green-500"></div>
+                    <div>
+                      <p className="text-sm font-medium">Preferred Communication</p>
+                      <p className="text-sm text-muted-foreground">{creator.preferredCommunication}</p>
+                    </div>
+                  </div>
 
                   <div className="flex items-center gap-3">
                     <MapPin className="h-4 w-4 text-muted-foreground" />
@@ -224,28 +327,108 @@ export const CreatorDrawer: React.FC<CreatorDrawerProps> = ({
                   <div className="pt-4">
                     <h4 className="font-medium mb-3">Social & Portfolio</h4>
                     <div className="flex flex-wrap gap-2">
-                      {Object.entries(creator.socialLinks).map(([platform, url]) => (
-                        url && (
+                      {Object.entries(creator.socialLinks).map(([platform, url]) => {
+                        if (!url) return null;
+
+                        const formatSocialUrl = (platform: string, input: string): string => {
+                          // If already a full URL, return as is
+                          if (input.startsWith('http://') || input.startsWith('https://')) {
+                            return input;
+                          }
+
+                          // Remove @ symbol if present for usernames
+                          const cleanInput = input.replace(/^@/, '');
+
+                          // Platform-specific URL formatting
+                          switch (platform.toLowerCase()) {
+                            case 'instagram':
+                              return `https://www.instagram.com/${cleanInput}`;
+                            case 'youtube':
+                              // Handle both channel names and custom URLs
+                              if (cleanInput.startsWith('c/') || cleanInput.startsWith('channel/') || cleanInput.startsWith('user/')) {
+                                return `https://www.youtube.com/${cleanInput}`;
+                              }
+                              return `https://www.youtube.com/@${cleanInput}`;
+                            case 'tiktok':
+                              return `https://www.tiktok.com/@${cleanInput}`;
+                            case 'linkedin':
+                              return `https://www.linkedin.com/in/${cleanInput}`;
+                            case 'twitter':
+                            case 'x':
+                              return `https://www.twitter.com/${cleanInput}`;
+                            case 'facebook':
+                              return `https://www.facebook.com/${cleanInput}`;
+                            case 'portfolio':
+                            case 'website':
+                              // For portfolio/website, add https if no protocol
+                              return `https://${cleanInput}`;
+                            default:
+                              // For unknown platforms, treat as website
+                              return `https://${cleanInput}`;
+                          }
+                        };
+
+                        const fullUrl = formatSocialUrl(platform, url);
+
+                        return (
                           <Button
                             key={platform}
                             variant="outline"
                             size="sm"
-                            onClick={() => window.open(url, '_blank')}
-                            className="capitalize"
+                            onClick={() => window.open(fullUrl, '_blank', 'noopener,noreferrer')}
+                            className="capitalize rounded-none"
                           >
                             <ExternalLink className="h-3 w-3 mr-2" />
                             {platform}
                           </Button>
-                        )
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 )}
               </CardContent>
             </Card>
 
+            {/* Shipping Address */}
+            {creator.shippingAddress && (
+              <Card className="rounded-none">
+                <CardHeader>
+                  <CardTitle className="text-lg">Shipping Address</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="bg-muted/30 p-4">
+                    <div className="space-y-2">
+                      <div className="flex items-start gap-2">
+                        <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
+                        <div>
+                          <p className="text-sm font-medium">Address</p>
+                          <p className="text-sm text-muted-foreground">{creator.shippingAddress.fullAddress}</p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                        <div>
+                          <p className="text-sm font-medium">PIN Code</p>
+                          <p className="text-sm text-muted-foreground">{creator.shippingAddress.pincode}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium">Contact Phone</p>
+                          <p className="text-sm text-muted-foreground">{creator.shippingAddress.phone}</p>
+                        </div>
+                        {creator.shippingAddress.alternatePhone && (
+                          <div className="md:col-span-2">
+                            <p className="text-sm font-medium">Alternate Phone</p>
+                            <p className="text-sm text-muted-foreground">{creator.shippingAddress.alternatePhone}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Performance */}
-            <Card>
+            <Card className="rounded-none">
               <CardHeader>
                 <CardTitle className="text-lg">Performance & Quality</CardTitle>
               </CardHeader>
@@ -292,6 +475,39 @@ export const CreatorDrawer: React.FC<CreatorDrawerProps> = ({
                     </div>
                   </div>
                 )}
+
+                {/* Engagement Metrics */}
+                {creator.performance.engagementMetrics && (
+                  <div className="mt-6">
+                    <h4 className="font-medium mb-3">Engagement Metrics</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-center">
+                      {creator.performance.engagementMetrics.ctr && (
+                        <div>
+                          <div className="text-lg font-semibold text-blue-600">
+                            {creator.performance.engagementMetrics.ctr}%
+                          </div>
+                          <div className="text-xs text-muted-foreground">CTR</div>
+                        </div>
+                      )}
+                      {creator.performance.engagementMetrics.roas && (
+                        <div>
+                          <div className="text-lg font-semibold text-green-600">
+                            {creator.performance.engagementMetrics.roas}x
+                          </div>
+                          <div className="text-xs text-muted-foreground">ROAS</div>
+                        </div>
+                      )}
+                      {creator.performance.engagementMetrics.impressions && (
+                        <div>
+                          <div className="text-lg font-semibold text-purple-600">
+                            {creator.performance.engagementMetrics.impressions.toLocaleString()}
+                          </div>
+                          <div className="text-xs text-muted-foreground">Impressions</div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -299,7 +515,7 @@ export const CreatorDrawer: React.FC<CreatorDrawerProps> = ({
           {/* Projects Tab */}
           <TabsContent value="projects" className="space-y-6">
             {/* Current Projects */}
-            <Card>
+            <Card className="rounded-none">
               <CardHeader>
                 <CardTitle className="text-lg">Current Assignments</CardTitle>
               </CardHeader>
@@ -307,14 +523,24 @@ export const CreatorDrawer: React.FC<CreatorDrawerProps> = ({
                 {creator.currentProjects.length > 0 ? (
                   <div className="space-y-3">
                     {creator.currentProjects.map((project) => (
-                      <div key={project.id} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div key={project.id} className="flex items-center justify-between p-3 border">
                         <div>
                           <h4 className="font-medium">{project.name}</h4>
-                          <p className="text-sm text-muted-foreground">
-                            Started {new Date(project.startDate).toLocaleDateString()}
-                          </p>
+                          <div className="space-y-1">
+                            <p className="text-sm text-muted-foreground">
+                              Started: {new Date(project.startDate).toLocaleDateString()}
+                            </p>
+                            {project.endDate && (
+                              <p className="text-sm text-muted-foreground">
+                                Expected End: {new Date(project.endDate).toLocaleDateString()}
+                              </p>
+                            )}
+                            {project.notes && (
+                              <p className="text-xs text-muted-foreground italic">{project.notes}</p>
+                            )}
+                          </div>
                         </div>
-                        <Badge variant="outline" className="bg-blue-50 text-blue-700">
+                        <Badge variant="outline" className="bg-blue-50 text-blue-700 rounded-none">
                           {project.status}
                         </Badge>
                       </div>
@@ -327,7 +553,7 @@ export const CreatorDrawer: React.FC<CreatorDrawerProps> = ({
             </Card>
 
             {/* Past Projects */}
-            <Card>
+            <Card className="rounded-none">
               <CardHeader>
                 <CardTitle className="text-lg">Project History</CardTitle>
               </CardHeader>
@@ -335,20 +561,28 @@ export const CreatorDrawer: React.FC<CreatorDrawerProps> = ({
                 {creator.pastProjects.length > 0 ? (
                   <div className="space-y-3 max-h-64 overflow-y-auto">
                     {creator.pastProjects.slice(0, 10).map((project) => (
-                      <div key={project.id} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div key={project.id} className="flex items-center justify-between p-3 border">
                         <div>
                           <h4 className="font-medium">{project.name}</h4>
-                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                            <span>{new Date(project.startDate).toLocaleDateString()}</span>
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                              <span>Started: {new Date(project.startDate).toLocaleDateString()}</span>
+                              {project.endDate && (
+                                <span>Ended: {new Date(project.endDate).toLocaleDateString()}</span>
+                              )}
+                            </div>
                             {project.rating && (
-                              <div className="flex items-center gap-1">
+                              <div className="flex items-center gap-1 text-sm">
                                 <Star className="h-3 w-3 text-yellow-500 fill-current" />
-                                <span>{project.rating}</span>
+                                <span>{project.rating}/10</span>
                               </div>
+                            )}
+                            {project.notes && (
+                              <p className="text-xs text-muted-foreground italic">{project.notes}</p>
                             )}
                           </div>
                         </div>
-                        <Badge variant="outline" className="bg-green-50 text-green-700">
+                        <Badge variant="outline" className="bg-green-50 text-green-700 rounded-none">
                           {project.status}
                         </Badge>
                       </div>
@@ -364,15 +598,15 @@ export const CreatorDrawer: React.FC<CreatorDrawerProps> = ({
           {/* Payments Tab */}
           <TabsContent value="payments" className="space-y-6">
             {/* Rate Card */}
-            <Card>
+            <Card className="rounded-none">
               <CardHeader>
-                <CardTitle className="text-lg">Rate Card</CardTitle>
+                <CardTitle className="text-lg">Rate Card & Payment Terms</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <div className="text-center">
                     <div className="text-2xl font-bold text-foreground">
-                      {creator.rateCard.currency} {creator.rateCard.baseRate}
+                      {creator.rateCard.currency} {creator.rateCard.baseRate.toLocaleString()}
                     </div>
                     <div className="text-sm text-muted-foreground">{creator.rateCard.unit}</div>
                   </div>
@@ -382,20 +616,53 @@ export const CreatorDrawer: React.FC<CreatorDrawerProps> = ({
                     </div>
                     <div className="text-sm text-muted-foreground">Payment Cycle</div>
                   </div>
-                  {creator.advancePercentage && (
-                    <div className="text-center">
-                      <div className="text-lg font-medium text-foreground">
-                        {creator.advancePercentage}%
-                      </div>
-                      <div className="text-sm text-muted-foreground">Advance</div>
+                  <div className="text-center">
+                    <div className="text-lg font-medium text-foreground">
+                      {creator.advancePercentage || 0}%
                     </div>
-                  )}
+                    <div className="text-sm text-muted-foreground">Advance Payment</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-lg font-medium text-foreground">
+                      {creator.rateCard.currency}
+                    </div>
+                    <div className="text-sm text-muted-foreground">Currency</div>
+                  </div>
+                </div>
+
+                {/* Payment Summary */}
+                <Separator className="my-4" />
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                  <div>
+                    <div className="text-lg font-semibold text-green-600">
+                      {creator.payments.filter(p => p.status === 'Paid').length}
+                    </div>
+                    <div className="text-xs text-muted-foreground">Paid</div>
+                  </div>
+                  <div>
+                    <div className="text-lg font-semibold text-yellow-600">
+                      {creator.payments.filter(p => p.status === 'Pending').length}
+                    </div>
+                    <div className="text-xs text-muted-foreground">Pending</div>
+                  </div>
+                  <div>
+                    <div className="text-lg font-semibold text-red-600">
+                      {creator.payments.filter(p => p.status === 'Overdue').length}
+                    </div>
+                    <div className="text-xs text-muted-foreground">Overdue</div>
+                  </div>
+                  <div>
+                    <div className="text-lg font-semibold text-blue-600">
+                      {creator.rateCard.currency} {creator.payments.reduce((sum, p) => sum + p.amount, 0).toLocaleString()}
+                    </div>
+                    <div className="text-xs text-muted-foreground">Total Payments</div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
 
             {/* Recent Payments */}
-            <Card>
+            <Card className="rounded-none">
               <CardHeader>
                 <CardTitle className="text-lg">Recent Payments</CardTitle>
               </CardHeader>
@@ -403,24 +670,43 @@ export const CreatorDrawer: React.FC<CreatorDrawerProps> = ({
                 {creator.payments.length > 0 ? (
                   <div className="space-y-3 max-h-64 overflow-y-auto">
                     {creator.payments.slice(0, 5).map((payment) => (
-                      <div key={payment.id} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div key={payment.id} className="flex items-center justify-between p-3 border">
                         <div>
                           <h4 className="font-medium">
-                            {payment.currency} {payment.amount}
+                            {payment.currency} {payment.amount.toLocaleString()}
                           </h4>
                           <p className="text-sm text-muted-foreground">{payment.description}</p>
-                          <p className="text-xs text-muted-foreground">
-                            Due: {new Date(payment.dueDate).toLocaleDateString()}
-                          </p>
+                          <div className="space-y-1 text-xs text-muted-foreground">
+                            <p>Due: {new Date(payment.dueDate).toLocaleDateString()}</p>
+                            {payment.paidDate && (
+                              <p>Paid: {new Date(payment.paidDate).toLocaleDateString()}</p>
+                            )}
+                            {payment.invoiceUrl && (
+                              <Button
+                                variant="link"
+                                size="sm"
+                                className="p-0 h-auto text-xs rounded-none"
+                                onClick={() => {
+                                  const fullUrl = payment.invoiceUrl!.startsWith('http://') || payment.invoiceUrl!.startsWith('https://')
+                                    ? payment.invoiceUrl
+                                    : `https://${payment.invoiceUrl}`;
+                                  window.open(fullUrl, '_blank', 'noopener,noreferrer');
+                                }}
+                              >
+                                <ExternalLink className="h-3 w-3 mr-1" />
+                                View Invoice
+                              </Button>
+                            )}
+                          </div>
                         </div>
-                        <Badge 
-                          variant="outline" 
-                          className={
+                        <Badge
+                          variant="outline"
+                          className={`rounded-none ${
                             payment.status === 'Paid' ? 'bg-green-50 text-green-700' :
                             payment.status === 'Pending' ? 'bg-yellow-50 text-yellow-700' :
                             payment.status === 'Overdue' ? 'bg-red-50 text-red-700' :
                             'bg-blue-50 text-blue-700'
-                          }
+                          }`}
                         >
                           {payment.status}
                         </Badge>
@@ -437,7 +723,7 @@ export const CreatorDrawer: React.FC<CreatorDrawerProps> = ({
           {/* Notes Tab */}
           <TabsContent value="notes" className="space-y-6">
             {/* Strengths & Weaknesses */}
-            <Card>
+            <Card className="rounded-none">
               <CardHeader>
                 <CardTitle className="text-lg">Collaboration Profile</CardTitle>
               </CardHeader>
@@ -447,7 +733,7 @@ export const CreatorDrawer: React.FC<CreatorDrawerProps> = ({
                   <h4 className="font-medium mb-3 text-green-700">Strengths</h4>
                   <div className="flex flex-wrap gap-2">
                     {creator.strengths.map((strength, index) => (
-                      <Badge key={index} variant="outline" className="bg-green-50 text-green-700">
+                      <Badge key={index} variant="outline" className="bg-green-50 text-green-700 rounded-none">
                         {strength}
                       </Badge>
                     ))}
@@ -460,7 +746,7 @@ export const CreatorDrawer: React.FC<CreatorDrawerProps> = ({
                     <h4 className="font-medium mb-3 text-orange-700">Areas for Improvement</h4>
                     <div className="flex flex-wrap gap-2">
                       {creator.weaknesses.map((weakness, index) => (
-                        <Badge key={index} variant="outline" className="bg-orange-50 text-orange-700">
+                        <Badge key={index} variant="outline" className="bg-orange-50 text-orange-700 rounded-none">
                           {weakness}
                         </Badge>
                       ))}
@@ -474,7 +760,7 @@ export const CreatorDrawer: React.FC<CreatorDrawerProps> = ({
                     <h4 className="font-medium mb-3 text-blue-700">Special Requirements</h4>
                     <div className="flex flex-wrap gap-2">
                       {creator.specialRequirements.map((req, index) => (
-                        <Badge key={index} variant="outline" className="bg-blue-50 text-blue-700">
+                        <Badge key={index} variant="outline" className="bg-blue-50 text-blue-700 rounded-none">
                           {req}
                         </Badge>
                       ))}
@@ -485,12 +771,12 @@ export const CreatorDrawer: React.FC<CreatorDrawerProps> = ({
             </Card>
 
             {/* Internal Notes */}
-            <Card>
+            <Card className="rounded-none">
               <CardHeader>
                 <CardTitle className="text-lg">Internal Notes</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="bg-muted/30 rounded-lg p-4">
+                <div className="bg-muted/30 p-4">
                   {creator.internalNotes ? (
                     <p className="text-sm whitespace-pre-wrap">{creator.internalNotes}</p>
                   ) : (
@@ -502,15 +788,16 @@ export const CreatorDrawer: React.FC<CreatorDrawerProps> = ({
           </TabsContent>
         </Tabs>
 
-        {/* Delete Button - Fixed at bottom */}
-        <div className="sticky bottom-0 bg-background border-t pt-4 mt-6">
+        {/* Delete Button - Small and minimal */}
+        <div className="flex justify-end mt-6 pt-4 border-t">
           <Button
             onClick={() => setDeleteDialogOpen(true)}
-            variant="destructive"
-            className="w-full"
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground hover:text-red-600 hover:bg-red-50 rounded-none"
           >
-            <Trash2 className="h-4 w-4 mr-2" />
-            Delete Creator
+            <Trash2 className="h-3 w-3 mr-1" />
+            Delete
           </Button>
         </div>
       </SheetContent>

@@ -375,7 +375,7 @@ export async function exportCourierHandoverItems(filters: CourierHandoverFilters
 
     const csvData = data.map(item => [
       item.order_number || 'N/A',
-      item.awb_number || 'N/A',
+      (item.awb_number || 'N/A') + ',', // Add comma at the end of AWB number
       item.courier,
       item.bag_letter || '-',
       'Current User', // You might want to fetch actual user names

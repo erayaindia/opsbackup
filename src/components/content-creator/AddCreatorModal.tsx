@@ -28,6 +28,7 @@ import {
   PaymentCycle,
   CommunicationChannel,
 } from '@/types/contentCreator';
+import { useModuleAccess } from '@/hooks/useModuleAccess';
 
 interface AddCreatorModalProps {
   open: boolean;
@@ -64,7 +65,8 @@ export const AddCreatorModal: React.FC<AddCreatorModalProps> = ({
   const [activeTab, setActiveTab] = useState('info');
   const [profileImage, setProfileImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>('');
-  
+  const { currentUser } = useModuleAccess();
+
   const tabs = ['info', 'rates'];
   const tabNames = ['Creator Info', 'Rates & Payment'];
   const currentTabIndex = tabs.indexOf(activeTab);
@@ -248,7 +250,7 @@ export const AddCreatorModal: React.FC<AddCreatorModalProps> = ({
         weaknesses: [],
         specialRequirements: [],
         internalNotes: '',
-        createdBy: 'admin', // TODO: Get from auth context
+        createdBy: currentUser?.full_name || 'System User',
       };
 
       await onCreateCreator(newCreator);

@@ -91,7 +91,7 @@ export const INDIAN_MOCK_CREATORS: ContentCreator[] = [
     internalNotes: 'Excellent for Bollywood and commercial content. Very reliable and creative.',
     createdAt: new Date('2023-06-01'),
     updatedAt: new Date('2024-01-20'),
-    createdBy: 'admin'
+    createdBy: 'System Admin'
   },
   {
     id: '2',
@@ -172,7 +172,7 @@ export const INDIAN_MOCK_CREATORS: ContentCreator[] = [
     internalNotes: 'Great for authentic lifestyle content. Very responsive and professional.',
     createdAt: new Date('2023-08-15'),
     updatedAt: new Date('2024-01-22'),
-    createdBy: 'admin'
+    createdBy: 'System Admin'
   },
   {
     id: '3',
@@ -256,7 +256,7 @@ export const INDIAN_MOCK_CREATORS: ContentCreator[] = [
     internalNotes: 'Top-tier editor, extremely reliable. Great for YouTube and social media content.',
     createdAt: new Date('2023-03-10'),
     updatedAt: new Date('2024-01-15'),
-    createdBy: 'admin'
+    createdBy: 'System Admin'
   },
   {
     id: '4',
@@ -343,7 +343,7 @@ export const INDIAN_MOCK_CREATORS: ContentCreator[] = [
     internalNotes: 'Excellent for ethnic wear campaigns. Very professional and high engagement rates.',
     createdAt: new Date('2023-07-20'),
     updatedAt: new Date('2024-01-25'),
-    createdBy: 'admin'
+    createdBy: 'System Admin'
   },
   {
     id: '5',
@@ -417,7 +417,7 @@ export const INDIAN_MOCK_CREATORS: ContentCreator[] = [
     internalNotes: 'Great for traditional photography needs. Very punctual and professional.',
     createdAt: new Date('2023-09-05'),
     updatedAt: new Date('2024-01-28'),
-    createdBy: 'admin'
+    createdBy: 'System Admin'
   },
   {
     id: '6',
@@ -492,6 +492,6 @@ export const INDIAN_MOCK_CREATORS: ContentCreator[] = [
     internalNotes: 'Exceptional writer with great turnaround time. Perfect for brand campaigns.',
     createdAt: new Date('2023-05-15'),
     updatedAt: new Date('2024-01-30'),
-    createdBy: 'admin'
+    createdBy: 'System Admin'
   }
 ];

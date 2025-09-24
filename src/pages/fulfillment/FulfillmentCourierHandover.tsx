@@ -4,14 +4,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Trash2, Plus, AlertTriangle, Package, CheckCircle, XCircle, Search, Filter, ArrowUpDown, ArrowUp, ArrowDown, Calendar, ChevronLeft, ChevronRight, Download, FileText, Clock, Copy, Check, X } from "lucide-react";
+import { Trash2, Plus, AlertTriangle, Package, CheckCircle, XCircle, Search, Filter, ArrowUpDown, ArrowUp, ArrowDown, Calendar, ChevronLeft, ChevronRight, ChevronDown, Download, FileText, Clock, Copy, Check, X } from "lucide-react";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { format } from "date-fns";
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import {
   createCourierHandoverItem,
   getCourierHandoverItems,
@@ -92,7 +95,7 @@ export default function FulfillmentCourierHandover() {
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [itemsPerPage, setItemsPerPage] = useState(100);
 
   // Quick filters
   const [quickFilter, setQuickFilter] = useState<'all' | 'recent' | 'duplicates'>('all');
@@ -439,44 +442,6 @@ export default function FulfillmentCourierHandover() {
     setSelectAll(false);
   }, [currentPage, filteredAndSortedItems]);
 
-  // Bulk export selected items as CSV
-  const bulkExportSelected = () => {
-    const selectedItemsData = scannedItems.filter(item => selectedItems.has(item.id));
-
-    // Create CSV headers
-    const csvHeaders = ['#', 'Order ID', 'AWB No.', 'Courier', 'Bag/Batch', 'Scanned By', 'Date', 'Time', 'Status'];
-
-    // Create CSV rows
-    const csvRows = selectedItemsData.map((item, index) => [
-      index + 1,
-      item.orderNumber,
-      item.awbNumber,
-      item.courier,
-      item.bagLetter || '-',
-      item.scannedBy,
-      format(item.timestamp, 'dd/MM/yyyy'),
-      item.timestamp.toLocaleTimeString('en-IN', {
-        timeZone: 'Asia/Kolkata',
-        hour12: false,
-        hour: '2-digit',
-        minute: '2-digit'
-      }) + ' IST',
-      'Saved'
-    ]);
-
-    // Combine headers and rows
-    const csvContent = [csvHeaders, ...csvRows]
-      .map(row => row.map(cell => `"${cell}"`).join(','))
-      .join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `BulkExport_${selectedCourier}_${selectedBagLetter}_${format(new Date(), 'ddMMyyyy_HHmm')}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
 
   // Bulk delete selected items
   const bulkDeleteSelected = async () => {
@@ -535,6 +500,151 @@ export default function FulfillmentCourierHandover() {
       setError('Failed to export data');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Export Manifest as PDF with two-column layout like the screenshot
+  const exportManifest = () => {
+    if (scannedItems.length === 0) {
+      setError('No items to export');
+      return;
+    }
+
+    try {
+      // Group items by courier
+      const groupedByCourier = scannedItems.reduce((acc, item) => {
+        const courier = item.courier;
+        if (!acc[courier]) {
+          acc[courier] = [];
+        }
+        acc[courier].push(item);
+        return acc;
+      }, {} as Record<string, DisplayItem[]>);
+
+      const pdf = new jsPDF();
+      const courierEntries = Object.entries(groupedByCourier);
+      const pageWidth = pdf.internal.pageSize.width;
+      const pageHeight = pdf.internal.pageSize.height;
+
+      // Add main header
+      pdf.setFontSize(14);
+      pdf.setFont(undefined, 'bold');
+      pdf.text('Courier Manifest', pageWidth / 2, 15, { align: 'center' });
+
+      courierEntries.forEach(([courier, items], courierIndex) => {
+        if (courierIndex > 0) {
+          pdf.addPage();
+        }
+
+        const rowHeight = 8;
+        const headerHeight = 50; // Space for courier header and info
+        const signatureHeight = 25; // Space for signature at bottom
+        const availableHeight = pageHeight - headerHeight - signatureHeight;
+        const maxRowsPerPage = Math.floor(availableHeight / rowHeight) - 1; // -1 for table header
+        const maxItemsPerPage = maxRowsPerPage * 2; // Two columns
+
+        // Calculate how many pages needed for this courier
+        const totalPages = Math.ceil(items.length / maxItemsPerPage);
+
+        for (let page = 0; page < totalPages; page++) {
+          if (page > 0) {
+            pdf.addPage();
+          }
+
+          let startY = 30;
+
+          // Courier header on each page
+          pdf.setFontSize(12);
+          pdf.setFont(undefined, 'bold');
+          pdf.text(`Courier: ${courier}`, 15, startY);
+
+          // Date and info line
+          pdf.setFontSize(9);
+          pdf.setFont(undefined, 'normal');
+          const now = new Date();
+          const bagLetters = [...new Set(items.map(item => item.bagLetter).filter(Boolean))];
+          const infoLine = `Date: ${format(now, 'dd/MM/yyyy')} | Bags: ${bagLetters.join(',') || 'N/A'} | Total: ${items.length}`;
+          pdf.text(infoLine, 15, startY + 8);
+
+          // Add page info if multiple pages
+          if (totalPages > 1) {
+            pdf.text(`Page ${page + 1} of ${totalPages}`, pageWidth - 40, startY + 8);
+          }
+
+          startY += 20;
+
+          // Calculate items for this page
+          const startIndex = page * maxItemsPerPage;
+          const endIndex = Math.min(startIndex + maxItemsPerPage, items.length);
+          const pageItems = items.slice(startIndex, endIndex);
+
+          // Table dimensions
+          const leftTableX = 15;
+          const rightTableX = pageWidth / 2 + 5;
+          const tableWidth = 85;
+          const itemsPerColumn = Math.ceil(pageItems.length / 2);
+
+          // Draw left table
+          const leftItems = pageItems.slice(0, itemsPerColumn);
+          const leftStartNumber = startIndex + 1;
+          drawSimpleTable(pdf, leftTableX, startY, tableWidth, rowHeight, leftItems, leftStartNumber, maxRowsPerPage);
+
+          // Draw right table if there are remaining items
+          if (pageItems.length > itemsPerColumn) {
+            const rightItems = pageItems.slice(itemsPerColumn);
+            const rightStartNumber = startIndex + itemsPerColumn + 1;
+            drawSimpleTable(pdf, rightTableX, startY, tableWidth, rowHeight, rightItems, rightStartNumber, maxRowsPerPage);
+          }
+
+          // Signature section at bottom of every page
+          const signatureY = pageHeight - 20;
+          pdf.setFontSize(8);
+          pdf.text('Name: ________________  Signature: ________________  Date: __________', pageWidth - 180, signatureY);
+        }
+      });
+
+      // Save PDF
+      const fileName = `CourierManifest_${format(new Date(), 'ddMMyyyy_HHmm')}.pdf`;
+      pdf.save(fileName);
+
+    } catch (error) {
+      console.error('Error generating manifest:', error);
+      setError('Failed to generate manifest. Please try again.');
+    }
+  };
+
+  // Helper function to draw simple table with fixed height for pagination
+  const drawSimpleTable = (pdf: any, startX: number, startY: number, width: number, rowHeight: number, items: DisplayItem[], startNumber: number, maxRows: number) => {
+    const numberColWidth = 15;
+    const awbColWidth = width - numberColWidth;
+    const actualRows = Math.min(items.length, maxRows);
+
+    // Draw table border - always draw full table height for consistent layout
+    pdf.rect(startX, startY, width, (maxRows + 1) * rowHeight);
+
+    // Draw header
+    pdf.setFontSize(8);
+    pdf.setFont(undefined, 'bold');
+    pdf.rect(startX, startY, numberColWidth, rowHeight);
+    pdf.rect(startX + numberColWidth, startY, awbColWidth, rowHeight);
+    pdf.text('No.', startX + numberColWidth/2, startY + 5, { align: 'center' });
+    pdf.text('AWB Number', startX + numberColWidth + awbColWidth/2, startY + 5, { align: 'center' });
+
+    // Draw all rows (filled and empty)
+    pdf.setFont(undefined, 'normal');
+    for (let i = 0; i < maxRows; i++) {
+      const y = startY + (i + 1) * rowHeight;
+
+      // Draw row borders
+      pdf.rect(startX, y, numberColWidth, rowHeight);
+      pdf.rect(startX + numberColWidth, y, awbColWidth, rowHeight);
+
+      // Add content only if item exists
+      if (i < items.length) {
+        const item = items[i];
+        pdf.text((startNumber + i).toString(), startX + numberColWidth/2, y + 5, { align: 'center' });
+        pdf.text(item.awbNumber || '', startX + numberColWidth + 3, y + 5);
+      }
     }
   };
 
@@ -630,25 +740,51 @@ export default function FulfillmentCourierHandover() {
                   Clear
                 </Button>
               )}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={generatePDFSummary}
-                disabled={loading}
-                className="text-xs h-8 rounded-none px-2"
-              >
-                <Download className="h-3 w-3" />
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={loading || scannedItems.length === 0}
+                    className="text-xs h-8 rounded-none px-2"
+                  >
+                    <Download className="h-3 w-3 mr-1" />
+                    Export
+                    <ChevronDown className="h-3 w-3 ml-1" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="rounded-none">
+                  <DropdownMenuItem
+                    onClick={generatePDFSummary}
+                    disabled={loading}
+                    className="text-xs cursor-pointer"
+                  >
+                    <Download className="h-3 w-3 mr-2" />
+                    Export as CSV
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={exportManifest}
+                    disabled={loading || scannedItems.length === 0}
+                    className="text-xs cursor-pointer"
+                  >
+                    <FileText className="h-3 w-3 mr-2" />
+                    Export Manifest
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </div>
 
-        {/* Scan Toggle Button */}
+        {/* Scan Toggle Button and Bulk Actions */}
         <div className="flex justify-between items-center">
-          <div>
-            <h2 className="text-lg font-semibold">Scanned Items ({totalItems})</h2>
-            <p className="text-sm text-muted-foreground">View and manage all scanned courier handover items</p>
+          <div className="flex items-center gap-4">
+            <div>
+              <h2 className="text-lg font-semibold">Scanned Items ({totalItems})</h2>
+            </div>
+
           </div>
+
           <Button
             onClick={() => setShowScanningSection(!showScanningSection)}
             className="rounded-none"
@@ -850,10 +986,9 @@ export default function FulfillmentCourierHandover() {
 
         {/* Scanned Items Table - Always show */}
         <Card className="enhanced-card rounded-none">
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              Scanned Items ({totalItems})
-              {showScanningSection && selectedCourier && (
+          {showScanningSection && selectedCourier && (
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
                 <Badge variant="secondary">
                   {selectedCourier} - {
                     selectedBagLetter && selectedBagLetter !== "none"
@@ -861,9 +996,9 @@ export default function FulfillmentCourierHandover() {
                       : "No Bag"
                   }
                 </Badge>
-              )}
-            </CardTitle>
-          </CardHeader>
+              </CardTitle>
+            </CardHeader>
+          )}
           <CardContent>
             {scannedItems.length > 0 ? (
               <div className="border">
@@ -1032,62 +1167,88 @@ export default function FulfillmentCourierHandover() {
                 </Table>
 
                 {/* Pagination Controls */}
-              {totalPages > 1 && (
+              {scannedItems.length > 0 && (
                 <div className="flex items-center justify-between pt-4 border-t">
-                  <div className="text-sm text-muted-foreground">
-                    Page {currentPage} of {totalPages}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                      disabled={currentPage === 1}
-                      className="text-xs rounded-none"
-                    >
-                      <ChevronLeft className="h-3 w-3" />
-                      Previous
-                    </Button>
-
-                    {/* Page numbers */}
-                    <div className="flex items-center gap-1">
-                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                        let pageNum;
-                        if (totalPages <= 5) {
-                          pageNum = i + 1;
-                        } else if (currentPage <= 3) {
-                          pageNum = i + 1;
-                        } else if (currentPage >= totalPages - 2) {
-                          pageNum = totalPages - 4 + i;
-                        } else {
-                          pageNum = currentPage - 2 + i;
-                        }
-
-                        return (
-                          <Button
-                            key={pageNum}
-                            variant={currentPage === pageNum ? "default" : "outline"}
-                            size="sm"
-                            onClick={() => setCurrentPage(pageNum)}
-                            className="w-8 h-8 text-xs p-0 rounded-none"
-                          >
-                            {pageNum}
-                          </Button>
-                        );
-                      })}
+                  <div className="flex items-center gap-4">
+                    <div className="text-sm text-muted-foreground">
+                      Page {currentPage} of {totalPages}
                     </div>
-
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                      disabled={currentPage === totalPages}
-                      className="text-xs rounded-none"
-                    >
-                      Next
-                      <ChevronRight className="h-3 w-3" />
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground">Rows per page:</span>
+                      <Select
+                        value={itemsPerPage.toString()}
+                        onValueChange={(value) => {
+                          setItemsPerPage(Number(value));
+                          setCurrentPage(1); // Reset to first page when changing items per page
+                        }}
+                      >
+                        <SelectTrigger className="w-20 h-8 rounded-none text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="25">25</SelectItem>
+                          <SelectItem value="50">50</SelectItem>
+                          <SelectItem value="100">100</SelectItem>
+                          <SelectItem value="500">500</SelectItem>
+                          <SelectItem value="1000">1000</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
+                  {/* Page navigation - only show when multiple pages */}
+                  {totalPages > 1 && (
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                        disabled={currentPage === 1}
+                        className="text-xs rounded-none"
+                      >
+                        <ChevronLeft className="h-3 w-3" />
+                        Previous
+                      </Button>
+
+                      {/* Page numbers */}
+                      <div className="flex items-center gap-1">
+                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                          let pageNum;
+                          if (totalPages <= 5) {
+                            pageNum = i + 1;
+                          } else if (currentPage <= 3) {
+                            pageNum = i + 1;
+                          } else if (currentPage >= totalPages - 2) {
+                            pageNum = totalPages - 4 + i;
+                          } else {
+                            pageNum = currentPage - 2 + i;
+                          }
+
+                          return (
+                            <Button
+                              key={pageNum}
+                              variant={currentPage === pageNum ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => setCurrentPage(pageNum)}
+                              className="w-8 h-8 text-xs p-0 rounded-none"
+                            >
+                              {pageNum}
+                            </Button>
+                          );
+                        })}
+                      </div>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                        disabled={currentPage === totalPages}
+                        className="text-xs rounded-none"
+                      >
+                        Next
+                        <ChevronRight className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  )}
                 </div>
               )}
               </div>
