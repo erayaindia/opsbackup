@@ -114,6 +114,7 @@ const ordersItems = [
 // Fulfillment Sub-items (Processing)
 const processingItems = [
   { title: "Packing", url: "/fulfillment/packing", icon: PackageCheck },
+  { title: "Courier Handover", url: "/fulfillment/courier-handover", icon: Truck },
   { title: "Label Printing", url: "/fulfillment/label-printing", icon: Printer },
   { title: "Quality Check", url: "/fulfillment/quality-check", icon: Camera },
 ];

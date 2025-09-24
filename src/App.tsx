@@ -29,6 +29,7 @@ import Onboard from "./pages/onboarding/Onboard";
 
 // Fulfillment pages
 import FulfillmentPacking from "./pages/fulfillment/FulfillmentPacking";
+import FulfillmentCourierHandover from "./pages/fulfillment/FulfillmentCourierHandover";
 import FulfillmentDisputes from "./pages/fulfillment/FulfillmentDisputes";
 import FulfillmentQualityCheck from "./pages/fulfillment/FulfillmentQualityCheck";
 import FulfillmentLabelPrinting from "./pages/fulfillment/FulfillmentLabelPrinting";
@@ -211,6 +212,11 @@ const App = () => (
                 <Route path="fulfillment/packing" element={
                   <PermissionGuard requiredModule="fulfillment">
                     <FulfillmentPacking />
+                  </PermissionGuard>
+                } />
+                <Route path="fulfillment/courier-handover" element={
+                  <PermissionGuard requiredModule="fulfillment">
+                    <FulfillmentCourierHandover />
                   </PermissionGuard>
                 } />
                 <Route path="fulfillment/disputes" element={
