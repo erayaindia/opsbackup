@@ -18,7 +18,6 @@ import {
   Printer,
   ClipboardList,
   RotateCcw,
-  Database,
   ChevronDown,
   ChevronRight,
   Megaphone,
@@ -125,11 +124,6 @@ const exceptionsItems = [
   { title: "RTO/NDR", url: "/fulfillment/rto-ndr", icon: RotateCcw },
 ];
 
-// Fulfillment Sub-items (Inventory)
-const inventoryItems = [
-  { title: "Pick Lists", url: "/fulfillment/pick-lists", icon: ClipboardList },
-  { title: "Inventory Sync", url: "/fulfillment/inventory-sync", icon: Database },
-];
 
 // Customer Support Section
 const customerSupportItems = [
@@ -260,7 +254,6 @@ export function AppSidebar() {
       subsections: [
         { title: "Processing", items: processingItems },
         { title: "Exceptions", items: exceptionsItems },
-        { title: "Inventory", items: inventoryItems },
       ]
     },
     support: { title: "Customer Support", items: customerSupportItems },
@@ -698,7 +691,6 @@ export function AppSidebar() {
               [
                 { title: "Processing", items: processingItems },
                 { title: "Exceptions", items: exceptionsItems },
-                { title: "Inventory", items: inventoryItems },
               ]
             )}
             

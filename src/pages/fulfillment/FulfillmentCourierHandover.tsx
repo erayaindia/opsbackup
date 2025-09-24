@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { FulfillmentHeader } from "@/components/fulfillment/FulfillmentHeader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -555,10 +554,10 @@ export default function FulfillmentCourierHandover() {
         />
       )}
 
-      <FulfillmentHeader
-        title="Courier Handover"
-        breadcrumbs={[{ label: "Courier Handover" }]}
-      />
+      {/* Simple Header */}
+      <div className="p-4 border-b">
+        <h1 className="text-2xl font-semibold">Courier Handover</h1>
+      </div>
 
       <div className="flex-1 p-4 space-y-4 overflow-auto relative">
         {/* Compact Search & Filters - Top of page */}
