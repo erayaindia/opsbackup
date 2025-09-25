@@ -36,6 +36,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { DatePicker } from '@/components/ui/date-picker';
 import {
   CalendarIcon,
   ClockIcon,
@@ -47,13 +48,18 @@ import {
   SearchIcon,
   ChevronDownIcon,
   CheckIcon,
+  ListTreeIcon,
+  MoveUpIcon,
+  MoveDownIcon,
+  Trash2Icon,
 } from 'lucide-react';
-import { useTaskCreation } from '@/hooks/useTaskCreation';
+import { useTaskCreation, CreateTaskData, SubtaskData } from '@/hooks/useTaskCreation';
 import { useTaskTemplates, useTasks } from '@/hooks/useTasks';
 import { useUsers } from '@/hooks/useUsers';
 import { useToast } from '@/components/ui/use-toast';
 import {
   CreateTaskData,
+  CreateSubtaskData,
   TaskTypeValue,
   TaskPriorityValue,
   EvidenceTypeValue,
@@ -90,6 +96,7 @@ export function CreateTaskForm({ open, onOpenChange, onTaskCreated, task, mode =
     assignedTo: [],
     tags: [],
     checklistItems: [],
+    subtasks: [],
   });
 
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
@@ -100,6 +107,60 @@ export function CreateTaskForm({ open, onOpenChange, onTaskCreated, task, mode =
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
 
   const { toast } = useToast();
+
+  // Subtask management functions
+  const addSubtask = () => {
+    const newSubtask: CreateSubtaskData = {
+      id: `temp-${Date.now()}`,
+      title: '',
+      taskOrder: formData.subtasks?.length || 0,
+      priority: formData.priority, // Inherit parent priority
+      assignedTo: null,
+      tags: [],
+      checklistItems: [],
+    };
+
+    setFormData(prev => ({
+      ...prev,
+      subtasks: [...(prev.subtasks || []), newSubtask]
+    }));
+  };
+
+  const updateSubtask = (index: number, updates: Partial<CreateSubtaskData>) => {
+    setFormData(prev => ({
+      ...prev,
+      subtasks: prev.subtasks?.map((subtask, i) =>
+        i === index ? { ...subtask, ...updates } : subtask
+      ) || []
+    }));
+  };
+
+  const removeSubtask = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      subtasks: prev.subtasks?.filter((_, i) => i !== index) || []
+    }));
+  };
+
+  const moveSubtask = (index: number, direction: 'up' | 'down') => {
+    if (!formData.subtasks) return;
+
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= formData.subtasks.length) return;
+
+    const subtasks = [...formData.subtasks];
+    [subtasks[index], subtasks[newIndex]] = [subtasks[newIndex], subtasks[index]];
+
+    // Update task orders
+    subtasks.forEach((subtask, i) => {
+      subtask.taskOrder = i;
+    });
+
+    setFormData(prev => ({
+      ...prev,
+      subtasks
+    }));
+  };
   const { createTask, createTaskFromTemplate, loading: creationLoading } = useTaskCreation();
   const { templates, loading: templatesLoading } = useTaskTemplates();
   const { users, loading: usersLoading } = useUsers();
@@ -108,6 +169,22 @@ export function CreateTaskForm({ open, onOpenChange, onTaskCreated, task, mode =
   // Populate form data when editing a task
   useEffect(() => {
     if (task && mode === 'edit' && open) {
+      // Convert subtasks from TaskWithDetails to CreateSubtaskData format
+      const convertedSubtasks = task.subtasks?.map((subtask, index) => ({
+        id: subtask.id,
+        title: subtask.title || '',
+        description: subtask.description || '',
+        taskType: (subtask.task_type as TaskTypeValue) || 'one-off',
+        priority: (subtask.priority as TaskPriorityValue) || 'medium',
+        evidenceRequired: (subtask.evidence_required as EvidenceTypeValue) || 'none',
+        dueDate: subtask.due_date || '',
+        dueTime: subtask.due_time || '',
+        assignedTo: subtask.assigned_to || null,
+        tags: subtask.tags || [],
+        checklistItems: subtask.checklist_items || [],
+        taskOrder: subtask.task_order || index,
+      })) || [];
+
       setFormData({
         title: task.title || '',
         description: task.description || {
@@ -122,11 +199,13 @@ export function CreateTaskForm({ open, onOpenChange, onTaskCreated, task, mode =
         assignedTo: task.assigned_to ? [task.assigned_to] : [],
         tags: task.tags || [],
         checklistItems: task.checklist_items || [],
+        subtasks: convertedSubtasks,
       });
 
       if (task.assigned_to) {
         setSelectedUsers(new Set([task.assigned_to]));
       }
+
     }
   }, [task, mode, open]);
 
@@ -144,6 +223,7 @@ export function CreateTaskForm({ open, onOpenChange, onTaskCreated, task, mode =
         assignedTo: [],
         tags: [],
         checklistItems: [],
+        subtasks: [],
       });
       setSelectedTemplate('');
       setSelectedUsers(new Set());
@@ -269,7 +349,20 @@ export function CreateTaskForm({ open, onOpenChange, onTaskCreated, task, mode =
         }
       } else {
         // Create manual task
-        const result = await createTask(formData);
+        // Filter out subtasks with empty titles before conversion
+        const validSubtasks = formData.subtasks?.filter(subtask => subtask.title && subtask.title.trim() !== '') || [];
+
+        // Convert CreateSubtaskData to SubtaskData format
+        const convertedFormData: CreateTaskData = {
+          ...formData,
+          subtasks: validSubtasks.map(subtask => ({
+            title: subtask.title.trim(),
+            description: subtask.description || '',
+            assignedTo: subtask.assignedTo,
+            dueDate: subtask.dueDate,
+          }))
+        };
+        const result = await createTask(convertedFormData);
 
         if (result.length > 0) {
           onTaskCreated?.();
@@ -460,12 +553,14 @@ export function CreateTaskForm({ open, onOpenChange, onTaskCreated, task, mode =
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="dueDate">Due Date *</Label>
-                  <Input
-                    id="dueDate"
-                    type="date"
-                    value={formData.dueDate}
-                    onChange={(e) => handleInputChange('dueDate', e.target.value)}
-                    className="rounded-none"
+                  <DatePicker
+                    value={formData.dueDate ? new Date(formData.dueDate) : undefined}
+                    onChange={(date) => {
+                      const dateString = date ? date.toISOString().split('T')[0] : '';
+                      handleInputChange('dueDate', dateString);
+                    }}
+                    placeholder="Select due date"
+                    className="w-full"
                   />
                 </div>
 
@@ -538,6 +633,147 @@ export function CreateTaskForm({ open, onOpenChange, onTaskCreated, task, mode =
                   </div>
                 </div>
               )}
+
+              {/* Subtasks Section */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="flex items-center gap-2">
+                    <ListTreeIcon className="h-4 w-4" />
+                    Subtasks ({formData.subtasks?.length || 0})
+                  </Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addSubtask}
+                    className="flex items-center gap-2"
+                  >
+                    <PlusIcon className="h-3 w-3" />
+                    Add Subtask
+                  </Button>
+                </div>
+
+                {formData.subtasks && formData.subtasks.length > 0 && (
+                  <div className="space-y-3 border-l-2 border-muted pl-4 ml-2">
+                    {formData.subtasks.map((subtask, index) => (
+                      <Card key={subtask.id} className="p-3">
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs bg-muted px-2 py-1 rounded">
+                                Subtask {index + 1}
+                              </span>
+                              <div className="flex gap-1">
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => moveSubtask(index, 'up')}
+                                  disabled={index === 0}
+                                  className="h-6 w-6 p-0"
+                                >
+                                  <MoveUpIcon className="h-3 w-3" />
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => moveSubtask(index, 'down')}
+                                  disabled={index === (formData.subtasks?.length || 0) - 1}
+                                  className="h-6 w-6 p-0"
+                                >
+                                  <MoveDownIcon className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeSubtask(index)}
+                              className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                            >
+                              <Trash2Icon className="h-3 w-3" />
+                            </Button>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div className="space-y-2">
+                              <Label>Subtask Title *</Label>
+                              <Input
+                                value={subtask.title}
+                                onChange={(e) => updateSubtask(index, { title: e.target.value })}
+                                placeholder="Enter subtask title"
+                                required
+                              />
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label>Assignee</Label>
+                              <Select
+                                value={subtask.assignedTo || 'unassigned'}
+                                onValueChange={(value) => updateSubtask(index, { assignedTo: value === 'unassigned' ? null : value })}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select assignee" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="unassigned">Unassigned</SelectItem>
+                                  {users?.map((user) => (
+                                    <SelectItem key={user.id} value={user.id}>
+                                      {user.full_name} ({user.employee_id || user.id})
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label>Priority</Label>
+                              <Select
+                                value={subtask.priority || formData.priority}
+                                onValueChange={(value) => updateSubtask(index, { priority: value as TaskPriorityValue })}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="low">Low</SelectItem>
+                                  <SelectItem value="medium">Medium</SelectItem>
+                                  <SelectItem value="high">High</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label>Due Date</Label>
+                              <DatePicker
+                                value={subtask.dueDate ? new Date(subtask.dueDate) : undefined}
+                                onChange={(date) => {
+                                  const dateString = date ? date.toISOString().split('T')[0] : '';
+                                  updateSubtask(index, { dueDate: dateString });
+                                }}
+                                placeholder="Select due date"
+                                className="w-full"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label>Description</Label>
+                            <Textarea
+                              value={subtask.description || ''}
+                              onChange={(e) => updateSubtask(index, { description: e.target.value })}
+                              placeholder="Optional subtask description"
+                              rows={2}
+                            />
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </div>
               </div>
             )}
 
@@ -583,12 +819,14 @@ export function CreateTaskForm({ open, onOpenChange, onTaskCreated, task, mode =
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="dueDate">Due Date *</Label>
-                  <Input
-                    id="dueDate"
-                    type="date"
-                    value={formData.dueDate}
-                    onChange={(e) => handleInputChange('dueDate', e.target.value)}
-                    className="rounded-none"
+                  <DatePicker
+                    value={formData.dueDate ? new Date(formData.dueDate) : undefined}
+                    onChange={(date) => {
+                      const dateString = date ? date.toISOString().split('T')[0] : '';
+                      handleInputChange('dueDate', dateString);
+                    }}
+                    placeholder="Select due date"
+                    className="w-full"
                   />
                 </div>
 

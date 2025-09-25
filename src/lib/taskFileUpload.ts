@@ -72,10 +72,10 @@ export async function deleteTaskFile(filePath: string): Promise<void> {
 
 // Helper function to validate file types for evidence
 export function validateTaskFile(file: File, evidenceType: string): string | null {
-  const maxSize = 10 * 1024 * 1024; // 10MB
+  const maxSize = 50 * 1024 * 1024; // 50MB for videos, smaller files
 
   if (file.size > maxSize) {
-    return 'File size must be less than 10MB';
+    return 'File size must be less than 50MB';
   }
 
   switch (evidenceType) {
@@ -96,10 +96,20 @@ export function validateTaskFile(file: File, evidenceType: string): string | nul
         'image/jpeg',
         'image/png',
         'image/gif',
-        'image/webp'
+        'image/webp',
+        // Video types
+        'video/mp4',
+        'video/avi',
+        'video/quicktime', // .mov
+        'video/x-msvideo', // .avi
+        'video/x-ms-wmv', // .wmv
+        'video/webm',
+        'video/x-flv', // .flv
+        'video/x-matroska', // .mkv
+        'video/mp4' // .m4v
       ];
       if (!allowedTypes.includes(file.type)) {
-        return 'Please upload a valid document file (PDF, DOC, DOCX, XLS, XLSX, TXT, CSV) or image';
+        return 'Please upload a valid document (PDF, DOC, DOCX, XLS, XLSX, TXT, CSV), image, or video file';
       }
       break;
     default:

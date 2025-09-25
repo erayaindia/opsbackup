@@ -26,6 +26,7 @@ export interface TaskWithDetails extends Task {
     full_name: string | null;
     role: string;
     department: string | null;
+    employee_id?: string | null;
   };
   assigned_by_user?: {
     id: string;
@@ -40,6 +41,13 @@ export interface TaskWithDetails extends Task {
   reviews?: TaskReview[];
   latest_submission?: TaskSubmission | null;
   latest_review?: TaskReview | null;
+  // Subtask-related fields
+  parent_task?: TaskWithDetails | null;
+  subtasks?: TaskWithDetails[];
+  parent_task_id?: string | null;
+  task_level?: number;
+  task_order?: number;
+  completion_percentage?: number;
 }
 
 export interface TaskTemplateWithCreator extends TaskTemplate {
@@ -294,4 +302,49 @@ export interface UseTaskNotificationsReturn {
   markAsRead: (id: string) => Promise<void>;
   markAllAsRead: () => Promise<void>;
   refetch: () => Promise<void>;
+}
+
+// EditorContent type for rich text descriptions
+export interface EditorContent {
+  type: string;
+  content?: any[];
+}
+
+// Task creation interfaces
+export interface CreateTaskData {
+  title: string;
+  description: EditorContent;
+  taskType: TaskTypeValue;
+  priority: TaskPriorityValue;
+  evidenceRequired: EvidenceTypeValue;
+  dueDate: string;
+  dueTime?: string;
+  assignedTo: string[];
+  tags: string[];
+  checklistItems: ChecklistItem[];
+  // Subtask support
+  parentTaskId?: string | null;
+  subtasks?: CreateSubtaskData[];
+}
+
+export interface CreateSubtaskData {
+  id?: string; // temporary ID for UI management
+  title: string;
+  description?: string;
+  taskType?: TaskTypeValue;
+  priority?: TaskPriorityValue;
+  evidenceRequired?: EvidenceTypeValue;
+  dueDate?: string;
+  dueTime?: string;
+  assignedTo?: string | null;
+  tags?: string[];
+  checklistItems?: ChecklistItem[];
+  taskOrder: number;
+}
+
+// Subtask management interfaces
+export interface SubtaskTreeNode extends TaskWithDetails {
+  children: SubtaskTreeNode[];
+  depth: number;
+  isExpanded?: boolean;
 }

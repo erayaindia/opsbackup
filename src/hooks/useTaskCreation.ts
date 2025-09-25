@@ -14,6 +14,13 @@ import {
   EvidenceTypeValue,
 } from '@/types/tasks';
 
+export interface SubtaskData {
+  title: string;
+  description?: string;
+  assignedTo?: string | null;
+  dueDate?: string;
+}
+
 export interface CreateTaskData {
   title: string;
   description?: EditorContent | string;
@@ -27,6 +34,7 @@ export interface CreateTaskData {
   reviewerId?: string;
   tags?: string[];
   checklistItems?: Array<{ text: string; required: boolean }>;
+  subtasks?: SubtaskData[];
 }
 
 export function useTaskCreation() {
@@ -59,6 +67,7 @@ export function useTaskCreation() {
 
     try {
       setLoading(true);
+
 
       const createdTasks: Task[] = [];
 
@@ -108,11 +117,58 @@ export function useTaskCreation() {
         }
 
         createdTasks.push(task);
+
+        // Create subtasks if any
+        if (taskData.subtasks && taskData.subtasks.length > 0) {
+          for (let i = 0; i < taskData.subtasks.length; i++) {
+            const subtaskData = taskData.subtasks[i];
+
+            // Handle subtask description
+            const subtaskDescription = subtaskData.description || null;
+
+            const subtaskInsert: TaskInsert = {
+              title: subtaskData.title,
+              description: subtaskDescription,
+              task_type: taskData.taskType, // Inherit from parent
+              priority: taskData.priority, // Inherit from parent
+              evidence_required: taskData.evidenceRequired, // Inherit from parent
+              due_date: subtaskData.dueDate || taskData.dueDate, // Use subtask date or parent date
+              due_time: taskData.dueTime || null,
+              due_datetime: taskData.dueDateTime || null,
+              assigned_to: subtaskData.assignedTo || userId, // Use subtask assignee or parent assignee
+              assigned_by: profile.appUser.id,
+              reviewer_id: taskData.reviewerId || null,
+              tags: taskData.tags || [],
+              checklist_items: taskData.checklistItems ? JSON.stringify(taskData.checklistItems) : null,
+              status: 'pending',
+              // Subtask-specific fields
+              parent_task_id: task.id, // Link to parent task
+              task_level: 1, // First level subtask
+              task_order: i + 1, // Order within parent
+              completion_percentage: 0,
+            };
+
+            const { data: subtask, error: subtaskError } = await supabase
+              .from('tasks')
+              .insert(subtaskInsert)
+              .select()
+              .single();
+
+            if (subtaskError) {
+              console.error(`Failed to create subtask "${subtaskData.title}" for task ${task.id}:`, subtaskError);
+              // Continue creating other subtasks even if one fails
+            }
+          }
+        }
       }
+
+      const totalTasksMessage = taskData.subtasks && taskData.subtasks.length > 0
+        ? `${createdTasks.length} task(s) with ${taskData.subtasks.length} subtask(s) each created successfully`
+        : `${createdTasks.length} task(s) created successfully`;
 
       toast({
         title: "Success",
-        description: `${createdTasks.length} task(s) created successfully`,
+        description: totalTasksMessage,
       });
 
       return createdTasks;

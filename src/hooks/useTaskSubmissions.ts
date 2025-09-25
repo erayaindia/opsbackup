@@ -251,10 +251,100 @@ export function useTaskSubmissions() {
     }
   }, [profile, toast]);
 
+  const deleteTaskSubmission = useCallback(async (
+    submissionId: string,
+    filePath?: string | null
+  ): Promise<boolean> => {
+    if (!profile?.appUser?.id) {
+      toast({
+        title: "Error",
+        description: "User not authenticated",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    try {
+      setLoading(true);
+
+      console.log('Deleting submission:', submissionId, 'File path:', filePath);
+
+      // First, get the submission to verify it exists and user owns it
+      const { data: submission, error: fetchError } = await supabase
+        .from('task_submissions')
+        .select('*')
+        .eq('id', submissionId)
+        .eq('submitted_by', profile.appUser.id)
+        .single();
+
+      if (fetchError) {
+        console.error('Error fetching submission:', fetchError);
+        throw new Error('Failed to find submission or no permission to delete');
+      }
+
+      if (!submission) {
+        throw new Error('Submission not found or no permission to delete');
+      }
+
+      // Delete file from storage if it exists
+      if (filePath) {
+        console.log('Deleting file from storage:', filePath);
+        const { error: storageError } = await supabase.storage
+          .from('task-evidence')
+          .remove([filePath]);
+
+        if (storageError) {
+          console.error('Error deleting file from storage:', storageError);
+          // Continue with database deletion even if storage fails
+        } else {
+          console.log('File deleted from storage successfully');
+        }
+      }
+
+      // Delete submission record
+      const { data: deletedData, error: deleteError } = await supabase
+        .from('task_submissions')
+        .delete()
+        .eq('id', submissionId)
+        .eq('submitted_by', profile.appUser.id)
+        .select(); // Return the deleted record
+
+      if (deleteError) {
+        console.error('Error deleting from database:', deleteError);
+        throw new Error(deleteError.message);
+      }
+
+      if (!deletedData || deletedData.length === 0) {
+        console.error('No records were deleted');
+        throw new Error('Failed to delete submission - no records affected');
+      }
+
+      console.log('Submission deleted successfully:', deletedData);
+
+      toast({
+        title: "Success",
+        description: "Evidence deleted successfully",
+      });
+
+      return true;
+    } catch (error) {
+      console.error('Error deleting task submission:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to delete evidence",
+        variant: "destructive",
+      });
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, [profile, toast]);
+
   return {
     loading,
     submitTaskEvidence,
     startTask,
     addTaskNote,
+    deleteTaskSubmission,
   };
 }
