@@ -11,9 +11,9 @@ interface User {
   employee_id: string
 }
 
-export function useUsers() {
+export function useUsers(enabled: boolean = true) {
   const [users, setUsers] = useState<User[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const fetchUsers = async () => {
@@ -63,8 +63,10 @@ export function useUsers() {
   }
 
   useEffect(() => {
-    fetchUsers()
-  }, [])
+    if (enabled) {
+      fetchUsers()
+    }
+  }, [enabled])
 
   return {
     users,

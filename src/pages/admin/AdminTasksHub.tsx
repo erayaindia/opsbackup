@@ -83,6 +83,7 @@ import {
   Star,
   GitBranch,
   Code,
+  RotateCcw,
 } from 'lucide-react';
 import { TaskCard } from '@/components/tasks/TaskCard';
 import { TaskDrawer } from '@/components/tasks/TaskDrawer';
@@ -138,15 +139,19 @@ export default function AdminTasksHub() {
 
   const { toast } = useToast();
   const { profile } = useUserProfile();
-  const { users } = useUsers();
-  const { createTask, createTaskFromTemplate, createDailyTasks, loading: creationLoading } = useTaskCreation();
-  const { bulkReview, loading: reviewLoading } = useTaskReviews();
-  const { submitTaskEvidence, deleteTaskSubmission, loading: submissionLoading } = useTaskSubmissions();
 
+  // Load tasks first (highest priority)
   const { tasks, loading, error, refetch, bulkAction, updateTask, deleteTask } = useTasks({
     ...filters,
     search: searchTerm,
   });
+
+  // Lazy load users only when needed (when dropdowns are opened)
+  const [usersEnabled, setUsersEnabled] = useState(false);
+  const { users } = useUsers(usersEnabled);
+  const { createTask, createTaskFromTemplate, createDailyTasks, loading: creationLoading } = useTaskCreation();
+  const { bulkReview, loading: reviewLoading } = useTaskReviews();
+  const { submitTaskEvidence, deleteTaskSubmission, loading: submissionLoading } = useTaskSubmissions();
 
 
 
@@ -667,9 +672,7 @@ export default function AdminTasksHub() {
           groupKey = priorityLabels[task.priority as keyof typeof priorityLabels] || 'Unknown Priority';
           break;
         case 'assignee':
-          groupKey = task.assigned_user?.full_name
-            ? `${task.assigned_user.full_name} (${task.assigned_user.employee_id || task.assigned_user.id})`
-            : 'Unassigned';
+          groupKey = task.assigned_user?.full_name || 'Unassigned';
           break;
         case 'status':
           const statusLabels = {
@@ -824,7 +827,12 @@ export default function AdminTasksHub() {
           <TableCell className="border-r border-border/50 py-2" onClick={(e) => e.stopPropagation()}>
             <Popover
               open={assigneePopovers[task.id] || false}
-              onOpenChange={(open) => setAssigneePopovers(prev => ({ ...prev, [task.id]: open }))}
+              onOpenChange={(open) => {
+                setAssigneePopovers(prev => ({ ...prev, [task.id]: open }));
+                if (open && !usersEnabled) {
+                  setUsersEnabled(true);
+                }
+              }}
             >
               <PopoverTrigger asChild>
                 <Button
@@ -833,10 +841,7 @@ export default function AdminTasksHub() {
                 >
                   <div className="flex items-center min-w-0">
                     <span className="text-sm truncate">
-                      {task.assigned_user?.full_name
-                        ? `${task.assigned_user.full_name} (${task.assigned_user.employee_id || task.assigned_user.id})`
-                        : 'Unassigned'
-                      }
+                      {task.assigned_user?.full_name || 'Unassigned'}
                     </span>
                   </div>
                 </Button>
@@ -857,7 +862,7 @@ export default function AdminTasksHub() {
                       >
                         <div className="flex items-center flex-1">
                           <div>
-                            <div className="font-medium">{user.full_name} ({user.employee_id || user.id})</div>
+                            <div className="font-medium">{user.full_name}</div>
                             <div className="text-xs text-muted-foreground">{user.role} • {user.department}</div>
                           </div>
                         </div>
@@ -1547,7 +1552,13 @@ export default function AdminTasksHub() {
                       Assignee
                       {getSortIcon('assignee')}
                     </Button>
-                    <DropdownMenu>
+                    <DropdownMenu
+                      onOpenChange={(open) => {
+                        if (open && !usersEnabled) {
+                          setUsersEnabled(true);
+                        }
+                      }}
+                    >
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
                           <ChevronDown className="h-3 w-3" />
@@ -1785,12 +1796,42 @@ export default function AdminTasksHub() {
   );
 
 
+  // Show loading state for faster perceived performance
+  if (loading && tasks.length === 0) {
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <h1 className="text-2xl font-bold">Task Management</h1>
+          <div className="flex items-center gap-2">
+            <div className="h-9 w-24 bg-muted animate-pulse rounded"></div>
+            <div className="h-9 w-32 bg-muted animate-pulse rounded"></div>
+          </div>
+        </div>
+        <div className="space-y-4">
+          {[...Array(10)].map((_, i) => (
+            <div key={i} className="h-16 bg-muted animate-pulse rounded"></div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <h1 className="text-2xl font-bold">Task Management</h1>
         <div className="flex items-center gap-2">
+          {/* Refresh Button */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => refetch()}
+            disabled={loading}
+            title="Refresh tasks"
+          >
+            <RotateCcw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          </Button>
 
           {/* Actions */}
           <Button onClick={() => setCreateTaskOpen(true)}>
@@ -1865,7 +1906,15 @@ export default function AdminTasksHub() {
                   <SelectItem value="approved">Approved</SelectItem>
                 </SelectContent>
               </Select>
-              <Dialog open={advancedFiltersOpen} onOpenChange={setAdvancedFiltersOpen}>
+              <Dialog
+                open={advancedFiltersOpen}
+                onOpenChange={(open) => {
+                  setAdvancedFiltersOpen(open);
+                  if (open && !usersEnabled) {
+                    setUsersEnabled(true);
+                  }
+                }}
+              >
                 <DialogTrigger asChild>
                   <Button variant="outline" className="relative">
                     <Filter className="h-4 w-4 mr-2" />
@@ -1987,7 +2036,7 @@ export default function AdminTasksHub() {
                               htmlFor={`assignee-${user.id}`}
                               className="text-sm cursor-pointer"
                             >
-                              {user.full_name} ({user.employee_id || user.id})
+                              {user.full_name}
                             </Label>
                           </div>
                         ))}

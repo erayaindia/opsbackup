@@ -100,6 +100,7 @@ import Integrations from "./pages/management/Integrations";
 import AnalyticsInsights from "./pages/management/AnalyticsInsights";
 
 // Admin pages
+import Admin from "./pages/admin/Admin";
 import OnboardingApplications from "./pages/admin/OnboardingApplications";
 
 // Profile page
@@ -488,6 +489,11 @@ const App = () => (
                 } />
                 
                 {/* Admin routes */}
+                <Route path="admin" element={
+                  <PermissionGuard requiredModule="management" requiredRole={["admin", "super_admin"]}>
+                    <Admin />
+                  </PermissionGuard>
+                } />
                 <Route path="admin/onboarding" element={
                   <PermissionGuard requiredModule="management" requiredRole={["admin", "super_admin"]}>
                     <OnboardingApplications />

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { renderDescription } from '@/lib/textUtils';
 import {
   Sheet,
   SheetContent,
@@ -117,9 +118,9 @@ export function TaskDrawer({
       {task.description && (
         <div>
           <h3 className="text-sm font-medium mb-2">Description</h3>
-          <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-            {task.description}
-          </p>
+          <div className="text-sm text-muted-foreground whitespace-pre-wrap">
+            {renderDescription(task.description)}
+          </div>
         </div>
       )}
 

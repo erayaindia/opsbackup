@@ -1,4 +1,5 @@
 import React from 'react';
+import { renderDescription } from '@/lib/textUtils';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -203,9 +204,9 @@ export function TaskCard({
         </div>
 
         {!compact && task.description && (
-          <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
-            {task.description}
-          </p>
+          <div className="text-sm text-muted-foreground line-clamp-2 mb-2">
+            {renderDescription(task.description)}
+          </div>
         )}
 
         <div className="flex items-center justify-between text-xs text-muted-foreground">

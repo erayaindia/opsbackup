@@ -124,6 +124,7 @@ export interface TaskFilters {
   department?: string | 'all';
   isLate?: boolean;
   needsReview?: boolean;
+  includeSubtasks?: boolean;
 }
 
 export interface TaskSort {

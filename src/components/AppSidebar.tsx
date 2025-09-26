@@ -137,7 +137,7 @@ const customerSupportItems = [
 const teamHubItems = [
   { title: "Attendance", url: "/attendance", icon: CalendarIcon },
   { title: "My Tasks", url: "/me/tasks", icon: CheckSquareIcon },
-  { title: "Team Chat", url: "/team-hub/chat", icon: MessageSquareIcon },
+  { title: "Chat", url: "/chat", icon: MessageSquareIcon },
   { title: "Holidays", url: "/team-hub/holidays", icon: Calendar },
 ];
 
@@ -168,16 +168,18 @@ const accountsItems = [
 ];
 
 // Admin Section
-const managementAdminItems = [
-  { title: "Users", url: "/users", icon: UserCog },
-  { title: "Employee Onboarding Form", url: "/onboard", icon: UserPlus },
-  { title: "Onboarding Applications", url: "/admin/onboarding", icon: UserPlus },
-  { title: "Task Management", url: "/admin/tasks", icon: CheckSquare },
-  { title: "People & Roles", url: "/management/people-roles", icon: UserCheck },
-  { title: "System Settings", url: "/management/system-settings", icon: Settings },
-  { title: "Integrations", url: "/management/integrations", icon: Link },
-  { title: "Analytics & Insights", url: "/management/analytics-insights", icon: PieChartIcon },
-];
+// Admin submenu removed - all these options are now available in /admin page
+// const managementAdminItems = [
+//   { title: "Users", url: "/users", icon: UserCog },
+//   { title: "Employee Onboarding Form", url: "/onboard", icon: UserPlus },
+//   { title: "Onboarding Applications", url: "/admin/onboarding", icon: UserPlus },
+//   { title: "Task Management", url: "/admin/tasks", icon: CheckSquare },
+//   { title: "People & Roles", url: "/management/people-roles", icon: UserCheck },
+//   { title: "System Settings", url: "/management/system-settings", icon: Settings },
+//   { title: "Integrations", url: "/management/integrations", icon: Link },
+//   { title: "Analytics & Insights", url: "/management/analytics-insights", icon: PieChartIcon },
+// ];
+const managementAdminItems = [];
 
 
 // Content Section
@@ -219,7 +221,7 @@ export function AppSidebar() {
   const currentPath = location.pathname;
   const isCollapsed = state === "collapsed";
   const isMobile = useIsMobile();
-  const { canAccessModule, isLoading: permissionsLoading, getUserInfo } = useModuleAccess();
+  const { canAccessModule, isLoading: permissionsLoading, getUserInfo, currentUser } = useModuleAccess();
   const permissionsContext = usePermissionsContext();
   
   // Collapsible group states
@@ -231,7 +233,7 @@ export function AppSidebar() {
   const [marketingGrowthOpen, setMarketingGrowthOpen] = useState(currentPath.startsWith('/marketing'));
   const [productManagementOpen, setProductManagementOpen] = useState(currentPath.startsWith('/products'));
   const [accountsOpen, setAccountsOpen] = useState(currentPath.startsWith('/account'));
-  const [managementAdminOpen, setManagementAdminOpen] = useState(currentPath.startsWith('/management') || currentPath === '/users' || currentPath.startsWith('/admin'));
+  // Removed managementAdminOpen state since Admin is now a direct link
   const [contentOpen, setContentOpen] = useState(currentPath.startsWith('/content'));
   const [trainingOpen, setTrainingOpen] = useState(currentPath.startsWith('/training'));
   const [analyticsOpen, setAnalyticsOpen] = useState(currentPath.startsWith('/analytics'));
@@ -245,7 +247,8 @@ export function AppSidebar() {
 
   // Memoized menu sections for search
   const menuSections = useMemo((): { [key: string]: MenuSection } => ({
-    operations: { title: "Dashboard", items: operationsItems },
+    dashboard: { title: "Dashboard", items: [{ title: "Dashboard", url: "/", icon: Home }] },
+    operations: { title: "Operations", items: operationsItems },
     orders: { title: "Orders", items: ordersItems },
     fulfillment: {
       title: "Fulfillment",
@@ -263,7 +266,7 @@ export function AppSidebar() {
     accounts: { title: "Accounts", items: accountsItems },
     training: { title: "Training", items: trainingItems },
     analytics: { title: "Analytics", items: analyticsItems },
-    admin: { title: "Admin", items: managementAdminItems },
+    // Removed admin section from search since it's now a direct link
     alerts: { title: "Alerts", items: alertsItems },
   }), []);
 
@@ -350,13 +353,107 @@ export function AppSidebar() {
   const isMarketingGrowthActive = currentPath.startsWith('/marketing');
   const isProductManagementActive = currentPath.startsWith('/products');
   const isAccountsActive = currentPath.startsWith('/account');
-  const isManagementAdminActive = currentPath.startsWith('/management') || currentPath === '/users' || currentPath.startsWith('/admin');
+  // Removed isManagementAdminActive since Admin is now a direct link
   const isContentActive = currentPath.startsWith('/content');
   const isTrainingActive = currentPath.startsWith('/training');
   const isAnalyticsActive = currentPath.startsWith('/analytics');
   const isAlertsActive = currentPath.startsWith('/alerts');
 
   const shouldShowLabels = !isCollapsed || (isCollapsed && hoverExpanded && !isMobile);
+
+  // Check if user has admin or super_admin role
+  const hasAdminAccess = (): boolean => {
+    if (!currentUser) return false;
+    return ['admin', 'super_admin'].includes(currentUser.role);
+  };
+
+  // Special render function for Admin menu with role-based access
+  const renderAdminMenuSection = () => {
+    if (isLoading || permissionsLoading) {
+      return <SkeletonMenu count={1} showLabels={shouldShowLabels} />;
+    }
+
+    const hasModuleAccess = canAccessModule('management');
+    const hasRoleAccess = hasAdminAccess();
+    const hasFullAccess = hasModuleAccess && hasRoleAccess;
+    const active = isActive('/admin');
+
+    const adminItem = { title: "Admin", url: "/admin", icon: Settings };
+
+    const menuButton = (
+      <SidebarMenuItem style={{ animationDelay: '0ms' }}>
+        <RippleEffect className="rounded-none">
+          <SidebarMenuButton
+            asChild
+            className={`
+              h-9 rounded-none transition-all duration-400 ease-in-out group relative
+              hover:scale-105 active:scale-95 animate-spring-in
+              ${active
+                ? 'bg-sidebar-primary text-sidebar-primary-foreground shadow-sm shadow-sidebar-primary/20'
+                : hasFullAccess
+                  ? 'hover:bg-sidebar-accent/50 text-sidebar-foreground/80 hover:text-sidebar-foreground hover:shadow-sm'
+                  : 'hover:bg-sidebar-accent/30 text-sidebar-foreground/50 cursor-not-allowed'
+              }
+              ${isCollapsed && !hoverExpanded ? 'justify-center w-full' : ''}
+            `}
+          >
+            <NavLink
+              to={hasFullAccess ? adminItem.url : '#'}
+              end
+              className={`${isCollapsed && !hoverExpanded ? 'flex items-center justify-center w-full h-full' : 'flex items-center'}`}
+              onClick={hasFullAccess ? undefined : (e) => e.preventDefault()}
+            >
+              <adminItem.icon className={`h-4 w-4 transition-all duration-300 ease-in-out group-hover:scale-110 ${active ? 'text-sidebar-primary-foreground' : hasFullAccess ? '' : 'text-sidebar-foreground/40'} ${isCollapsed && !hoverExpanded ? '' : 'mr-2'}`} />
+              {shouldShowLabels && (
+                <span className={`${active ? 'font-medium' : ''} ${hasFullAccess ? '' : 'text-sidebar-foreground/50'} transition-all duration-500 ease-in-out whitespace-nowrap text-sm flex-1`}>
+                  {adminItem.title}
+                </span>
+              )}
+              {!hasFullAccess && shouldShowLabels && (
+                <Lock className="h-3 w-3 text-sidebar-foreground/40 ml-auto" />
+              )}
+              {active && shouldShowLabels && hasFullAccess && (
+                <div className="absolute right-2 w-1 h-1 bg-sidebar-primary-foreground rounded-full animate-bounce-in" />
+              )}
+            </NavLink>
+          </SidebarMenuButton>
+        </RippleEffect>
+      </SidebarMenuItem>
+    );
+
+    // Wrap with tooltip when collapsed and not hover-expanded
+    if (isCollapsed && !hoverExpanded && !isMobile) {
+      return (
+        <SidebarGroup className="px-2 pt-2 pb-1">
+          <SidebarGroupContent>
+            <SidebarMenu className="space-y-2">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  {menuButton}
+                </TooltipTrigger>
+                <TooltipContent side="right" className="ml-2">
+                  <div className="flex items-center gap-2">
+                    {adminItem.title}
+                    {!hasFullAccess && <Lock className="h-3 w-3" />}
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      );
+    }
+
+    return (
+      <SidebarGroup className="px-3 pt-2 pb-1">
+        <SidebarGroupContent>
+          <SidebarMenu className="space-y-0.5">
+            {menuButton}
+          </SidebarMenu>
+        </SidebarGroupContent>
+      </SidebarGroup>
+    );
+  };
 
   const renderMenuSection = (items: typeof operationsItems, label: string, requiredModule?: string) => {
     if (isLoading || permissionsLoading) {
@@ -663,21 +760,8 @@ export function AppSidebar() {
             {/* Regular Menu - Hidden when searching */}
             {!searchQuery.trim() && (
               <>
-                {/* 1. Dashboard */}
-                {renderMenuSection(operationsItems, "")}
-            
-            {/* 2. Orders - Collapsible */}
-            {renderCollapsibleSection(
-              "Orders",
-              ordersOpen,
-              setOrdersOpen,
-              isOrdersActive,
-              Package,
-              "orders",
-              [
-                { title: "", items: ordersItems }
-              ]
-            )}
+                {/* Dashboard - Single Menu Item */}
+                {renderMenuSection([{ title: "Dashboard", url: "/", icon: Home }], "")}
             
             {/* 3. Fulfillment - Collapsible with sub-sections */}
             {renderCollapsibleSection(
@@ -1045,49 +1129,6 @@ export function AppSidebar() {
               </SidebarGroup>
             )}
             
-            {/* 11. Admin - Collapsible */}
-            {renderCollapsibleSection(
-              "Admin",
-              managementAdminOpen,
-              setManagementAdminOpen,
-              isManagementAdminActive,
-              Settings,
-              "management"
-            )}
-            {shouldShowLabels && managementAdminOpen && (
-              <SidebarGroup className="px-3 py-0 -mt-1">
-                <SidebarGroupContent>
-                  <SidebarMenu className="space-y-0.5 animate-fade-in">
-                    {managementAdminItems.map((item, index) => {
-                      const active = isActive(item.url);
-                      return (
-                        <SidebarMenuItem key={item.title} className="animate-stagger-in" style={{ animationDelay: `${index * 50}ms` }}>
-                          <RippleEffect className="rounded-none">
-                            <SidebarMenuButton 
-                              asChild 
-                              className={`
-                                h-8 rounded-none transition-all duration-400 ease-in-out ml-6 group
-                                hover:scale-105 active:scale-95
-                                ${active 
-                                  ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium shadow-sm' 
-                                  : 'hover:bg-sidebar-accent/50 text-sidebar-foreground/70 hover:text-sidebar-foreground hover:shadow-sm'
-                                }
-                              `}
-                            >
-                              <NavLink to={item.url} className="flex items-center">
-                                <item.icon className="h-4 w-4 mr-2 transition-transform duration-300 ease-in-out group-hover:scale-110 flex-shrink-0" />
-                                <span className="whitespace-nowrap text-sm">{item.title}</span>
-                              </NavLink>
-                            </SidebarMenuButton>
-                          </RippleEffect>
-                        </SidebarMenuItem>
-                      );
-                    })}
-                  </SidebarMenu>
-                </SidebarGroupContent>
-              </SidebarGroup>
-            )}
-            
             {/* 12. Alerts - Collapsible */}
             {renderCollapsibleSection(
               "Alerts",
@@ -1130,7 +1171,10 @@ export function AppSidebar() {
                 </SidebarGroupContent>
               </SidebarGroup>
             )}
-            
+
+            {/* Admin - Single Menu Item (after Alerts) with Role-based Lock */}
+            {renderAdminMenuSection()}
+
             {/* Separator */}
             {shouldShowLabels && (
               <div className="px-6 py-2">
@@ -1141,8 +1185,8 @@ export function AppSidebar() {
             {/* 13. Logs - Standalone */}
             {renderMenuSection([{ title: "Logs", url: "/logs", icon: ScrollText }], "", "management")}
 
-            {/* 14. Notion - Standalone */}
-            {renderMenuSection([{ title: "Notion", url: "/notion", icon: BookText }], "", "management")}
+            {/* 14. Notion - Standalone - HIDDEN */}
+            {/* {renderMenuSection([{ title: "Notion", url: "/notion", icon: BookText }], "", "management")} */}
               </>
             )}
           </div>

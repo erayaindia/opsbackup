@@ -1,12 +1,13 @@
 import { useState } from "react";
+import { renderDescription } from "@/lib/textUtils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { 
-  Calendar, 
-  MessageSquare, 
-  MoreHorizontal, 
+import {
+  Calendar,
+  MessageSquare,
+  MoreHorizontal,
   Plus,
   AlertCircle,
   Clock,
@@ -169,9 +170,9 @@ export function KanbanBoard() {
                       </DropdownMenu>
                     </div>
                     
-                    <p className="text-xs text-muted-foreground line-clamp-2">
-                      {task.description}
-                    </p>
+                    <div className="text-xs text-muted-foreground line-clamp-2">
+                      {renderDescription(task.description)}
+                    </div>
                     
                     <div className="flex items-center justify-between">
                       {getPriorityBadge(task.priority)}
