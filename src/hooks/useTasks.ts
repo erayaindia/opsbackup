@@ -68,8 +68,23 @@ export function useTasks(initialFilters: TaskFilters = {}): UseTasksReturn {
       query = query.eq('priority', filters.priority);
     }
 
-    if (filters.assignee && filters.assignee !== 'all') {
+    // Apply assignee filter - simplified and more explicit
+    console.log('🔍 DEBUG: filters.assignee =', filters.assignee);
+    console.log('🔍 DEBUG: typeof filters.assignee =', typeof filters.assignee);
+    console.log('🔍 DEBUG: Boolean(filters.assignee) =', Boolean(filters.assignee));
+
+    if (filters.assignee === 'NO_USER_LOADED_YET') {
+      console.log('🔍 🚫 User not loaded yet, returning no results');
+      query = query.eq('assigned_to', 'IMPOSSIBLE_USER_ID_NO_RESULTS');
+    } else if (filters.assignee && typeof filters.assignee === 'string' && filters.assignee.length > 0 && filters.assignee !== 'all') {
+      console.log('🔍 ✅ APPLYING assignee filter for user:', filters.assignee);
       query = query.eq('assigned_to', filters.assignee);
+    } else {
+      console.log('🔍 ❌ NOT APPLYING assignee filter. Reason:');
+      console.log('  - filters.assignee exists:', !!filters.assignee);
+      console.log('  - is string:', typeof filters.assignee === 'string');
+      console.log('  - has length:', filters.assignee?.length);
+      console.log('  - not "all":', filters.assignee !== 'all');
     }
 
     if (filters.reviewer && filters.reviewer !== 'all') {
@@ -129,8 +144,10 @@ export function useTasks(initialFilters: TaskFilters = {}): UseTasksReturn {
       // Execute the query with fallback
       let data, queryError;
 
+
       try {
         console.log('🔧 DEBUG useTasks: About to execute main query with subtasks');
+        console.log('🔧 DEBUG useTasks: Current filters being passed:', filters);
         const result = await buildQuery();
         data = result.data;
         queryError = result.error;
@@ -218,8 +235,17 @@ export function useTasks(initialFilters: TaskFilters = {}): UseTasksReturn {
         if (filters.priority && filters.priority !== 'all') {
           fallbackQueryWithFilters = fallbackQueryWithFilters.eq('priority', filters.priority);
         }
-        if (filters.assignee && filters.assignee !== 'all') {
+        // Apply assignee filter in fallback query - simplified
+        console.log('🔍 DEBUG FALLBACK: filters.assignee =', filters.assignee);
+
+        if (filters.assignee === 'NO_USER_LOADED_YET') {
+          console.log('🔍 🚫 User not loaded yet in FALLBACK, returning no results');
+          fallbackQueryWithFilters = fallbackQueryWithFilters.eq('assigned_to', 'IMPOSSIBLE_USER_ID_NO_RESULTS');
+        } else if (filters.assignee && typeof filters.assignee === 'string' && filters.assignee.length > 0 && filters.assignee !== 'all') {
+          console.log('🔍 ✅ APPLYING assignee filter in FALLBACK for user:', filters.assignee);
           fallbackQueryWithFilters = fallbackQueryWithFilters.eq('assigned_to', filters.assignee);
+        } else {
+          console.log('🔍 ❌ NOT APPLYING assignee filter in FALLBACK');
         }
         if (filters.reviewer && filters.reviewer !== 'all') {
           fallbackQueryWithFilters = fallbackQueryWithFilters.eq('reviewer_id', filters.reviewer);
