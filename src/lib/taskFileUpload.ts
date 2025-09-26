@@ -15,6 +15,31 @@ async function uploadTaskFile(file: File, taskId: string, folder: string): Promi
     const fileName = `${taskId}_${timestamp}.${fileExtension}`;
     const filePath = `${folder}/${fileName}`;
 
+    // Debug current user and task info
+    const { data: { user } } = await supabase.auth.getUser();
+    console.log('🔍 Upload Debug Info:');
+    console.log('  - Auth User ID:', user?.id);
+    console.log('  - Task ID:', taskId);
+    console.log('  - File Path:', filePath);
+    console.log('  - File Name:', fileName);
+
+    // Check if user has a matching app_users record
+    const { data: appUser } = await supabase
+      .from('app_users')
+      .select('id, role, auth_user_id')
+      .eq('auth_user_id', user?.id)
+      .single();
+    console.log('  - App User:', appUser);
+
+    // Check if task exists and is assigned to this user
+    const { data: task } = await supabase
+      .from('tasks')
+      .select('id, assigned_to, title')
+      .eq('id', taskId)
+      .single();
+    console.log('  - Task:', task);
+    console.log('  - User assigned to task:', task?.assigned_to === appUser?.id);
+
     // Upload file to Supabase Storage
     const { data, error } = await supabase.storage
       .from('task-evidence')

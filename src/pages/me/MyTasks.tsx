@@ -113,6 +113,7 @@ export default function MyTasks() {
   const [editTaskOpen, setEditTaskOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<TaskWithDetails | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [uploadingFiles, setUploadingFiles] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<TaskViewMode>('list');
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [assigneePopovers, setAssigneePopovers] = useState<Record<string, boolean>>({});
@@ -213,12 +214,46 @@ export default function MyTasks() {
   const loading = directLoading;
   const error = null;
 
-  // Dummy functions for missing hooks
-  const refetch = () => {
-    if (currentUserId) {
-      console.log('🔄 Direct refetch called');
-      // Re-trigger the useEffect above
+  // Refetch function that actually re-fetches tasks
+  const refetch = async () => {
+    if (!currentUserId) return;
+
+    console.log('🔄 Direct refetch called');
+    setDirectLoading(true);
+
+    try {
+      const { supabase } = await import('@/integrations/supabase/client');
+      console.log('🎯 REFETCH: Fetching tasks for user:', currentUserId);
+
+      const { data: directTaskData, error: directError } = await supabase
+        .from('tasks')
+        .select(`
+          id, title, description, task_type, status, priority, due_date, due_time,
+          assigned_to, assigned_by, reviewer_id, parent_task_id, task_level,
+          completion_percentage, created_at, updated_at,
+          assigned_user:app_users!tasks_assigned_to_fkey(id, full_name, role, department),
+          assigned_by_user:app_users!tasks_assigned_by_fkey(id, full_name),
+          reviewer:app_users!tasks_reviewer_id_fkey(id, full_name),
+          submissions:task_submissions(*),
+          reviews:task_reviews(*)
+        `)
+        .eq('assigned_to', currentUserId)
+        .order('due_date', { ascending: true });
+
+      console.log('🎯 REFETCH RESULT:', { directTaskData, directError, currentUserId });
+
+      if (!directError && directTaskData) {
+        setDirectTasks(directTaskData);
+        console.log('✅ Refetch successful, loaded', directTaskData.length, 'tasks');
+      } else {
+        console.error('🎯 REFETCH ERROR:', directError);
+        setDirectTasks([]);
+      }
+    } catch (err) {
+      console.error('🎯 REFETCH EXCEPTION:', err);
       setDirectTasks([]);
+    } finally {
+      setDirectLoading(false);
     }
   };
   const bulkAction = async () => ({ error: { message: 'Not implemented in direct mode' } });
@@ -266,6 +301,7 @@ export default function MyTasks() {
           description: `"${taskTitle}" has been marked as completed`,
         });
         // Refresh tasks to show updated status
+        await new Promise(resolve => setTimeout(resolve, 500));
         await refetch();
       } else {
         toast({
@@ -284,9 +320,16 @@ export default function MyTasks() {
     }
   };
 
-  const handleEvidenceUpload = async (task: TaskWithDetails, evidenceData: { type: string; file?: File; url?: string }) => {
+  const handleEvidenceUpload = async (task: TaskWithDetails, evidenceData: { type: string; evidenceType?: string; file?: File; url?: string }) => {
+    const fileKey = evidenceData.file ? `${task.id}-${evidenceData.file.name}` : `${task.id}-${Date.now()}`;
+
     try {
-      const success = await submitTaskEvidence(task.id, evidenceData);
+      // Add to uploading set
+      setUploadingFiles(prev => new Set(prev).add(fileKey));
+
+      console.log('🔄 Starting evidence upload:', { taskId: task.id, evidenceData: { ...evidenceData, file: evidenceData.file?.name } });
+
+      const success = await submitTaskEvidence(task, evidenceData);
 
       if (success) {
         toast({
@@ -294,20 +337,31 @@ export default function MyTasks() {
           description: "Task evidence has been uploaded successfully",
         });
         // Refresh tasks to show updated evidence
+        console.log('🔄 Refreshing tasks after upload...');
+
+        // Small delay to ensure database consistency
+        await new Promise(resolve => setTimeout(resolve, 500));
+
         await refetch();
+        console.log('✅ Tasks refreshed successfully after evidence upload');
       } else {
-        toast({
-          title: "Upload failed",
-          description: "Failed to upload evidence",
-          variant: "destructive",
-        });
+        throw new Error("Upload returned false/null");
       }
     } catch (error) {
-      console.error('Error uploading evidence:', error);
+      console.error('❌ Error uploading evidence:', error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to upload evidence";
       toast({
         title: "Error",
-        description: "Failed to upload evidence",
+        description: errorMessage,
         variant: "destructive",
+      });
+      throw error; // Re-throw to allow file-level error handling
+    } finally {
+      // Remove from uploading set
+      setUploadingFiles(prev => {
+        const next = new Set(prev);
+        next.delete(fileKey);
+        return next;
       });
     }
   };
@@ -330,6 +384,7 @@ export default function MyTasks() {
       }
     } catch (error) {
       console.error('Error in handleEvidenceDelete:', error);
+      await new Promise(resolve => setTimeout(resolve, 500));
       await refetch();
     } finally {
       setDeletingSubmissionId(null);
@@ -741,15 +796,44 @@ export default function MyTasks() {
                               input.multiple = true;
                               input.accept = 'image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv';
                               input.onchange = async (e) => {
-                                const files = Array.from((e.target as HTMLInputElement).files || []);
-                                for (const file of files) {
-                                  let evidenceType = 'file';
-                                  if (file.type.startsWith('image/')) {
-                                    evidenceType = 'photo';
-                                  } else if (file.type.startsWith('video/')) {
-                                    evidenceType = 'file';
+                                try {
+                                  const files = Array.from((e.target as HTMLInputElement).files || []);
+                                  console.log('📁 Processing files:', files.length);
+
+                                  for (const file of files) {
+                                    try {
+                                      console.log('📄 Processing file:', file.name, file.type);
+                                      let evidenceType = 'file';
+                                      if (file.type.startsWith('image/')) {
+                                        evidenceType = 'photo';
+                                      } else if (file.type.startsWith('video/')) {
+                                        evidenceType = 'file';
+                                      }
+
+                                      await handleEvidenceUpload(task, { type: 'evidence', evidenceType: evidenceType as any, file });
+                                      console.log('✅ File processed successfully:', file.name);
+                                    } catch (fileError) {
+                                      console.error('❌ Error processing file:', file.name, fileError);
+                                      toast({
+                                        title: "File Upload Error",
+                                        description: `Failed to upload ${file.name}: ${fileError instanceof Error ? fileError.message : 'Unknown error'}`,
+                                        variant: "destructive",
+                                      });
+                                      // Continue with next file instead of crashing
+                                    }
                                   }
-                                  await handleEvidenceUpload(task, { type: evidenceType, file });
+
+                                  // Clear the input to allow re-uploading same file
+                                  if (e.target) {
+                                    (e.target as HTMLInputElement).value = '';
+                                  }
+                                } catch (error) {
+                                  console.error('❌ Error in file selection handler:', error);
+                                  toast({
+                                    title: "Upload Error",
+                                    description: "Failed to process selected files",
+                                    variant: "destructive",
+                                  });
                                 }
                               };
                               input.click();
