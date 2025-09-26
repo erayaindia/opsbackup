@@ -47,11 +47,11 @@ const Admin = () => {
           .from('app_users')
           .select('*', { count: 'exact', head: true });
 
-        // Fetch active tasks count (not completed or cancelled)
+        // Fetch active tasks count (not approved or rejected)
         const { count: tasksCount } = await supabase
           .from('tasks')
           .select('*', { count: 'exact', head: true })
-          .not('status', 'in', '(completed,cancelled,deleted)');
+          .not('status', 'in', '(approved,rejected,done_auto_approved)');
 
         // Fetch pending onboarding applications (assuming there's an onboarding_applications table)
         // If this table doesn't exist, we'll set it to 0

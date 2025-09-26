@@ -274,7 +274,7 @@ export default function AdminTasksHub() {
 
   const handleStatusChange = async (taskId: string, newStatus: string) => {
     // Validate status value
-    const validStatuses = ['pending', 'in_progress', 'submitted_for_review', 'completed', 'cancelled'];
+    const validStatuses = ['pending', 'in_progress', 'submitted_for_review', 'approved', 'rejected', 'done_auto_approved'];
     if (!newStatus || !validStatuses.includes(newStatus)) {
       toast({
         title: 'Invalid status',

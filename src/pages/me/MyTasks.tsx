@@ -53,6 +53,7 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { Label } from '@/components/ui/label';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   Plus,
   Search,
@@ -117,6 +118,10 @@ export default function MyTasks() {
   const [viewMode, setViewMode] = useState<TaskViewMode>('list');
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [assigneePopovers, setAssigneePopovers] = useState<Record<string, boolean>>({});
+  const [optimisticTaskStatuses, setOptimisticTaskStatuses] = useState<Record<string, string>>({});
+  const [workingSessions, setWorkingSessions] = useState<Record<string, boolean>>({});
+  const [taskTimers, setTaskTimers] = useState<Record<string, number>>({});
+  const [timerStartTimes, setTimerStartTimes] = useState<Record<string, number>>({});
   const [selectedTasks, setSelectedTasks] = useState<Set<string>>(new Set());
   const [filters, setFilters] = useState<TaskFilters>({});
   const [sortField, setSortField] = useState<string>('due_date');
@@ -179,7 +184,7 @@ export default function MyTasks() {
             .select(`
               id, title, description, task_type, status, priority, due_date, due_time,
               assigned_to, assigned_by, reviewer_id, parent_task_id, task_level,
-              completion_percentage, created_at, updated_at,
+              completion_percentage, created_at, updated_at, work_duration_seconds,
               assigned_user:app_users!tasks_assigned_to_fkey(id, full_name, role, department),
               assigned_by_user:app_users!tasks_assigned_by_fkey(id, full_name),
               reviewer:app_users!tasks_reviewer_id_fkey(id, full_name),
@@ -193,6 +198,16 @@ export default function MyTasks() {
 
           if (!directError && directTaskData) {
             setDirectTasks(directTaskData);
+
+            // Initialize timers from database for in_progress tasks
+            directTaskData.forEach((task: any) => {
+              if (task.status === 'in_progress' && task.work_duration_seconds > 0) {
+                setTaskTimers(prev => ({
+                  ...prev,
+                  [task.id]: task.work_duration_seconds * 1000 // Convert seconds to milliseconds
+                }));
+              }
+            });
           } else {
             console.error('🎯 DIRECT QUERY ERROR:', directError);
             setDirectTasks([]);
@@ -230,7 +245,7 @@ export default function MyTasks() {
         .select(`
           id, title, description, task_type, status, priority, due_date, due_time,
           assigned_to, assigned_by, reviewer_id, parent_task_id, task_level,
-          completion_percentage, created_at, updated_at,
+          completion_percentage, created_at, updated_at, work_duration_seconds,
           assigned_user:app_users!tasks_assigned_to_fkey(id, full_name, role, department),
           assigned_by_user:app_users!tasks_assigned_by_fkey(id, full_name),
           reviewer:app_users!tasks_reviewer_id_fkey(id, full_name),
@@ -245,6 +260,16 @@ export default function MyTasks() {
       if (!directError && directTaskData) {
         setDirectTasks(directTaskData);
         console.log('✅ Refetch successful, loaded', directTaskData.length, 'tasks');
+
+        // Initialize timers from database for in_progress tasks
+        directTaskData.forEach((task: any) => {
+          if (task.status === 'in_progress' && task.work_duration_seconds > 0) {
+            setTaskTimers(prev => ({
+              ...prev,
+              [task.id]: task.work_duration_seconds * 1000 // Convert seconds to milliseconds
+            }));
+          }
+        });
       } else {
         console.error('🎯 REFETCH ERROR:', directError);
         setDirectTasks([]);
@@ -273,6 +298,37 @@ export default function MyTasks() {
     }
   }, [currentUserId, tasks.length]);
 
+  // Timer effect - update timers every second for active working sessions
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = Date.now();
+      setTaskTimers(prev => {
+        const updated = { ...prev };
+        Object.keys(workingSessions).forEach(taskId => {
+          if (workingSessions[taskId] && timerStartTimes[taskId]) {
+            // Add elapsed time since last update
+            const elapsed = now - timerStartTimes[taskId];
+            updated[taskId] = (updated[taskId] || 0) + elapsed;
+          }
+        });
+        return updated;
+      });
+
+      // Update start times to current time for next interval
+      setTimerStartTimes(prev => {
+        const updated = { ...prev };
+        Object.keys(workingSessions).forEach(taskId => {
+          if (workingSessions[taskId]) {
+            updated[taskId] = now;
+          }
+        });
+        return updated;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [workingSessions, timerStartTimes]);
+
   // Lazy load users only when needed (when dropdowns are opened)
   const [usersEnabled, setUsersEnabled] = useState(false);
   const { users } = useUsers(usersEnabled);
@@ -291,33 +347,192 @@ export default function MyTasks() {
     setSelectedTasks(newSelected);
   };
 
-  const handleMarkCompleted = async (taskId: string, taskTitle: string) => {
-    try {
-      const result = await updateTask(taskId, { status: 'completed' });
+  const handleStartTask = async (taskId: string, taskTitle: string) => {
+    const now = Date.now();
 
-      if (!result.error) {
+    // Start working session and timer immediately
+    setWorkingSessions(prev => ({ ...prev, [taskId]: true }));
+    setTimerStartTimes(prev => ({ ...prev, [taskId]: now }));
+
+    // Update database status to in_progress and set started_at timestamp
+    await handleStatusUpdate(taskId, taskTitle, 'in_progress');
+
+    // Update started_at in database
+    try {
+      const { supabase } = await import('@/integrations/supabase/client');
+      await supabase
+        .from('tasks')
+        .update({ started_at: new Date().toISOString() })
+        .eq('id', taskId);
+    } catch (error) {
+      console.error('Error updating started_at:', error);
+    }
+  };
+
+  const handlePauseTask = async (taskId: string, taskTitle: string) => {
+    // Pause working session (timer automatically stops in useEffect)
+    setWorkingSessions(prev => ({ ...prev, [taskId]: false }));
+
+    // Save current duration to database
+    const currentDuration = taskTimers[taskId] || 0;
+    const durationInSeconds = Math.floor(currentDuration / 1000);
+
+    try {
+      const { supabase } = await import('@/integrations/supabase/client');
+      await supabase
+        .from('tasks')
+        .update({ work_duration_seconds: durationInSeconds })
+        .eq('id', taskId);
+    } catch (error) {
+      console.error('Error saving task duration:', error);
+    }
+
+    toast({
+      title: "Task paused",
+      description: `"${taskTitle}" is paused. You can resume anytime.`,
+    });
+  };
+
+  const handleResumeTask = (taskId: string, taskTitle: string) => {
+    const now = Date.now();
+
+    // Resume working session and timer
+    setWorkingSessions(prev => ({ ...prev, [taskId]: true }));
+    setTimerStartTimes(prev => ({ ...prev, [taskId]: now }));
+
+    toast({
+      title: "Task resumed",
+      description: `"${taskTitle}" work resumed.`,
+    });
+  };
+
+  const handleDoneTask = async (taskId: string, taskTitle: string) => {
+    // End working session and stop timer
+    setWorkingSessions(prev => ({ ...prev, [taskId]: false }));
+    setTimerStartTimes(prev => {
+      const updated = { ...prev };
+      delete updated[taskId];
+      return updated;
+    });
+
+    // Save final duration to database
+    const finalDuration = taskTimers[taskId] || 0;
+    const durationInSeconds = Math.floor(finalDuration / 1000);
+
+    await handleStatusUpdate(taskId, taskTitle, 'submitted_for_review');
+
+    // Update submitted_at and final duration in database
+    try {
+      const { supabase } = await import('@/integrations/supabase/client');
+      await supabase
+        .from('tasks')
+        .update({
+          submitted_at: new Date().toISOString(),
+          work_duration_seconds: durationInSeconds
+        })
+        .eq('id', taskId);
+    } catch (error) {
+      console.error('Error updating submitted_at and duration:', error);
+    }
+  };
+
+  const handleStatusUpdate = async (taskId: string, taskTitle: string, newStatus: string) => {
+    // Immediately update UI optimistically
+    setOptimisticTaskStatuses(prev => ({ ...prev, [taskId]: newStatus }));
+
+    try {
+      const { supabase } = await import('@/integrations/supabase/client');
+      const { error } = await supabase
+        .from('tasks')
+        .update({ status: newStatus })
+        .eq('id', taskId);
+
+      if (!error) {
+        const statusMessages = {
+          'pending': 'Task reset to pending',
+          'in_progress': 'Task started',
+          'submitted_for_review': 'Task submitted for review',
+          'approved': 'Task approved',
+          'rejected': 'Task rejected',
+          'done_auto_approved': 'Task auto-approved'
+        };
+
         toast({
-          title: 'Task completed',
-          description: `"${taskTitle}" has been marked as completed`,
+          title: 'Status updated',
+          description: `"${taskTitle}": ${statusMessages[newStatus] || `Status changed to ${newStatus}`}`,
         });
         // Refresh tasks to show updated status
         await new Promise(resolve => setTimeout(resolve, 500));
         await refetch();
+        // Clear optimistic update after successful database update
+        setOptimisticTaskStatuses(prev => {
+          const updated = { ...prev };
+          delete updated[taskId];
+          return updated;
+        });
       } else {
+        // Revert optimistic update on error
+        setOptimisticTaskStatuses(prev => {
+          const updated = { ...prev };
+          delete updated[taskId];
+          return updated;
+        });
         toast({
           title: 'Error updating task',
-          description: result.error.message || 'Failed to mark task as completed',
+          description: error.message || 'Failed to update task status',
           variant: 'destructive'
         });
       }
     } catch (error) {
-      console.error('Error marking task as completed:', error);
+      // Revert optimistic update on error
+      setOptimisticTaskStatuses(prev => {
+        const updated = { ...prev };
+        delete updated[taskId];
+        return updated;
+      });
+      console.error('Error updating task status:', error);
       toast({
         title: 'Error updating task',
         description: 'An unexpected error occurred while updating the task',
         variant: 'destructive'
       });
     }
+  };
+
+  // Keep the old functions for backward compatibility with button clicks
+  const handleMarkCompleted = async (taskId: string, taskTitle: string) => {
+    await handleStatusUpdate(taskId, taskTitle, 'submitted_for_review');
+  };
+
+  // Format timer display
+  const formatTimer = (milliseconds: number): string => {
+    const totalSeconds = Math.floor(milliseconds / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+
+    if (hours > 0) {
+      return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    } else {
+      return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    }
+  };
+
+  // Format creation time with IST timezone
+  const formatCreationTime = (dateString: string): string => {
+    const date = new Date(dateString);
+    return date.toLocaleString('en-IN', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      timeZone: 'Asia/Kolkata',
+      timeZoneName: 'short'
+    });
+  };
+
+  // Get first word of full name
+  const getFirstName = (fullName: string): string => {
+    return fullName.split(' ')[0];
   };
 
   const handleEvidenceUpload = async (task: TaskWithDetails, evidenceData: { type: string; evidenceType?: string; file?: File; url?: string }) => {
@@ -584,10 +799,11 @@ export default function MyTasks() {
             <Badge
               variant="outline"
               className={`text-xs ${
-                task.status === 'completed' ? 'bg-green-50 text-green-700 border-green-200' :
+                task.status === 'approved' ? 'bg-green-50 text-green-700 border-green-200' :
                 task.status === 'in_progress' ? 'bg-blue-50 text-blue-700 border-blue-200' :
                 task.status === 'pending' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
-                task.status === 'approved' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                task.status === 'submitted_for_review' ? 'bg-orange-50 text-orange-700 border-orange-200' :
+                task.status === 'rejected' ? 'bg-red-50 text-red-700 border-red-200' :
                 'bg-gray-50 text-gray-700 border-gray-200'
               }`}
             >
@@ -595,6 +811,30 @@ export default function MyTasks() {
                task.status === 'submitted_for_review' ? 'Under Review' :
                task.status.charAt(0).toUpperCase() + task.status.slice(1)}
             </Badge>
+          </TableCell>
+
+          {/* Created Date */}
+          <TableCell className="border-r border-border/50 py-2 whitespace-nowrap">
+            <div className="text-sm">
+              {task.created_at ? (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center gap-1 text-muted-foreground cursor-help">
+                        <Calendar className="h-3 w-3" />
+                        <span>{new Date(task.created_at).toLocaleDateString()}</span>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="text-xs bg-popover border shadow-lg">
+                      <div className="font-medium">Created at:</div>
+                      <div className="text-muted-foreground">{formatCreationTime(task.created_at)}</div>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              ) : (
+                <span className="text-muted-foreground">No date</span>
+              )}
+            </div>
           </TableCell>
 
           {/* Due Date */}
@@ -621,27 +861,170 @@ export default function MyTasks() {
             </span>
           </TableCell>
 
-          {/* Actions - Limited for employee view */}
-          <TableCell className="w-32 py-2 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-            {/* Quick Complete Button */}
-            {!['completed', 'approved'].includes(task.status) && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 px-3 text-green-600 border-green-200 hover:text-green-700 hover:bg-green-50 hover:border-green-300"
-                onClick={() => handleMarkCompleted(task.id, task.title)}
-                title="Mark as completed"
-              >
-                Mark Complete
-              </Button>
-            )}
+          {/* Smart Actions - Start, Pause, Resume, Done */}
+          <TableCell className="w-40 py-2 whitespace-nowrap border-r border-border/50" onClick={(e) => e.stopPropagation()}>
+            {(() => {
+              // Use optimistic status if available, otherwise use actual task status
+              const currentStatus = optimisticTaskStatuses[task.id] || task.status;
+              const isWorking = workingSessions[task.id] || false;
+
+              // Start Task Button - Show for pending tasks
+              if (currentStatus === 'pending') {
+                return (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 px-3 bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100 hover:text-emerald-800 hover:border-emerald-300 transition-all duration-200 shadow-sm"
+                    onClick={() => handleStartTask(task.id, task.title)}
+                    title="Start working on this task"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
+                      <span className="text-xs font-medium">Start</span>
+                    </div>
+                  </Button>
+                );
+              }
+
+              // Smart buttons for in-progress tasks
+              if (currentStatus === 'in_progress') {
+                return (
+                  <div className="flex gap-1">
+                    {isWorking ? (
+                      // Currently working - show Pause and Done buttons
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 px-2 bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100 hover:text-amber-800 hover:border-amber-300 transition-all duration-200 shadow-sm"
+                          onClick={() => handlePauseTask(task.id, task.title)}
+                          title="Pause work on this task"
+                        >
+                          <div className="flex items-center gap-1">
+                            <div className="w-1.5 h-3 bg-amber-500 rounded-sm"></div>
+                            <div className="w-1.5 h-3 bg-amber-500 rounded-sm"></div>
+                            <span className="text-xs font-medium ml-1">Pause</span>
+                          </div>
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 px-2 bg-green-50 text-green-700 border-green-200 hover:bg-green-100 hover:text-green-800 hover:border-green-300 transition-all duration-200 shadow-sm"
+                          onClick={() => handleDoneTask(task.id, task.title)}
+                          title="Complete and submit for review"
+                        >
+                          <div className="flex items-center gap-1">
+                            <div className="w-2 h-2 bg-green-500 rounded-full flex items-center justify-center">
+                              <div className="w-1 h-1 bg-white rounded-full"></div>
+                            </div>
+                            <span className="text-xs font-medium">Done</span>
+                          </div>
+                        </Button>
+                      </>
+                    ) : (
+                      // Paused - show Resume and Done buttons
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 px-2 bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 hover:text-blue-800 hover:border-blue-300 transition-all duration-200 shadow-sm"
+                          onClick={() => handleResumeTask(task.id, task.title)}
+                          title="Resume work on this task"
+                        >
+                          <div className="flex items-center gap-1">
+                            <div className="w-2 h-2 border-l-2 border-l-blue-500 border-t-2 border-t-blue-500 border-b-2 border-b-blue-500 rounded-l-full"></div>
+                            <span className="text-xs font-medium">Resume</span>
+                          </div>
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 px-2 bg-green-50 text-green-700 border-green-200 hover:bg-green-100 hover:text-green-800 hover:border-green-300 transition-all duration-200 shadow-sm"
+                          onClick={() => handleDoneTask(task.id, task.title)}
+                          title="Complete and submit for review"
+                        >
+                          <div className="flex items-center gap-1">
+                            <div className="w-2 h-2 bg-green-500 rounded-full flex items-center justify-center">
+                              <div className="w-1 h-1 bg-white rounded-full"></div>
+                            </div>
+                            <span className="text-xs font-medium">Done</span>
+                          </div>
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                );
+              }
+
+              // No button for submitted/rejected tasks, but show "Done" for approved
+              if (currentStatus === 'submitted_for_review') {
+                return (
+                  <span className="text-xs text-muted-foreground">
+                    Under Review
+                  </span>
+                );
+              }
+
+              if (['approved', 'done_auto_approved'].includes(currentStatus)) {
+                return (
+                  <span className="text-xs font-medium text-green-600 bg-green-50 px-2 py-1 rounded-full border border-green-200">
+                    Done
+                  </span>
+                );
+              }
+
+              if (currentStatus === 'rejected') {
+                return (
+                  <span className="text-xs text-muted-foreground">
+                    Rejected
+                  </span>
+                );
+              }
+
+              // Fallback for other statuses
+              return null;
+            })()}
+          </TableCell>
+
+          {/* Timer Column */}
+          <TableCell className="w-24 py-2 whitespace-nowrap text-center">
+            {(() => {
+              const currentStatus = optimisticTaskStatuses[task.id] || task.status;
+              const isWorking = workingSessions[task.id] || false;
+              const currentTime = taskTimers[task.id] || 0;
+
+              // Show timer for in_progress tasks
+              if (currentStatus === 'in_progress') {
+                return (
+                  <div className={`text-sm font-mono text-center ${isWorking ? 'text-green-600' : 'text-orange-600'}`}>
+                    {formatTimer(currentTime)}
+                  </div>
+                );
+              }
+
+              // Show final time for completed/submitted tasks
+              if (['submitted_for_review', 'approved', 'rejected', 'done_auto_approved'].includes(currentStatus)) {
+                return (
+                  <div className="text-sm font-mono text-center text-gray-600">
+                    {currentTime > 0 ? formatTimer(currentTime) : '--'}
+                  </div>
+                );
+              }
+
+              // No timer for pending tasks
+              return (
+                <div className="text-xs text-muted-foreground">
+                  --
+                </div>
+              );
+            })()}
           </TableCell>
         </TableRow>
 
         {/* Expanded Details Row - EXACT copy from AdminTasksHub */}
         {isExpanded && (
           <TableRow className="bg-muted/20">
-            <TableCell colSpan={8} className="p-4">
+            <TableCell colSpan={10} className="p-4">
               {/* Card Background for Description and Details */}
               <div className="bg-white/50 dark:bg-gray-800/50 rounded-lg border border-border/30 shadow-sm p-4">
                 <div className="grid grid-cols-12 gap-6">
@@ -962,7 +1345,7 @@ export default function MyTasks() {
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <h1 className="text-2xl font-bold">
-            {profile?.appUser?.full_name ? `${profile.appUser.full_name} Tasks` : 'My Tasks'}
+            {profile?.appUser?.full_name ? `${getFirstName(profile.appUser.full_name)}'s Tasks` : 'My Tasks'}
           </h1>
           <div className="flex items-center gap-2">
             <div className="h-9 w-24 bg-muted animate-pulse rounded"></div>
@@ -983,7 +1366,7 @@ export default function MyTasks() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <h1 className="text-2xl font-bold">
-          {profile?.appUser?.full_name ? `${profile.appUser.full_name} Tasks` : 'My Tasks'}
+          {profile?.appUser?.full_name ? `${getFirstName(profile.appUser.full_name)}'s Tasks` : 'My Tasks'}
         </h1>
         <div className="flex items-center gap-2">
           {/* Refresh Button */}
@@ -1126,6 +1509,24 @@ export default function MyTasks() {
                   size="sm"
                   className="h-8 px-2 lg:px-3 font-medium"
                   onClick={() => {
+                    if (sortField === 'created_at') {
+                      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+                    } else {
+                      setSortField('created_at');
+                      setSortDirection('asc');
+                    }
+                  }}
+                >
+                  Created
+                  {getSortIcon('created_at')}
+                </Button>
+              </TableHead>
+              <TableHead className="w-28 border-r border-border/50 whitespace-nowrap">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 px-2 lg:px-3 font-medium"
+                  onClick={() => {
                     if (sortField === 'due_date') {
                       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
                     } else {
@@ -1139,7 +1540,8 @@ export default function MyTasks() {
                 </Button>
               </TableHead>
               <TableHead className="w-28 border-r border-border/50 whitespace-nowrap">Created By</TableHead>
-              <TableHead className="w-32 whitespace-nowrap">Actions</TableHead>
+              <TableHead className="w-40 border-r border-border/50 whitespace-nowrap">Actions</TableHead>
+              <TableHead className="w-24 whitespace-nowrap">Timer</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
