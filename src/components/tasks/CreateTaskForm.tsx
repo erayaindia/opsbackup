@@ -53,10 +53,12 @@ import {
   MoveDownIcon,
   Trash2Icon,
 } from 'lucide-react';
-import { useTaskCreation, CreateTaskData, SubtaskData } from '@/hooks/useTaskCreation';
+import { useTaskCreation } from '@/hooks/useTaskCreation';
 import { useTaskTemplates, useTasks } from '@/hooks/useTasks';
 import { useUsers } from '@/hooks/useUsers';
+import { useUserProfile } from '@/hooks/useUserProfile';
 import { useToast } from '@/components/ui/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import {
   CreateTaskData,
   CreateSubtaskData,
@@ -65,6 +67,7 @@ import {
   EvidenceTypeValue,
   ChecklistItem,
   TaskWithDetails,
+  TaskInsert,
 } from '@/types/tasks';
 
 interface CreateTaskFormProps {
@@ -165,6 +168,7 @@ export function CreateTaskForm({ open, onOpenChange, onTaskCreated, task, mode =
   const { templates, loading: templatesLoading } = useTaskTemplates();
   const { users, loading: usersLoading } = useUsers();
   const { updateTask } = useTasks();
+  const { profile } = useUserProfile();
 
   // Populate form data when editing a task
   useEffect(() => {
@@ -235,7 +239,7 @@ export function CreateTaskForm({ open, onOpenChange, onTaskCreated, task, mode =
     }
   }, [open]);
 
-  const handleInputChange = (field: keyof CreateTaskData, value: any) => {
+  const handleInputChange = (field: keyof CreateTaskData, value: unknown) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -330,6 +334,94 @@ export function CreateTaskForm({ open, onOpenChange, onTaskCreated, task, mode =
         const result = await updateTask(task.id, updateData);
 
         if (!result.error) {
+          // Handle subtasks for edit mode
+          if (formData.subtasks && formData.subtasks.length > 0) {
+            console.log('Processing subtasks in edit mode:', formData.subtasks.length);
+
+            // Filter valid subtasks (must have title)
+            const validSubtasks = formData.subtasks.filter(subtask =>
+              subtask.title && subtask.title.trim() !== ''
+            );
+
+            console.log('Valid subtasks to create:', validSubtasks.length);
+
+            // Get existing subtask IDs (if any) to identify new vs existing
+            const existingSubtaskIds = new Set(
+              (task.subtasks || []).map(st => st.id)
+            );
+
+            // Process each valid subtask
+            for (const subtaskData of validSubtasks) {
+              // Check if this is a new subtask (no ID or ID not in existing set)
+              const isNewSubtask = !subtaskData.id || !existingSubtaskIds.has(subtaskData.id);
+
+              if (isNewSubtask) {
+                console.log('Creating new subtask:', subtaskData.title);
+
+                // Create subtask directly using Supabase
+                try {
+                  if (!profile?.appUser?.id) {
+                    throw new Error('User profile not found');
+                  }
+
+                  const subtaskDescription = subtaskData.description
+                    ? (typeof subtaskData.description === 'string'
+                       ? subtaskData.description
+                       : JSON.stringify(subtaskData.description))
+                    : null;
+
+                  // Use the first assignee from formData, or fallback to current user
+                  const assignedToId = subtaskData.assignedTo ||
+                    (formData.assignedTo.length > 0 ? formData.assignedTo[0] : profile.appUser.id);
+
+                  const subtaskInsert: TaskInsert = {
+                    title: subtaskData.title,
+                    description: subtaskDescription,
+                    task_type: subtaskData.taskType || formData.taskType,
+                    priority: subtaskData.priority || formData.priority,
+                    evidence_required: subtaskData.evidenceRequired || formData.evidenceRequired,
+                    due_date: subtaskData.dueDate || formData.dueDate,
+                    due_time: subtaskData.dueTime || formData.dueTime || null,
+                    due_datetime: null,
+                    assigned_to: assignedToId,
+                    assigned_by: profile.appUser.id,
+                    reviewer_id: null,
+                    tags: subtaskData.tags || formData.tags || [],
+                    checklist_items: subtaskData.checklistItems ? JSON.stringify(subtaskData.checklistItems) : null,
+                    status: 'pending',
+                    parent_task_id: task.id, // Link to parent task
+                    task_level: 1, // First level subtask
+                    task_order: subtaskData.taskOrder || 0,
+                    completion_percentage: 0,
+                  };
+
+                  const { error: subtaskError } = await supabase
+                    .from('tasks')
+                    .insert(subtaskInsert);
+
+                  if (subtaskError) {
+                    throw subtaskError;
+                  }
+
+                  console.log('Successfully created subtask:', subtaskData.title);
+                  toast({
+                    title: "Subtask created",
+                    description: `Successfully created subtask "${subtaskData.title}"`,
+                  });
+                } catch (error: unknown) {
+                  console.error('Error creating subtask:', error);
+                  toast({
+                    title: "Error creating subtask",
+                    description: `Failed to create subtask "${subtaskData.title}": ${error instanceof Error ? error.message : 'Unknown error'}`,
+                    variant: "destructive",
+                  });
+                }
+              }
+              // Note: For existing subtasks, we would need additional logic to update them
+              // For now, we'll focus on creating new subtasks added in edit mode
+            }
+          }
+
           onTaskCreated?.();
           onOpenChange(false);
         }
@@ -352,16 +444,33 @@ export function CreateTaskForm({ open, onOpenChange, onTaskCreated, task, mode =
         // Filter out subtasks with empty titles before conversion
         const validSubtasks = formData.subtasks?.filter(subtask => subtask.title && subtask.title.trim() !== '') || [];
 
-        // Convert CreateSubtaskData to SubtaskData format
+        console.log('🔧 DEBUG CreateTaskForm: Original formData:', JSON.stringify(formData, null, 2));
+        console.log('🔧 DEBUG CreateTaskForm: Original subtasks:', formData.subtasks);
+        console.log('🔧 DEBUG CreateTaskForm: Valid subtasks after filtering:', validSubtasks);
+        console.log('🔧 DEBUG CreateTaskForm: Filter condition - subtasks with titles:', validSubtasks.map(s => s.title));
+
+        // Keep the subtasks as CreateSubtaskData format - no conversion needed
         const convertedFormData: CreateTaskData = {
           ...formData,
           subtasks: validSubtasks.map(subtask => ({
             title: subtask.title.trim(),
             description: subtask.description || '',
+            taskType: subtask.taskType || formData.taskType,
+            priority: subtask.priority || formData.priority,
+            evidenceRequired: subtask.evidenceRequired || formData.evidenceRequired,
+            dueDate: subtask.dueDate || '',
+            dueTime: subtask.dueTime || '',
             assignedTo: subtask.assignedTo,
-            dueDate: subtask.dueDate,
+            tags: subtask.tags || [],
+            checklistItems: subtask.checklistItems || [],
+            taskOrder: subtask.taskOrder,
           }))
         };
+
+        console.log('🔧 DEBUG CreateTaskForm: Converted form data with subtasks:', JSON.stringify(convertedFormData, null, 2));
+        console.log('🔧 DEBUG CreateTaskForm: About to call createTask with subtasks:', convertedFormData.subtasks);
+        console.log('🔧 DEBUG CreateTaskForm: Number of subtasks being sent:', convertedFormData.subtasks?.length || 0);
+
         const result = await createTask(convertedFormData);
 
         if (result.length > 0) {

@@ -47,8 +47,14 @@ export function useTasks(initialFilters: TaskFilters = {}): UseTasksReturn {
       reviews:task_reviews(*)
     `;
 
+    // Complete subtask query with all necessary fields
     const selectWithSubtasks = `${baseSelect},
-      subtasks:tasks!tasks_parent_task_id_fkey(id, title, status, completion_percentage, task_level, task_order, assigned_to)
+      subtasks:tasks!parent_task_id(
+        id, title, status, task_level, task_order, assigned_to, task_type, priority,
+        due_date, due_time, created_at, updated_at, completion_percentage, description,
+        assigned_user:app_users!tasks_assigned_to_fkey(id, full_name, role, department, employee_id),
+        assigned_by_user:app_users!tasks_assigned_by_fkey(id, full_name)
+      )
     `;
 
     // Use the full query including subtasks
@@ -102,6 +108,9 @@ export function useTasks(initialFilters: TaskFilters = {}): UseTasksReturn {
     // Exclude deleted tasks
     query = query.neq('status', 'deleted');
 
+    // Only fetch parent tasks (subtasks will be included via the relationship)
+    query = query.is('parent_task_id', null);
+
     // Apply sorting
     const orderColumn = sort.field === 'due_date' ? 'due_date' : sort.field;
     query = query.order(orderColumn, { ascending: sort.direction === 'asc' });
@@ -127,10 +136,13 @@ export function useTasks(initialFilters: TaskFilters = {}): UseTasksReturn {
       let data, queryError;
 
       try {
+        console.log('🔧 DEBUG useTasks: About to execute main query with subtasks');
         const result = await buildQuery();
         data = result.data;
         queryError = result.error;
-        console.log('Main query result:', { data: data?.length, error: queryError });
+        console.log('🔧 DEBUG useTasks: Main query result:', { dataLength: data?.length, error: queryError });
+        console.log('🔧 DEBUG useTasks: Raw data sample:', data?.[0]);
+      console.log('🔧 DEBUG useTasks: Raw subtasks in first task:', data?.[0]?.subtasks);
 
         // If query failed due to subtask relationship or any other error, try fallback
         if (queryError) {
@@ -138,7 +150,7 @@ export function useTasks(initialFilters: TaskFilters = {}): UseTasksReturn {
           throw new Error('Main query failed, using fallback');
         }
       } catch (err) {
-        console.log('Falling back to basic query without subtasks');
+        console.log('Falling back to basic query without subtasks - will fetch subtasks manually');
 
         const fallbackQuery = supabase
           .from('tasks')
@@ -191,6 +203,9 @@ export function useTasks(initialFilters: TaskFilters = {}): UseTasksReturn {
         // Exclude deleted tasks
         fallbackQueryWithFilters = fallbackQueryWithFilters.neq('status', 'deleted');
 
+        // Only fetch parent tasks (subtasks will be handled separately in fallback mode)
+        fallbackQueryWithFilters = fallbackQueryWithFilters.is('parent_task_id', null);
+
         // Apply sorting
         const orderColumn = sort.field === 'due_date' ? 'due_date' : sort.field;
         fallbackQueryWithFilters = fallbackQueryWithFilters.order(orderColumn, { ascending: sort.direction === 'asc' });
@@ -199,6 +214,47 @@ export function useTasks(initialFilters: TaskFilters = {}): UseTasksReturn {
         data = fallbackResult.data;
         queryError = fallbackResult.error;
         console.log('Fallback query result:', { data: data?.length, error: queryError });
+
+        // If fallback succeeded, also fetch subtasks manually
+        if (!queryError && data && data.length > 0) {
+          console.log('Fetching subtasks for fallback mode...');
+          const parentTaskIds = data.map(task => task.id);
+
+          const { data: subtasks, error: subtaskError } = await supabase
+            .from('tasks')
+            .select(`
+              id, title, status, completion_percentage, task_level, task_order, assigned_to, parent_task_id,
+              description, priority, task_type, due_date, due_time, created_at, updated_at,
+              assigned_user:app_users!tasks_assigned_to_fkey(id, full_name, role, department, employee_id),
+              assigned_by_user:app_users!tasks_assigned_by_fkey(id, full_name)
+            `)
+            .in('parent_task_id', parentTaskIds)
+            .order('task_order', { ascending: true });
+
+          if (!subtaskError && subtasks) {
+            console.log('Found subtasks:', subtasks.length);
+            // Group subtasks by parent_task_id
+            const subtasksByParent = subtasks.reduce((acc, subtask) => {
+              if (!acc[subtask.parent_task_id!]) {
+                acc[subtask.parent_task_id!] = [];
+              }
+              acc[subtask.parent_task_id!].push(subtask);
+              return acc;
+            }, {} as Record<string, any[]>);
+
+            console.log('Subtasks grouped by parent:', subtasksByParent);
+
+            // Add subtasks to their parent tasks
+            data = data.map(task => ({
+              ...task,
+              subtasks: subtasksByParent[task.id] || []
+            }));
+
+            console.log('Final data with subtasks:', data.map(t => ({ id: t.id, title: t.title, subtasks: t.subtasks?.length || 0 })));
+          } else if (subtaskError) {
+            console.error('Error fetching subtasks:', subtaskError);
+          }
+        }
       }
 
       if (queryError) {
@@ -219,6 +275,21 @@ export function useTasks(initialFilters: TaskFilters = {}): UseTasksReturn {
             )[0]
           : null,
       }));
+
+      console.log('🔧 DEBUG useTasks: Final processed tasks:', processedTasks);
+      console.log('🔧 DEBUG useTasks: Tasks with subtasks:', processedTasks.filter(t => t.subtasks && t.subtasks.length > 0));
+      console.log('🔧 DEBUG useTasks: All subtasks found:', processedTasks.flatMap(t => t.subtasks || []));
+
+      // Detailed logging for subtask structure
+      const tasksWithSubtasks = processedTasks.filter(t => t.subtasks && t.subtasks.length > 0);
+      if (tasksWithSubtasks.length > 0) {
+        console.log('🔧 DEBUG useTasks: First parent task with subtasks:', {
+          id: tasksWithSubtasks[0].id,
+          title: tasksWithSubtasks[0].title,
+          subtasksCount: tasksWithSubtasks[0].subtasks?.length,
+          subtasks: tasksWithSubtasks[0].subtasks
+        });
+      }
 
       setTasks(processedTasks);
     } catch (err) {

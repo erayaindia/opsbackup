@@ -313,7 +313,7 @@ export interface EditorContent {
 // Task creation interfaces
 export interface CreateTaskData {
   title: string;
-  description: EditorContent;
+  description: EditorContent | string;
   taskType: TaskTypeValue;
   priority: TaskPriorityValue;
   evidenceRequired: EvidenceTypeValue;

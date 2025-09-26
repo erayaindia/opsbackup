@@ -9,33 +9,13 @@ import {
   TaskTemplate,
   TaskWithDetails,
   CreateTaskFromTemplate,
+  CreateTaskData,
+  CreateSubtaskData,
   TaskTypeValue,
   TaskPriorityValue,
   EvidenceTypeValue,
+  ChecklistItem,
 } from '@/types/tasks';
-
-export interface SubtaskData {
-  title: string;
-  description?: string;
-  assignedTo?: string | null;
-  dueDate?: string;
-}
-
-export interface CreateTaskData {
-  title: string;
-  description?: EditorContent | string;
-  taskType: TaskTypeValue;
-  priority: TaskPriorityValue;
-  evidenceRequired: EvidenceTypeValue;
-  dueDate: string;
-  dueTime?: string;
-  dueDateTime?: string;
-  assignedTo: string[];
-  reviewerId?: string;
-  tags?: string[];
-  checklistItems?: Array<{ text: string; required: boolean }>;
-  subtasks?: SubtaskData[];
-}
 
 export function useTaskCreation() {
   const [loading, setLoading] = useState(false);
@@ -43,7 +23,12 @@ export function useTaskCreation() {
   const { profile } = useUserProfile();
 
   const createTask = useCallback(async (taskData: CreateTaskData): Promise<Task[]> => {
+    console.log('🔧 DEBUG useTaskCreation: createTask called with data:', JSON.stringify(taskData, null, 2));
+    console.log('🔧 DEBUG useTaskCreation: taskData.subtasks:', taskData.subtasks);
+    console.log('🔧 DEBUG useTaskCreation: subtasks length:', taskData.subtasks?.length);
+
     if (!profile?.appUser?.id) {
+      console.log('🔧 DEBUG useTaskCreation: No profile or appUser ID');
       toast({
         title: "Error",
         description: "User not authenticated",
@@ -67,12 +52,14 @@ export function useTaskCreation() {
 
     try {
       setLoading(true);
-
+      console.log('🔧 DEBUG useTaskCreation: Starting task creation process');
+      console.log('🔧 DEBUG useTaskCreation: Assigned to users:', taskData.assignedTo);
 
       const createdTasks: Task[] = [];
 
       // Create a task for each assigned user
       for (const userId of taskData.assignedTo) {
+        console.log('🔧 DEBUG useTaskCreation: Creating task for user:', userId);
         // Handle description - serialize rich content to JSON string
         const description = taskData.description
           ? (typeof taskData.description === 'string'
@@ -116,12 +103,18 @@ export function useTaskCreation() {
           throw new Error(errorMessage);
         }
 
+        console.log('🔧 DEBUG useTaskCreation: Main task created successfully:', task?.id);
         createdTasks.push(task);
 
         // Create subtasks if any
         if (taskData.subtasks && taskData.subtasks.length > 0) {
+          console.log('🔧 DEBUG: Creating subtasks:', taskData.subtasks.length, 'subtasks for task', task.id);
+          console.log('🔧 DEBUG: Full taskData.subtasks:', JSON.stringify(taskData.subtasks, null, 2));
+
           for (let i = 0; i < taskData.subtasks.length; i++) {
             const subtaskData = taskData.subtasks[i];
+            console.log(`🔧 DEBUG: Creating subtask ${i + 1}:`, subtaskData.title, 'for parent task:', task.id);
+            console.log('🔧 DEBUG: Full subtask data:', JSON.stringify(subtaskData, null, 2));
 
             // Handle subtask description
             const subtaskDescription = subtaskData.description || null;
@@ -129,24 +122,26 @@ export function useTaskCreation() {
             const subtaskInsert: TaskInsert = {
               title: subtaskData.title,
               description: subtaskDescription,
-              task_type: taskData.taskType, // Inherit from parent
-              priority: taskData.priority, // Inherit from parent
-              evidence_required: taskData.evidenceRequired, // Inherit from parent
+              task_type: subtaskData.taskType || taskData.taskType, // Use subtask type or inherit from parent
+              priority: subtaskData.priority || taskData.priority, // Use subtask priority or inherit from parent
+              evidence_required: subtaskData.evidenceRequired || taskData.evidenceRequired, // Use subtask evidence or inherit from parent
               due_date: subtaskData.dueDate || taskData.dueDate, // Use subtask date or parent date
-              due_time: taskData.dueTime || null,
-              due_datetime: taskData.dueDateTime || null,
+              due_time: subtaskData.dueTime || taskData.dueTime || null,
+              due_datetime: null,
               assigned_to: subtaskData.assignedTo || userId, // Use subtask assignee or parent assignee
               assigned_by: profile.appUser.id,
-              reviewer_id: taskData.reviewerId || null,
-              tags: taskData.tags || [],
-              checklist_items: taskData.checklistItems ? JSON.stringify(taskData.checklistItems) : null,
+              reviewer_id: null,
+              tags: subtaskData.tags || taskData.tags || [],
+              checklist_items: subtaskData.checklistItems ? JSON.stringify(subtaskData.checklistItems) : (taskData.checklistItems ? JSON.stringify(taskData.checklistItems) : null),
               status: 'pending',
               // Subtask-specific fields
               parent_task_id: task.id, // Link to parent task
               task_level: 1, // First level subtask
-              task_order: i + 1, // Order within parent
+              task_order: subtaskData.taskOrder, // Use subtask order
               completion_percentage: 0,
             };
+
+            console.log('🔧 DEBUG: About to insert subtask with data:', JSON.stringify(subtaskInsert, null, 2));
 
             const { data: subtask, error: subtaskError } = await supabase
               .from('tasks')
@@ -154,11 +149,24 @@ export function useTaskCreation() {
               .select()
               .single();
 
+            console.log('🔧 DEBUG: Subtask insert result:', { data: subtask, error: subtaskError });
+
             if (subtaskError) {
-              console.error(`Failed to create subtask "${subtaskData.title}" for task ${task.id}:`, subtaskError);
+              console.error(`❌ Failed to create subtask "${subtaskData.title}" for task ${task.id}:`, subtaskError);
+              console.error('❌ Full error details:', JSON.stringify(subtaskError, null, 2));
+
+              // Log additional debug info
+              console.error('❌ Subtask insert payload that failed:', JSON.stringify(subtaskInsert, null, 2));
+
               // Continue creating other subtasks even if one fails
+            } else {
+              console.log('✅ Successfully created subtask:', subtask?.id, 'for parent:', task.id);
+              console.log('✅ Subtask details:', JSON.stringify(subtask, null, 2));
             }
           }
+        } else {
+          console.log('🔧 DEBUG: No subtasks to create or subtasks array is empty');
+          console.log('🔧 DEBUG: taskData.subtasks:', taskData.subtasks);
         }
       }
 

@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { renderRichContent } from '@/lib/textUtils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Table,
@@ -95,6 +96,7 @@ import { useUserProfile } from '@/hooks/useUserProfile';
 import { useUsers } from '@/hooks/useUsers';
 import { useToast } from '@/components/ui/use-toast';
 import {
+  Task,
   TaskWithDetails,
   TaskFilters,
   TaskViewMode,
@@ -145,6 +147,7 @@ export default function AdminTasksHub() {
     ...filters,
     search: searchTerm,
   });
+
 
 
   const handleTaskSelect = (task: TaskWithDetails, selected: boolean) => {
@@ -229,41 +232,137 @@ export default function AdminTasksHub() {
   };
 
   const handlePriorityChange = async (taskId: string, newPriority: string) => {
-    const result = await updateTask(taskId, { priority: newPriority });
-
-    if (!result.error) {
+    // Validate priority value
+    if (!newPriority || !['low', 'medium', 'high'].includes(newPriority)) {
       toast({
-        title: 'Priority updated',
-        description: `Task priority changed to ${newPriority}`,
+        title: 'Invalid priority',
+        description: 'Priority must be low, medium, or high',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    try {
+      const result = await updateTask(taskId, { priority: newPriority });
+
+      if (!result.error) {
+        toast({
+          title: 'Priority updated',
+          description: `Task priority changed to ${newPriority}`,
+        });
+      } else {
+        toast({
+          title: 'Error updating priority',
+          description: result.error.message || 'Failed to update task priority',
+          variant: 'destructive'
+        });
+      }
+    } catch (error) {
+      console.error('Priority update error:', error);
+      toast({
+        title: 'Error updating priority',
+        description: 'An unexpected error occurred while updating priority',
+        variant: 'destructive'
       });
     }
   };
 
   const handleStatusChange = async (taskId: string, newStatus: string) => {
-    const result = await updateTask(taskId, { status: newStatus });
-
-    if (!result.error) {
+    // Validate status value
+    const validStatuses = ['pending', 'in_progress', 'submitted_for_review', 'completed', 'cancelled'];
+    if (!newStatus || !validStatuses.includes(newStatus)) {
       toast({
-        title: 'Status updated',
-        description: `Task status changed to ${newStatus.replace('_', ' ')}`,
+        title: 'Invalid status',
+        description: `Status must be one of: ${validStatuses.join(', ')}`,
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    try {
+      const result = await updateTask(taskId, { status: newStatus });
+
+      if (!result.error) {
+        toast({
+          title: 'Status updated',
+          description: `Task status changed to ${newStatus.replace('_', ' ')}`,
+        });
+      } else {
+        toast({
+          title: 'Error updating status',
+          description: result.error.message || 'Failed to update task status',
+          variant: 'destructive'
+        });
+      }
+    } catch (error) {
+      console.error('Status update error:', error);
+      toast({
+        title: 'Error updating status',
+        description: 'An unexpected error occurred while updating status',
+        variant: 'destructive'
       });
     }
   };
 
 
   const handleAssigneeChange = async (taskId: string, newAssigneeId: string) => {
-    const result = await updateTask(taskId, { assigned_to: newAssigneeId });
-
-    if (!result.error) {
-      const assignee = users.find(u => u.id === newAssigneeId);
+    // Validate assignee ID
+    if (!newAssigneeId) {
       toast({
-        title: 'Assignee updated',
-        description: `Task assigned to ${assignee?.full_name || 'selected user'}`,
+        title: 'Invalid assignee',
+        description: 'Please select a valid assignee',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    // Check if user exists in the users list
+    const assignee = users.find(u => u.id === newAssigneeId);
+    if (!assignee) {
+      toast({
+        title: 'Invalid assignee',
+        description: 'Selected user not found',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    try {
+      const result = await updateTask(taskId, { assigned_to: newAssigneeId });
+
+      if (!result.error) {
+        toast({
+          title: 'Assignee updated',
+          description: `Task assigned to ${assignee.full_name}`,
+        });
+      } else {
+        toast({
+          title: 'Error updating assignee',
+          description: result.error.message || 'Failed to update task assignee',
+          variant: 'destructive'
+        });
+      }
+    } catch (error) {
+      console.error('Assignee update error:', error);
+      toast({
+        title: 'Error updating assignee',
+        description: 'An unexpected error occurred while updating assignee',
+        variant: 'destructive'
       });
     }
   };
 
   const handleTaskTypeChange = async (taskId: string, newTaskType: string) => {
+    // Validate task_type value
+    if (!newTaskType || (newTaskType !== 'daily' && newTaskType !== 'one-off')) {
+      toast({
+        title: 'Invalid task type',
+        description: 'Task type must be either "daily" or "one-off"',
+        variant: 'destructive'
+      });
+      return;
+    }
+
     const result = await updateTask(taskId, { task_type: newTaskType });
 
     if (!result.error) {
@@ -271,134 +370,146 @@ export default function AdminTasksHub() {
         title: 'Task type updated',
         description: `Task type changed to ${newTaskType.replace('_', ' ')}`,
       });
-    }
-  };
-
-  const handleDueDateChange = async (taskId: string, newDate: Date | undefined) => {
-    if (!newDate) return;
-
-    // Format date as YYYY-MM-DD for database
-    const formattedDate = newDate.toISOString().split('T')[0];
-
-    const result = await updateTask(taskId, { due_date: formattedDate });
-
-    if (!result.error) {
+    } else {
       toast({
-        title: 'Due date updated',
-        description: `Task due date changed to ${formattedDate}`,
+        title: 'Error updating task type',
+        description: result.error.message || 'Failed to update task type',
+        variant: 'destructive'
       });
     }
   };
 
-  const renderRichContent = (content: any): JSX.Element => {
-    if (!content) return <span>No description provided</span>;
-
-    // If it's already a string that doesn't look like JSON, return it
-    if (typeof content === 'string' && !content.trim().startsWith('{')) {
-      return <span>{content}</span>;
+  const handleDueDateChange = async (taskId: string, newDate: Date | undefined) => {
+    if (!newDate) {
+      toast({
+        title: 'Invalid date',
+        description: 'Please select a valid date',
+        variant: 'destructive'
+      });
+      return;
     }
 
-    // If it's a stringified JSON, try to parse it
-    if (typeof content === 'string' && content.trim().startsWith('{')) {
-      try {
-        content = JSON.parse(content);
-      } catch (e) {
-        return <span>{content}</span>;
+    // Validate that the date is not in the past (optional - remove if past dates are allowed)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (newDate < today) {
+      const confirmPastDate = window.confirm(
+        'You are setting a due date in the past. Are you sure you want to continue?'
+      );
+      if (!confirmPastDate) return;
+    }
+
+    try {
+      // Format date as YYYY-MM-DD for database
+      const formattedDate = newDate.toISOString().split('T')[0];
+
+      const result = await updateTask(taskId, { due_date: formattedDate });
+
+      if (!result.error) {
+        toast({
+          title: 'Due date updated',
+          description: `Task due date changed to ${formattedDate}`,
+        });
+      } else {
+        toast({
+          title: 'Error updating due date',
+          description: result.error.message || 'Failed to update task due date',
+          variant: 'destructive'
+        });
       }
+    } catch (error) {
+      console.error('Due date update error:', error);
+      toast({
+        title: 'Error updating due date',
+        description: 'An unexpected error occurred while updating due date',
+        variant: 'destructive'
+      });
     }
+  };
 
-    // Function to recursively render nodes with formatting
-    const renderNode = (node: any, key: number = 0): JSX.Element => {
-      if (!node) return <span key={key}></span>;
+  // Enhanced delete function with better error handling for subtasks
+  const handleDeleteTask = async (taskId: string, taskTitle: string, hasSubtasks: boolean = false) => {
+    const confirmMessage = hasSubtasks
+      ? `Are you sure you want to delete "${taskTitle}" and all its subtasks? This action cannot be undone.`
+      : `Are you sure you want to delete "${taskTitle}"? This action cannot be undone.`;
 
-      // If it's a text node, render the text with any marks (formatting)
-      if (node.text) {
-        let textElement = <span key={key}>{node.text}</span>;
-
-        // Apply formatting marks if they exist
-        if (node.marks) {
-          node.marks.forEach((mark: any) => {
-            switch (mark.type) {
-              case 'bold':
-                textElement = <strong key={key}>{textElement}</strong>;
-                break;
-              case 'italic':
-                textElement = <em key={key}>{textElement}</em>;
-                break;
-              case 'underline':
-                textElement = <u key={key}>{textElement}</u>;
-                break;
-              // Add more formatting as needed
-            }
+    if (window.confirm(confirmMessage)) {
+      try {
+        const result = await deleteTask(taskId);
+        if (!result.error) {
+          toast({
+            title: "Task deleted",
+            description: hasSubtasks
+              ? "The task and all its subtasks have been successfully deleted."
+              : "The task has been successfully deleted.",
+          });
+        } else {
+          toast({
+            title: "Error deleting task",
+            description: result.error.message || "Failed to delete task. Please try again.",
+            variant: "destructive",
           });
         }
-        return textElement;
-      }
-
-      // Handle different node types
-      switch (node.type) {
-        case 'paragraph':
-          return (
-            <p key={key} className="mb-2 last:mb-0">
-              {Array.isArray(node.content) ? node.content.map((child: any, index: number) => renderNode(child, index)) : ''}
-            </p>
-          );
-
-        case 'heading':
-          const level = node.attrs?.level || 1;
-          const HeadingTag = `h${Math.min(level, 6)}` as keyof JSX.IntrinsicElements;
-          return (
-            <HeadingTag key={key} className="font-semibold mb-2">
-              {Array.isArray(node.content) ? node.content.map((child: any, index: number) => renderNode(child, index)) : ''}
-            </HeadingTag>
-          );
-
-        case 'bulletList':
-          return (
-            <ul key={key} className="list-disc ml-4 mb-2 space-y-1">
-              {Array.isArray(node.content) ? node.content.map((child: any, index: number) => renderNode(child, index)) : ''}
-            </ul>
-          );
-
-        case 'orderedList':
-          return (
-            <ol key={key} className="list-decimal ml-4 mb-2 space-y-1">
-              {Array.isArray(node.content) ? node.content.map((child: any, index: number) => renderNode(child, index)) : ''}
-            </ol>
-          );
-
-        case 'listItem':
-          return (
-            <li key={key}>
-              {Array.isArray(node.content) ? node.content.map((child: any, index: number) => renderNode(child, index)) : ''}
-            </li>
-          );
-
-        case 'hardBreak':
-          return <br key={key} />;
-
-        default:
-          // For unknown node types, try to render their content
-          if (Array.isArray(node.content)) {
-            return <span key={key}>{node.content.map((child: any, index: number) => renderNode(child, index))}</span>;
-          }
-          return <span key={key}></span>;
-      }
-    };
-
-    // Handle rich editor content structure
-    if (content && typeof content === 'object') {
-      if (content.type === 'doc' && Array.isArray(content.content)) {
-        return (
-          <div className="prose prose-sm max-w-none">
-            {content.content.map((node: any, index: number) => renderNode(node, index))}
-          </div>
-        );
+      } catch (error) {
+        console.error('Delete task error:', error);
+        toast({
+          title: "Error",
+          description: "An unexpected error occurred while deleting the task. Please try again.",
+          variant: "destructive",
+        });
       }
     }
-
-    return <span>No description provided</span>;
   };
+
+  // Bulk update function for multiple tasks
+  const handleBulkUpdate = async (taskIds: string[], updates: Partial<Task>, description: string) => {
+    if (taskIds.length === 0) {
+      toast({
+        title: 'No tasks selected',
+        description: 'Please select at least one task to update',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    try {
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const taskId of taskIds) {
+        const result = await updateTask(taskId, updates);
+        if (!result.error) {
+          successCount++;
+        } else {
+          errorCount++;
+          console.error(`Failed to update task ${taskId}:`, result.error);
+        }
+      }
+
+      if (successCount > 0) {
+        toast({
+          title: 'Bulk update completed',
+          description: `${successCount} task(s) ${description}${errorCount > 0 ? `. ${errorCount} failed.` : ''}`,
+        });
+      }
+
+      if (errorCount > 0 && successCount === 0) {
+        toast({
+          title: 'Bulk update failed',
+          description: `Failed to update ${errorCount} task(s)`,
+          variant: 'destructive'
+        });
+      }
+    } catch (error) {
+      console.error('Bulk update error:', error);
+      toast({
+        title: 'Error during bulk update',
+        description: 'An unexpected error occurred during bulk update',
+        variant: 'destructive'
+      });
+    }
+  };
+
 
   const handleSort = (field: string) => {
     if (sortField === field) {
@@ -479,30 +590,16 @@ export default function AdminTasksHub() {
   const buildTaskHierarchy = (tasks: TaskWithDetails[]): TaskWithDetails[] => {
     if (!tasks.length) return tasks;
 
-    // Check if subtask columns exist by looking for parent_task_id in the first task
-    const hasSubtaskSupport = tasks.some(task => task.parent_task_id !== undefined);
-
-    if (!hasSubtaskSupport) {
-      return tasks; // No subtask support, return as is
-    }
-
-    // Separate parent tasks and subtasks
-    const parentTasks = tasks.filter(task => !task.parent_task_id);
-    const subtaskMap = new Map<string, TaskWithDetails[]>();
-
-    // Group subtasks by their parent_task_id
-    tasks.filter(task => task.parent_task_id).forEach(subtask => {
-      if (!subtaskMap.has(subtask.parent_task_id!)) {
-        subtaskMap.set(subtask.parent_task_id!, []);
-      }
-      subtaskMap.get(subtask.parent_task_id!)!.push(subtask);
-    });
-
-    // Attach subtasks to their parents and sort them
-    return parentTasks.map(parentTask => ({
-      ...parentTask,
-      subtasks: (subtaskMap.get(parentTask.id) || []).sort((a, b) => (a.task_order || 0) - (b.task_order || 0))
-    }));
+    // Since subtasks are already attached by the database query, we just need to:
+    // 1. Return only parent tasks (subtasks will be displayed when parents are expanded)
+    // 2. Ensure subtasks are sorted correctly
+    return tasks
+      .filter(task => !task.parent_task_id) // Only parent tasks
+      .map(parentTask => ({
+        ...parentTask,
+        // Sort existing subtasks by task_order if they exist
+        subtasks: parentTask.subtasks?.sort((a, b) => (a.task_order || 0) - (b.task_order || 0)) || []
+      }));
   };
 
   // Sort tasks based on current sort settings and build hierarchy
@@ -638,9 +735,16 @@ export default function AdminTasksHub() {
 
   // Function to render task with subtasks
   const renderTaskWithSubtasks = (task: TaskWithDetails, depth: number = 0) => {
+    // Add null safety checks
+    if (!task || !task.id) {
+      console.error('renderTaskWithSubtasks: Invalid task data', task);
+      return null;
+    }
+
     const isExpanded = expandedRows.has(task.id);
     const hasSubtasks = task.subtasks && task.subtasks.length > 0;
     const indentClass = depth > 0 ? `pl-${depth * 6}` : '';
+
 
     return (
       <React.Fragment key={task.id}>
@@ -778,18 +882,14 @@ export default function AdminTasksHub() {
                 <SelectValue asChild>
                   <div className="flex items-center">
                     <Badge variant="outline" className="capitalize whitespace-nowrap">
-                      {task.task_type.replace('_', ' ')}
+                      {task.task_type ? task.task_type.replace(/[_-]/g, ' ') : 'Select Type'}
                     </Badge>
                   </div>
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="daily">Daily</SelectItem>
-                <SelectItem value="one_off">One Off</SelectItem>
-                <SelectItem value="recurring">Recurring</SelectItem>
-                <SelectItem value="project">Project</SelectItem>
-                <SelectItem value="maintenance">Maintenance</SelectItem>
-                <SelectItem value="urgent">Urgent</SelectItem>
+                <SelectItem value="one-off">One Off</SelectItem>
               </SelectContent>
             </Select>
           </TableCell>
@@ -867,7 +967,7 @@ export default function AdminTasksHub() {
           {/* Created By */}
           <TableCell className="border-r border-border/50 py-2">
             <span className="text-sm truncate">
-              {task.created_by_user?.full_name || 'Unknown'}
+              {task.assigned_by_user?.full_name || 'Unknown'}
             </span>
           </TableCell>
 
@@ -889,26 +989,7 @@ export default function AdminTasksHub() {
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   className="text-destructive"
-                  onClick={async () => {
-                    if (window.confirm('Are you sure you want to delete this task? This action cannot be undone.')) {
-                      try {
-                        const result = await deleteTask(task.id);
-                        if (!result.error) {
-                          toast({
-                            title: "Task deleted",
-                            description: "The task has been successfully deleted.",
-                          });
-                        }
-                      } catch (error) {
-                        console.error('Delete task error:', error);
-                        toast({
-                          title: "Error",
-                          description: "Failed to delete task. Please try again.",
-                          variant: "destructive",
-                        });
-                      }
-                    }
-                  }}
+                  onClick={() => handleDeleteTask(task.id, task.title, hasSubtasks)}
                 >
                   Delete Task
                 </DropdownMenuItem>
@@ -929,7 +1010,7 @@ export default function AdminTasksHub() {
                     {/* Description */}
                     <div>
                       <span className="text-sm font-medium text-foreground">Description:</span>
-                      <span className="text-sm text-muted-foreground ml-2">{renderRichContent(task.description)}</span>
+                      <span className="text-sm text-muted-foreground ml-2">{renderRichContent(task.description || 'No description provided')}</span>
                     </div>
 
                     {/* All details in one organized line - very small and subtle */}
@@ -969,7 +1050,7 @@ export default function AdminTasksHub() {
                       <div className="flex items-center gap-1">
                         <span className="font-normal text-muted-foreground/80">Created By:</span>
                         <span className="text-muted-foreground/70">
-                          {task.created_by_user?.full_name || 'Unknown'}
+                          {task.assigned_by_user?.full_name || 'Unknown'}
                         </span>
                       </div>
 
