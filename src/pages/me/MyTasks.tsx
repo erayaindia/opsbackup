@@ -131,6 +131,7 @@ export default function MyTasks() {
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [typeFilter, setTypeFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [dateFilter, setDateFilter] = useState<Date | undefined>(new Date()); // Default to today
   const [advancedFilters, setAdvancedFilters] = useState({
     dateRange: '',
     selectedStatuses: [] as string[],
@@ -619,57 +620,94 @@ export default function MyTasks() {
     if (!tasks.length) return tasks;
 
     return tasks.filter((task) => {
-      // Date range filter
-      if (advancedFilters.dateRange) {
-        if (advancedFilters.dateRange === 'overdue') {
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
-          const taskDate = new Date(task.due_date || '');
-          if (taskDate >= today) return false;
-        } else {
-          const [start, end] = advancedFilters.dateRange.split(' to ');
-          if (start && end) {
-            const taskDate = new Date(task.due_date || '');
-            if (taskDate < start || taskDate > end) return false;
-          } else {
-            if (task.due_date !== advancedFilters.dateRange) return false;
-          }
-        }
+      // Search filter
+      if (searchTerm.trim()) {
+        const searchLower = searchTerm.toLowerCase();
+        const titleMatch = task.title?.toLowerCase().includes(searchLower);
+        const descriptionMatch = task.description?.toLowerCase().includes(searchLower);
+        if (!titleMatch && !descriptionMatch) return false;
       }
 
-      // Status filter
-      if (advancedFilters.selectedStatuses.length > 0) {
-        if (!advancedFilters.selectedStatuses.includes(task.status)) return false;
+      // Basic Status filter
+      if (statusFilter !== 'all') {
+        if (task.status !== statusFilter) return false;
       }
 
-      // Priority filter
-      if (advancedFilters.selectedPriorities.length > 0) {
-        if (!advancedFilters.selectedPriorities.includes(task.priority)) return false;
+      // Basic Type filter
+      if (typeFilter !== 'all') {
+        if (task.task_type !== typeFilter) return false;
       }
 
-      // Type filter
-      if (advancedFilters.selectedTypes.length > 0) {
-        if (!advancedFilters.selectedTypes.includes(task.task_type)) return false;
+      // Date filter - compare created_at with selected date
+      if (dateFilter) {
+        const filterDate = new Date(dateFilter);
+        const taskDate = new Date(task.created_at);
+
+        // Compare dates ignoring time (same day)
+        const filterDateOnly = new Date(filterDate.getFullYear(), filterDate.getMonth(), filterDate.getDate());
+        const taskDateOnly = new Date(taskDate.getFullYear(), taskDate.getMonth(), taskDate.getDate());
+
+        if (taskDateOnly.getTime() !== filterDateOnly.getTime()) return false;
       }
 
-      // Assignee filter (less relevant for employee view but keep for consistency)
-      if (advancedFilters.selectedAssignees.length > 0) {
-        if (!task.assigned_to || !advancedFilters.selectedAssignees.includes(task.assigned_to)) return false;
-      }
-
-      // Overdue filter
-      if (advancedFilters.isOverdue) {
-        if (!task.due_date || new Date(task.due_date) >= new Date()) return false;
-      }
-
-      // No assignee filter (won't be relevant for My Tasks but keep for consistency)
-      if (advancedFilters.hasNoAssignee) {
-        if (task.assigned_to) return false;
-      }
+      // Advanced filters are disabled for My Tasks page
+      // Since tasks are already filtered by assigned_to in the database query,
+      // we only need basic filtering here
 
       return true;
     });
-  }, [tasks, advancedFilters]);
+  }, [tasks, searchTerm, statusFilter, typeFilter, dateFilter]);
+
+  // Group tasks by the selected groupBy option
+  const groupedTasks = useMemo(() => {
+    if (groupBy === 'none') {
+      return { 'All Tasks': filteredTasks };
+    }
+
+    const groups: Record<string, TaskWithDetails[]> = {};
+
+    filteredTasks.forEach(task => {
+      let groupKey = '';
+
+      if (groupBy === 'priority') {
+        groupKey = task.priority ? task.priority.charAt(0).toUpperCase() + task.priority.slice(1) : 'No Priority';
+      } else if (groupBy === 'status') {
+        if (task.status === 'in_progress') {
+          groupKey = 'In Progress';
+        } else if (task.status === 'submitted_for_review') {
+          groupKey = 'Under Review';
+        } else {
+          groupKey = task.status ? task.status.charAt(0).toUpperCase() + task.status.slice(1) : 'No Status';
+        }
+      } else if (groupBy === 'assignee') {
+        groupKey = task.assigned_user?.full_name || 'Unassigned';
+      }
+
+      if (!groups[groupKey]) {
+        groups[groupKey] = [];
+      }
+      groups[groupKey].push(task);
+    });
+
+    // Sort groups by priority order or alphabetically
+    const sortedGroups: Record<string, TaskWithDetails[]> = {};
+    const sortedKeys = Object.keys(groups).sort((a, b) => {
+      if (groupBy === 'priority') {
+        const priorityOrder = { 'High': 1, 'Medium': 2, 'Low': 3, 'No Priority': 4 };
+        return (priorityOrder[a as keyof typeof priorityOrder] || 999) - (priorityOrder[b as keyof typeof priorityOrder] || 999);
+      } else if (groupBy === 'status') {
+        const statusOrder = { 'Pending': 1, 'In Progress': 2, 'Under Review': 3, 'Approved': 4, 'Rejected': 5 };
+        return (statusOrder[a as keyof typeof statusOrder] || 999) - (statusOrder[b as keyof typeof statusOrder] || 999);
+      }
+      return a.localeCompare(b);
+    });
+
+    sortedKeys.forEach(key => {
+      sortedGroups[key] = groups[key];
+    });
+
+    return sortedGroups;
+  }, [filteredTasks, groupBy]);
 
   // Add toggleRowExpansion function
   const toggleRowExpansion = (taskId: string) => {
@@ -1424,8 +1462,28 @@ export default function MyTasks() {
                   <SelectItem value="in_progress">In Progress</SelectItem>
                   <SelectItem value="submitted_for_review">Submitted</SelectItem>
                   <SelectItem value="approved">Approved</SelectItem>
+                  <SelectItem value="rejected">Rejected</SelectItem>
                 </SelectContent>
               </Select>
+              <div className="flex items-center gap-1">
+                <DatePicker
+                  value={dateFilter}
+                  onChange={setDateFilter}
+                  placeholder="Filter by date"
+                  className="w-40 min-w-[10rem] text-sm"
+                />
+                {dateFilter && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setDateFilter(undefined)}
+                    className="h-9 w-9 p-0 text-muted-foreground hover:text-foreground"
+                    title="Clear date filter"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         </CardContent>
@@ -1547,7 +1605,7 @@ export default function MyTasks() {
           <TableBody>
             {filteredTasks.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-12">
+                <TableCell colSpan={10} className="text-center py-12">
                   <div className="flex flex-col items-center gap-4">
                     <Clock className="h-12 w-12 text-muted-foreground" />
                     <div className="text-center">
@@ -1563,9 +1621,24 @@ export default function MyTasks() {
                 </TableCell>
               </TableRow>
             ) : (
-              filteredTasks
-                .filter(task => !task.parent_task_id || !filteredTasks.some(t => t.id === task.parent_task_id))
-                .map((task) => renderTaskWithSubtasks(task))
+              Object.entries(groupedTasks).map(([groupName, groupTasks]) => (
+                <React.Fragment key={groupName}>
+                  {groupBy !== 'none' && (
+                    <TableRow className="bg-muted/50">
+                      <TableCell colSpan={10} className="py-3 px-4 font-semibold text-foreground border-b">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 bg-primary rounded-full"></div>
+                          {groupName} ({groupTasks.length})
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  {groupTasks
+                    .filter(task => !task.parent_task_id || !groupTasks.some(t => t.id === task.parent_task_id))
+                    .map((task) => renderTaskWithSubtasks(task))
+                  }
+                </React.Fragment>
+              ))
             )}
           </TableBody>
         </Table>
