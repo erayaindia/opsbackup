@@ -104,6 +104,7 @@ import { useUsers } from '@/hooks/useUsers';
 import { useToast } from '@/components/ui/use-toast';
 import { useUserAttendanceStatus } from '@/hooks/useUserAttendanceStatus';
 import { useDailyTaskRecurrence } from '@/hooks/useDailyTaskRecurrence';
+import { TaskComments } from '@/components/tasks/TaskComments';
 import {
   Task,
   TaskWithDetails,
@@ -131,6 +132,8 @@ export default function MyTasks() {
   const [timerStartTimes, setTimerStartTimes] = useState<Record<string, number>>({});
   const [selectedTasks, setSelectedTasks] = useState<Set<string>>(new Set());
   const [filters, setFilters] = useState<TaskFilters>({});
+  const [commentsDialogOpen, setCommentsDialogOpen] = useState(false);
+  const [selectedTaskForComments, setSelectedTaskForComments] = useState<TaskWithDetails | null>(null);
   const [sortField, setSortField] = useState<string>('task_id');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false);
@@ -1219,7 +1222,24 @@ export default function MyTasks() {
 
           {/* Actions */}
           <TableCell className="w-40 py-2 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-            {(() => {
+            <div className="flex items-center gap-2">
+              {/* Comments Button - Always visible */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setSelectedTaskForComments(task);
+                  setCommentsDialogOpen(true);
+                }}
+                className="h-8 w-8 p-0"
+                title="View/Add Comments"
+              >
+                <MessageSquare className="h-4 w-4" />
+              </Button>
+
+              {/* Task Status Actions */}
+              <div className="flex-1">
+                {(() => {
               // Use optimistic status if available, otherwise use actual task status
               const currentStatus = optimisticTaskStatuses[task.id] || task.status;
               const isWorking = workingSessions[task.id] || false;
@@ -1339,7 +1359,9 @@ export default function MyTasks() {
 
               // Fallback for other statuses
               return null;
-            })()}
+                })()}
+              </div>
+            </div>
           </TableCell>
 
         </TableRow>
@@ -2242,6 +2264,20 @@ export default function MyTasks() {
           }}
         />
       )}
+
+      {/* Task Comments Dialog */}
+      <Dialog open={commentsDialogOpen} onOpenChange={setCommentsDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              Task Comments: {selectedTaskForComments?.title}
+            </DialogTitle>
+          </DialogHeader>
+          {selectedTaskForComments && (
+            <TaskComments taskId={selectedTaskForComments.id} />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
