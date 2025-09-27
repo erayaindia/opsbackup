@@ -36,63 +36,25 @@ CREATE TRIGGER trigger_update_task_comments_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION update_task_comments_updated_at();
 
--- Row Level Security (RLS) policies
+-- Row Level Security (RLS) policies - Permissive for full CRUD
 ALTER TABLE task_comments ENABLE ROW LEVEL SECURITY;
 
--- Policy: Users can view comments on tasks they have access to
-CREATE POLICY "Users can view task comments on accessible tasks" ON task_comments
-    FOR SELECT USING (
-        EXISTS (
-            SELECT 1 FROM tasks t
-            WHERE t.id = task_comments.task_id
-            AND (
-                t.assigned_to = auth.uid()::text::uuid
-                OR t.assigned_by = auth.uid()::text::uuid
-                OR t.reviewer_id = auth.uid()::text::uuid
-                OR EXISTS (
-                    SELECT 1 FROM app_users au
-                    WHERE au.id = auth.uid()::text::uuid
-                    AND au.role IN ('admin', 'super_admin')
-                )
-            )
-        )
-    );
+-- Permissive policy: Allow all authenticated users to view all task comments
+CREATE POLICY "Allow authenticated users to view all task comments" ON task_comments
+    FOR SELECT USING (auth.role() = 'authenticated');
 
--- Policy: Users can create comments on tasks they have access to
-CREATE POLICY "Users can create comments on accessible tasks" ON task_comments
-    FOR INSERT WITH CHECK (
-        author_id = auth.uid()::text::uuid
-        AND EXISTS (
-            SELECT 1 FROM tasks t
-            WHERE t.id = task_comments.task_id
-            AND (
-                t.assigned_to = auth.uid()::text::uuid
-                OR t.assigned_by = auth.uid()::text::uuid
-                OR t.reviewer_id = auth.uid()::text::uuid
-                OR EXISTS (
-                    SELECT 1 FROM app_users au
-                    WHERE au.id = auth.uid()::text::uuid
-                    AND au.role IN ('admin', 'super_admin')
-                )
-            )
-        )
-    );
+-- Permissive policy: Allow authenticated users to create comments
+CREATE POLICY "Allow authenticated users to create task comments" ON task_comments
+    FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 
--- Policy: Users can update their own comments
-CREATE POLICY "Users can update their own task comments" ON task_comments
-    FOR UPDATE USING (author_id = auth.uid()::text::uuid)
-    WITH CHECK (author_id = auth.uid()::text::uuid);
+-- Permissive policy: Allow authenticated users to update all comments
+CREATE POLICY "Allow authenticated users to update all task comments" ON task_comments
+    FOR UPDATE USING (auth.role() = 'authenticated')
+    WITH CHECK (auth.role() = 'authenticated');
 
--- Policy: Users can delete their own comments, admins can delete any
-CREATE POLICY "Users can delete their own task comments" ON task_comments
-    FOR DELETE USING (
-        author_id = auth.uid()::text::uuid
-        OR EXISTS (
-            SELECT 1 FROM app_users au
-            WHERE au.id = auth.uid()::text::uuid
-            AND au.role IN ('admin', 'super_admin')
-        )
-    );
+-- Permissive policy: Allow authenticated users to delete all comments
+CREATE POLICY "Allow authenticated users to delete all task comments" ON task_comments
+    FOR DELETE USING (auth.role() = 'authenticated');
 
 -- Grant permissions
 GRANT ALL ON task_comments TO authenticated;
