@@ -164,8 +164,7 @@ export default function MyTasks() {
   const { profile, loading: profileLoading } = useUserProfile();
   const { isPresent, isLoading: attendanceLoading, attendanceRecord } = useUserAttendanceStatus();
 
-  // Initialize daily task recurrence
-  useDailyTaskRecurrence(refetch);
+  // Daily task recurrence will be initialized after refetch is defined
 
   // Load tasks assigned to current user only - including subtasks
   // Only make the query when we have a valid user ID
@@ -444,6 +443,9 @@ export default function MyTasks() {
   const bulkAction = async () => ({ error: { message: 'Not implemented in direct mode' } });
   const updateTask = async () => ({ error: { message: 'Not implemented in direct mode' } });
   const deleteTask = async () => ({ error: { message: 'Not implemented in direct mode' } });
+
+  // Initialize daily task recurrence now that refetch is defined
+  useDailyTaskRecurrence(refetch);
 
   // Original useTasks call (commented out)
   // const { tasks, loading, error, refetch, bulkAction, updateTask, deleteTask } = useTasks(taskFilters);
