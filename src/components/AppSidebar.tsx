@@ -136,7 +136,6 @@ const customerSupportItems = [
 // Team Section
 const teamHubItems = [
   { title: "Attendance", url: "/attendance", icon: CalendarIcon },
-  { title: "My Tasks", url: "/me/tasks", icon: CheckSquareIcon },
   { title: "Chat", url: "/chat", icon: MessageSquareIcon },
   { title: "Holidays", url: "/team-hub/holidays", icon: Calendar },
 ];
@@ -259,6 +258,7 @@ export function AppSidebar() {
       ]
     },
     support: { title: "Customer Support", items: customerSupportItems },
+    myTasks: { title: "My Tasks", items: [{ title: "My Tasks", url: "/me/tasks", icon: CheckSquareIcon }] },
     teamHub: { title: "Team", items: teamHubItems },
     content: { title: "Content", items: contentItems },
     marketing: { title: "Marketing & Growth", items: marketingGrowthItems },
@@ -827,7 +827,10 @@ export function AppSidebar() {
                 </SidebarGroupContent>
               </SidebarGroup>
             )}
-            
+
+            {/* My Tasks - Standalone */}
+            {renderMenuSection([{ title: "My Tasks", url: "/me/tasks", icon: CheckSquareIcon }], "")}
+
             {/* 4. Team - Collapsible */}
             {renderCollapsibleSection(
               "Team",
