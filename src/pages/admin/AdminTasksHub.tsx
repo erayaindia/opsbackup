@@ -2403,67 +2403,6 @@ export default function AdminTasksHub() {
 
       {/* Tasks Table */}
       {renderTasksList()}
-
-      {/* Task details drawer */}
-      <TaskDrawer
-        task={selectedTask}
-        open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
-        canEdit={true}
-      />
-
-      {/* Create task form */}
-      <CreateTaskForm
-        open={createTaskOpen}
-        onOpenChange={setCreateTaskOpen}
-        onTaskCreated={() => {
-          refetch(); // Refresh the tasks list
-          toast({
-            title: 'Task created successfully',
-            description: 'The new task has been created and assigned.',
-          });
-        }}
-      />
-
-      {/* Edit task form */}
-      <CreateTaskForm
-        open={editTaskOpen}
-        onOpenChange={(open) => {
-          setEditTaskOpen(open);
-          if (!open) {
-            setEditingTask(null);
-          }
-        }}
-        task={editingTask}
-        mode="edit"
-        onTaskCreated={() => {
-          refetch(); // Refresh the tasks list
-          setEditingTask(null);
-        }}
-      />
-
-      {/* Task Comments Dialog */}
-      <Dialog
-        open={commentsDialogOpen}
-        onOpenChange={(open) => {
-          setCommentsDialogOpen(open);
-          if (!open) {
-            // Refresh comment counts when dialog closes
-            refetchComments();
-          }
-        }}
-      >
-        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              Task Comments: {selectedTaskForComments?.title}
-            </DialogTitle>
-          </DialogHeader>
-          {selectedTaskForComments && (
-            <TaskComments taskId={selectedTaskForComments.id} />
-          )}
-        </DialogContent>
-      </Dialog>
         </TabsContent>
 
         <TabsContent value="completed" className="space-y-6">
@@ -2550,6 +2489,67 @@ export default function AdminTasksHub() {
           {renderTasksList()}
         </TabsContent>
       </Tabs>
+
+      {/* Task details drawer */}
+      <TaskDrawer
+        task={selectedTask}
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        canEdit={true}
+      />
+
+      {/* Create task form */}
+      <CreateTaskForm
+        open={createTaskOpen}
+        onOpenChange={setCreateTaskOpen}
+        onTaskCreated={() => {
+          refetch(); // Refresh the tasks list
+          toast({
+            title: 'Task created successfully',
+            description: 'The new task has been created and assigned.',
+          });
+        }}
+      />
+
+      {/* Edit task form */}
+      <CreateTaskForm
+        open={editTaskOpen}
+        onOpenChange={(open) => {
+          setEditTaskOpen(open);
+          if (!open) {
+            setEditingTask(null);
+          }
+        }}
+        task={editingTask}
+        mode="edit"
+        onTaskCreated={() => {
+          refetch(); // Refresh the tasks list
+          setEditingTask(null);
+        }}
+      />
+
+      {/* Task Comments Dialog */}
+      <Dialog
+        open={commentsDialogOpen}
+        onOpenChange={(open) => {
+          setCommentsDialogOpen(open);
+          if (!open) {
+            // Refresh comment counts when dialog closes
+            refetchComments();
+          }
+        }}
+      >
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              Task Comments: {selectedTaskForComments?.title}
+            </DialogTitle>
+          </DialogHeader>
+          {selectedTaskForComments && (
+            <TaskComments taskId={selectedTaskForComments.id} />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
