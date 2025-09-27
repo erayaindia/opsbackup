@@ -991,39 +991,47 @@ export default function AdminTasksHub() {
             </span>
           </TableCell>
 
-          <TableCell className="py-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem
-                  onClick={() => {
-                    setSelectedTaskForComments(task);
-                    setCommentsDialogOpen(true);
-                  }}
-                >
-                  <MessageSquare className="h-4 w-4 mr-2" />
-                  Comments
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => {
-                    setEditingTask(task);
-                    setEditTaskOpen(true);
-                  }}
-                >
-                  Edit Task
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  className="text-destructive"
-                  onClick={() => handleDeleteTask(task.id, task.title, hasSubtasks)}
-                >
-                  Delete Task
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+          <TableCell className="py-2" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-2">
+              {/* Comments Button - Always visible */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setSelectedTaskForComments(task);
+                  setCommentsDialogOpen(true);
+                }}
+                className="h-8 w-8 p-0"
+                title="View/Add Comments"
+              >
+                <MessageSquare className="h-4 w-4" />
+              </Button>
+
+              {/* Other Actions Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setEditingTask(task);
+                      setEditTaskOpen(true);
+                    }}
+                  >
+                    Edit Task
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="text-destructive"
+                    onClick={() => handleDeleteTask(task.id, task.title, hasSubtasks)}
+                  >
+                    Delete Task
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </TableCell>
         </TableRow>
 
