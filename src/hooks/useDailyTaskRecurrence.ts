@@ -6,7 +6,7 @@ import { useUserAttendanceStatus } from './useUserAttendanceStatus';
  * Hook to handle daily task instance creation
  * Creates daily task instances when user checks in (if already checked in)
  */
-export const useDailyTaskRecurrence = () => {
+export const useDailyTaskRecurrence = (onTasksCreated?: () => void) => {
   const { profile } = useUserProfile();
   const { isPresent, attendanceRecord } = useUserAttendanceStatus();
 
@@ -33,11 +33,15 @@ export const useDailyTaskRecurrence = () => {
         console.error('❌ Error creating daily task instances:', error);
       } else {
         console.log('✅ Daily task instances created for user on', date, '- Created:', data?.instances_created, 'from', data?.templates_found, 'templates');
+        // Trigger callback to refresh task data if instances were created
+        if (data?.instances_created > 0 && onTasksCreated) {
+          onTasksCreated();
+        }
       }
     } catch (error) {
       console.error('❌ Exception in createDailyTaskInstances:', error);
     }
-  }, [profile?.appUser?.id]);
+  }, [profile?.appUser?.id, onTasksCreated]);
 
   // Create daily task instances when user is already checked in (page load scenario)
   useEffect(() => {

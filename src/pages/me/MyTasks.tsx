@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { renderRichContent } from '@/lib/textUtils';
 import { getHierarchicalTaskId } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -165,7 +165,7 @@ export default function MyTasks() {
   const { isPresent, isLoading: attendanceLoading, attendanceRecord } = useUserAttendanceStatus();
 
   // Initialize daily task recurrence
-  useDailyTaskRecurrence();
+  useDailyTaskRecurrence(refetch);
 
   // Load tasks assigned to current user only - including subtasks
   // Only make the query when we have a valid user ID
@@ -282,6 +282,18 @@ export default function MyTasks() {
 
             setDirectTasks(tasksWithSubtasks);
 
+            // Debug: Log daily task information
+            const dailyTasks = directTaskData.filter(task => task.task_type === 'daily');
+            const dailyInstances = dailyTasks.filter(task => task.is_recurring_instance);
+            const dailyTemplates = dailyTasks.filter(task => !task.is_recurring_instance);
+            console.log('🎯 Daily tasks debug:', {
+              totalTasks: directTaskData.length,
+              dailyTasks: dailyTasks.length,
+              dailyInstances: dailyInstances.length,
+              dailyTemplates: dailyTemplates.length,
+              dailyInstancesData: dailyInstances.map(t => ({ id: t.id, title: t.title, instance_date: t.instance_date, status: t.status }))
+            });
+
             // Initialize timers from database for in_progress tasks (including subtasks)
             directTaskData.forEach((task: any) => {
               if (task.status === 'in_progress' && task.work_duration_seconds > 0) {
@@ -313,7 +325,7 @@ export default function MyTasks() {
   const error = null;
 
   // Refetch function that actually re-fetches tasks
-  const refetch = async () => {
+  const refetch = useCallback(async () => {
     if (!currentUserId) return;
 
     console.log('🔄 Direct refetch called');
@@ -330,6 +342,7 @@ export default function MyTasks() {
           id, task_id, title, description, task_type, status, priority, evidence_required, due_date, due_time,
           assigned_to, assigned_by, reviewer_id, parent_task_id, task_level,
           completion_percentage, created_at, updated_at, work_duration_seconds,
+          original_task_id, is_recurring_instance, instance_date,
           assigned_user:app_users!tasks_assigned_to_fkey(id, full_name, role, department),
           assigned_by_user:app_users!tasks_assigned_by_fkey(id, full_name),
           reviewer:app_users!tasks_reviewer_id_fkey(id, full_name),
@@ -353,6 +366,7 @@ export default function MyTasks() {
           id, task_id, title, description, task_type, status, priority, evidence_required, due_date, due_time,
           assigned_to, assigned_by, reviewer_id, parent_task_id, task_level,
           completion_percentage, created_at, updated_at, work_duration_seconds,
+          original_task_id, is_recurring_instance, instance_date,
           assigned_user:app_users!tasks_assigned_to_fkey(id, full_name, role, department),
           assigned_by_user:app_users!tasks_assigned_by_fkey(id, full_name),
           reviewer:app_users!tasks_reviewer_id_fkey(id, full_name),
@@ -392,8 +406,19 @@ export default function MyTasks() {
           subtasks: (subtasksByParent[task.id] || []).sort((a, b) => (a.task_order || 0) - (b.task_order || 0))
         }));
 
-
         setDirectTasks(tasksWithSubtasks);
+
+        // Debug: Log daily task information during refetch
+        const dailyTasks = directTaskData.filter(task => task.task_type === 'daily');
+        const dailyInstances = dailyTasks.filter(task => task.is_recurring_instance);
+        const dailyTemplates = dailyTasks.filter(task => !task.is_recurring_instance);
+        console.log('🔄 Refetch daily tasks debug:', {
+          totalTasks: directTaskData.length,
+          dailyTasks: dailyTasks.length,
+          dailyInstances: dailyInstances.length,
+          dailyTemplates: dailyTemplates.length,
+          dailyInstancesData: dailyInstances.map(t => ({ id: t.id, title: t.title, instance_date: t.instance_date, status: t.status }))
+        });
         console.log('✅ Refetch successful, loaded', directTaskData.length, 'total tasks,', parentTasks.length, 'parent tasks with', subtasks.length, 'subtasks');
 
         // Initialize timers from database for in_progress tasks (including subtasks)
@@ -415,7 +440,7 @@ export default function MyTasks() {
     } finally {
       setDirectLoading(false);
     }
-  };
+  }, [currentUserId]);
   const bulkAction = async () => ({ error: { message: 'Not implemented in direct mode' } });
   const updateTask = async () => ({ error: { message: 'Not implemented in direct mode' } });
   const deleteTask = async () => ({ error: { message: 'Not implemented in direct mode' } });
