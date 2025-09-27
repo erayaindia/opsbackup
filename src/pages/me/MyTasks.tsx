@@ -101,6 +101,7 @@ import { useTaskReviews } from '@/hooks/useTaskReviews';
 import { useTaskSubmissions } from '@/hooks/useTaskSubmissions';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useUsers } from '@/hooks/useUsers';
+import { useTaskComments } from '@/hooks/useTaskComments';
 import { useToast } from '@/components/ui/use-toast';
 import { useUserAttendanceStatus } from '@/hooks/useUserAttendanceStatus';
 import { useDailyTaskRecurrence } from '@/hooks/useDailyTaskRecurrence';
@@ -142,16 +143,8 @@ export default function MyTasks() {
   const [typeFilter, setTypeFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [activeTab, setActiveTab] = useState<'todo' | 'completed'>('todo');
-  // Default to last 7 days - DateRangePicker expects string format
-  const getDefaultDateRangeString = () => {
-    const today = new Date();
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(today.getDate() - 7);
-    const fromStr = sevenDaysAgo.toISOString().split('T')[0];
-    const toStr = today.toISOString().split('T')[0];
-    return `${fromStr} to ${toStr}`;
-  };
-  const [dateRangeString, setDateRangeString] = useState<string>(getDefaultDateRangeString());
+  // No default date filter - show all tasks
+  const [dateRangeString, setDateRangeString] = useState<string>("");
   const [advancedFilters, setAdvancedFilters] = useState({
     dateRange: '',
     selectedStatuses: [] as string[],
@@ -450,6 +443,7 @@ export default function MyTasks() {
   // Initialize daily task recurrence now that refetch is defined
   useDailyTaskRecurrence(refetch);
 
+
   // Original useTasks call (commented out)
   // const { tasks, loading, error, refetch, bulkAction, updateTask, deleteTask } = useTasks(taskFilters);
 
@@ -500,6 +494,10 @@ export default function MyTasks() {
   const { createTask, createTaskFromTemplate, createDailyTasks, loading: creationLoading } = useTaskCreation();
   const { bulkReview, loading: reviewLoading } = useTaskReviews();
   const { submitTaskEvidence, deleteTaskSubmission, loading: submissionLoading } = useTaskSubmissions();
+
+  // Get comment counts for all tasks
+  const taskIds = directTasks.map(task => task.id);
+  const { getCommentCount, refetch: refetchComments } = useTaskComments(taskIds);
 
   // Copy all helper functions from AdminTasksHub but remove admin-only actions
   const handleTaskSelect = (task: TaskWithDetails, selected: boolean) => {
@@ -1223,7 +1221,7 @@ export default function MyTasks() {
           {/* Actions */}
           <TableCell className="w-40 py-2 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-2">
-              {/* Comments Button - Always visible */}
+              {/* Comments Button - Always visible with count badge on icon */}
               <Button
                 variant="ghost"
                 size="sm"
@@ -1231,10 +1229,18 @@ export default function MyTasks() {
                   setSelectedTaskForComments(task);
                   setCommentsDialogOpen(true);
                 }}
-                className="h-8 w-8 p-0"
-                title="View/Add Comments"
+                className="h-8 w-8 p-0 relative"
+                title={`View/Add Comments (${getCommentCount(task.id)} comments)`}
               >
                 <MessageSquare className="h-4 w-4" />
+                {getCommentCount(task.id) > 0 && (
+                  <Badge
+                    variant="secondary"
+                    className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center text-xs bg-blue-500 text-white border-2 border-white dark:border-gray-800 rounded-full"
+                  >
+                    {getCommentCount(task.id)}
+                  </Badge>
+                )}
               </Button>
 
               {/* Task Status Actions */}
@@ -2266,7 +2272,16 @@ export default function MyTasks() {
       )}
 
       {/* Task Comments Dialog */}
-      <Dialog open={commentsDialogOpen} onOpenChange={setCommentsDialogOpen}>
+      <Dialog
+        open={commentsDialogOpen}
+        onOpenChange={(open) => {
+          setCommentsDialogOpen(open);
+          if (!open) {
+            // Refresh comment counts when dialog closes
+            refetchComments();
+          }
+        }}
+      >
         <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>

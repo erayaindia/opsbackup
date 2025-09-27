@@ -21,8 +21,6 @@ export const useDailyTaskRecurrence = (onTasksCreated?: () => void) => {
       // Get target date in YYYY-MM-DD format (default to today)
       const date = targetDate || new Date().toISOString().split('T')[0];
 
-      console.log('🔄 Creating daily task instances for user on:', date);
-
       // Call the database function to create daily task instances for this specific user
       const { data, error } = await supabase.rpc('create_daily_task_instances_for_user', {
         user_id: profile.appUser.id,
@@ -30,16 +28,15 @@ export const useDailyTaskRecurrence = (onTasksCreated?: () => void) => {
       });
 
       if (error) {
-        console.error('❌ Error creating daily task instances:', error);
+        console.error('Error creating daily task instances:', error);
       } else {
-        console.log('✅ Daily task instances created for user on', date, '- Created:', data?.instances_created, 'from', data?.templates_found, 'templates');
         // Trigger callback to refresh task data if instances were created
         if (data?.instances_created > 0 && onTasksCreated) {
           onTasksCreated();
         }
       }
     } catch (error) {
-      console.error('❌ Exception in createDailyTaskInstances:', error);
+      console.error('Exception in createDailyTaskInstances:', error);
     }
   }, [profile?.appUser?.id, onTasksCreated]);
 
@@ -53,7 +50,6 @@ export const useDailyTaskRecurrence = (onTasksCreated?: () => void) => {
       const today = new Date().toISOString().split('T')[0];
 
       if (checkInDate === today) {
-        console.log('🎯 User already checked in today, ensuring daily task instances exist...');
         createDailyTaskInstances(); // Ensure daily task instances exist for today
       }
     }

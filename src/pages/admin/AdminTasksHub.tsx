@@ -97,6 +97,7 @@ import { useTaskReviews } from '@/hooks/useTaskReviews';
 import { useTaskSubmissions } from '@/hooks/useTaskSubmissions';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useUsers } from '@/hooks/useUsers';
+import { useTaskComments } from '@/hooks/useTaskComments';
 import { useToast } from '@/components/ui/use-toast';
 import {
   Task,
@@ -156,6 +157,10 @@ export default function AdminTasksHub() {
   const { createTask, createTaskFromTemplate, createDailyTasks, loading: creationLoading } = useTaskCreation();
   const { bulkReview, loading: reviewLoading } = useTaskReviews();
   const { submitTaskEvidence, deleteTaskSubmission, loading: submissionLoading } = useTaskSubmissions();
+
+  // Get comment counts for all tasks
+  const taskIds = tasks.map(task => task.id);
+  const { getCommentCount, refetch: refetchComments } = useTaskComments(taskIds);
 
 
 
@@ -993,7 +998,7 @@ export default function AdminTasksHub() {
 
           <TableCell className="py-2" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-2">
-              {/* Comments Button - Always visible */}
+              {/* Comments Button - Always visible with count badge on icon */}
               <Button
                 variant="ghost"
                 size="sm"
@@ -1001,10 +1006,18 @@ export default function AdminTasksHub() {
                   setSelectedTaskForComments(task);
                   setCommentsDialogOpen(true);
                 }}
-                className="h-8 w-8 p-0"
-                title="View/Add Comments"
+                className="h-8 w-8 p-0 relative"
+                title={`View/Add Comments (${getCommentCount(task.id)} comments)`}
               >
                 <MessageSquare className="h-4 w-4" />
+                {getCommentCount(task.id) > 0 && (
+                  <Badge
+                    variant="secondary"
+                    className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center text-xs bg-blue-500 text-white border-2 border-white dark:border-gray-800 rounded-full"
+                  >
+                    {getCommentCount(task.id)}
+                  </Badge>
+                )}
               </Button>
 
               {/* Other Actions Dropdown */}
@@ -2179,7 +2192,16 @@ export default function AdminTasksHub() {
       />
 
       {/* Task Comments Dialog */}
-      <Dialog open={commentsDialogOpen} onOpenChange={setCommentsDialogOpen}>
+      <Dialog
+        open={commentsDialogOpen}
+        onOpenChange={(open) => {
+          setCommentsDialogOpen(open);
+          if (!open) {
+            // Refresh comment counts when dialog closes
+            refetchComments();
+          }
+        }}
+      >
         <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>

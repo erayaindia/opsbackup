@@ -37,6 +37,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { DatePicker } from '@/components/ui/date-picker';
+import { AIWritingAssistant } from '@/components/ui/ai-writing-assistant';
 import {
   CalendarIcon,
   ClockIcon,
@@ -52,6 +53,8 @@ import {
   MoveUpIcon,
   MoveDownIcon,
   Trash2Icon,
+  Sparkles,
+  Wand2,
 } from 'lucide-react';
 import { useTaskCreation } from '@/hooks/useTaskCreation';
 import { useTaskTemplates, useTasks } from '@/hooks/useTasks';
@@ -108,8 +111,28 @@ export function CreateTaskForm({ open, onOpenChange, onTaskCreated, task, mode =
   const [newChecklistItem, setNewChecklistItem] = useState('');
   const [userSearchTerm, setUserSearchTerm] = useState('');
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+  const [showTitleAI, setShowTitleAI] = useState(false);
+  const [showDescriptionAI, setShowDescriptionAI] = useState(false);
 
   const { toast } = useToast();
+
+  // Helper function to extract plain text from editor content
+  const getPlainTextFromEditor = (content: any): string => {
+    if (typeof content === 'string') return content;
+    if (!content || !content.content) return '';
+
+    let text = '';
+    const extractText = (node: any) => {
+      if (node.type === 'text') {
+        text += node.text || '';
+      } else if (node.content) {
+        node.content.forEach(extractText);
+      }
+    };
+
+    content.content.forEach(extractText);
+    return text.trim();
+  };
 
   // Subtask management functions
   const addSubtask = () => {
@@ -236,6 +259,8 @@ export function CreateTaskForm({ open, onOpenChange, onTaskCreated, task, mode =
       setUserSearchTerm('');
       setUserDropdownOpen(false);
       setActiveTab('manual');
+      setShowTitleAI(false);
+      setShowDescriptionAI(false);
     }
   }, [open]);
 
@@ -581,7 +606,19 @@ export function CreateTaskForm({ open, onOpenChange, onTaskCreated, task, mode =
               {/* Basic Information */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="title">Task Title *</Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="title">Task Title *</Label>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowTitleAI(!showTitleAI)}
+                      className="h-6 px-2 text-xs flex items-center gap-1"
+                    >
+                      <Sparkles className="h-3 w-3" />
+                      AI Assist
+                    </Button>
+                  </div>
                   <Input
                     id="title"
                     value={formData.title}
@@ -589,6 +626,14 @@ export function CreateTaskForm({ open, onOpenChange, onTaskCreated, task, mode =
                     placeholder="Enter task title"
                     className="rounded-none"
                   />
+                  {showTitleAI && (
+                    <AIWritingAssistant
+                      originalText={formData.title}
+                      onTextUpdate={(newText) => handleInputChange('title', newText)}
+                      type="title"
+                      placeholder="Enter a task title to get AI suggestions..."
+                    />
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -609,7 +654,19 @@ export function CreateTaskForm({ open, onOpenChange, onTaskCreated, task, mode =
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="description">Description</Label>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowDescriptionAI(!showDescriptionAI)}
+                    className="h-6 px-2 text-xs flex items-center gap-1"
+                  >
+                    <Wand2 className="h-3 w-3" />
+                    AI Enhance
+                  </Button>
+                </div>
                 <div className="border border-input rounded-md min-h-[150px]" style={{backgroundColor: '#111219'}}>
                   <RichEditor
                     value={formData.description as EditorContent}
@@ -617,6 +674,31 @@ export function CreateTaskForm({ open, onOpenChange, onTaskCreated, task, mode =
                     disableUndoRedo={true}
                   />
                 </div>
+                {showDescriptionAI && (
+                  <AIWritingAssistant
+                    originalText={getPlainTextFromEditor(formData.description)}
+                    onTextUpdate={(newText) => {
+                      // Convert plain text back to editor format
+                      const editorContent: EditorContent = {
+                        type: 'doc',
+                        content: [
+                          {
+                            type: 'paragraph',
+                            content: [
+                              {
+                                type: 'text',
+                                text: newText
+                              }
+                            ]
+                          }
+                        ]
+                      };
+                      handleInputChange('description', editorContent);
+                    }}
+                    type="description"
+                    placeholder="Enter a task description to get AI enhancements..."
+                  />
+                )}
               </div>
 
               {/* Priority and Evidence */}
