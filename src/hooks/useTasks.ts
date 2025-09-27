@@ -38,7 +38,7 @@ export function useTasks(initialFilters: TaskFilters = {}): UseTasksReturn {
   const buildQuery = useCallback(() => {
     // Simplified query for faster initial loading - load detailed data only when needed
     const fastSelect = `
-      id, title, description, task_type, status, priority, due_date, due_time,
+      id, task_id, title, description, task_type, status, priority, evidence_required, due_date, due_time,
       assigned_to, assigned_by, reviewer_id, parent_task_id, task_level,
       completion_percentage, created_at, updated_at,
       assigned_user:app_users!tasks_assigned_to_fkey(id, full_name, role, department),
@@ -171,8 +171,8 @@ export function useTasks(initialFilters: TaskFilters = {}): UseTasksReturn {
             const { data: subtasks, error: subtaskError } = await supabase
               .from('tasks')
               .select(`
-                id, title, status, completion_percentage, task_level, task_order, assigned_to, parent_task_id,
-                description, priority, task_type, due_date, due_time, created_at, updated_at, assigned_by, reviewer_id,
+                id, task_id, title, status, completion_percentage, task_level, task_order, assigned_to, parent_task_id,
+                description, priority, task_type, evidence_required, due_date, due_time, created_at, updated_at, assigned_by, reviewer_id,
                 assigned_user:app_users!tasks_assigned_to_fkey(id, full_name, role, department, employee_id),
                 assigned_by_user:app_users!tasks_assigned_by_fkey(id, full_name),
                 reviewer:app_users!tasks_reviewer_id_fkey(id, full_name, role),
@@ -294,8 +294,8 @@ export function useTasks(initialFilters: TaskFilters = {}): UseTasksReturn {
           const { data: subtasks, error: subtaskError } = await supabase
             .from('tasks')
             .select(`
-              id, title, status, completion_percentage, task_level, task_order, assigned_to, parent_task_id,
-              description, priority, task_type, due_date, due_time, created_at, updated_at, assigned_by, reviewer_id,
+              id, task_id, title, status, completion_percentage, task_level, task_order, assigned_to, parent_task_id,
+              description, priority, task_type, evidence_required, due_date, due_time, created_at, updated_at, assigned_by, reviewer_id,
               assigned_user:app_users!tasks_assigned_to_fkey(id, full_name, role, department, employee_id),
               assigned_by_user:app_users!tasks_assigned_by_fkey(id, full_name),
               reviewer:app_users!tasks_reviewer_id_fkey(id, full_name, role),

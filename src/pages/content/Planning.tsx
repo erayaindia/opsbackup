@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Search, Loader2, AlertCircle, Trash2 } from "lucide-react";
+import { Loader2, AlertCircle, Trash2 } from "lucide-react";
 import { ContentService } from "@/services/contentService";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
@@ -325,11 +325,6 @@ export default function ContentCalendar() {
     }
   };
 
-  const sidebarItemCls = (active) =>
-    `cursor-pointer hover:text-primary px-3 py-2 rounded-lg transition-all duration-200 ${
-      active ? "bg-primary/10 text-primary font-semibold border border-primary/20" : "text-muted-foreground hover:bg-muted/50"
-    }`;
-
   const matchesSearch = (c) =>
     searchTerm.trim() === "" ||
     c.id.toString().includes(searchTerm.toLowerCase()) ||
@@ -406,7 +401,7 @@ export default function ContentCalendar() {
   const AssigneePill = ({ id }) => {
     if (!id) {
       return (
-        <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-muted/50 text-muted-foreground text-xs border border-border/50">
+        <span className="inline-flex items-center gap-2 px-3 py-1 bg-muted/50 text-muted-foreground text-xs border border-border/50">
           <span className="font-medium">Unassigned</span>
         </span>
       );
@@ -415,15 +410,15 @@ export default function ContentCalendar() {
     const user = usersById[id];
     if (!user) {
       return (
-        <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-muted/50 text-muted-foreground text-xs border border-border/50">
+        <span className="inline-flex items-center gap-2 px-3 py-1 bg-muted/50 text-muted-foreground text-xs border border-border/50">
           <span className="font-medium">Unknown User</span>
         </span>
       );
     }
     
     return (
-      <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-muted/50 text-muted-foreground text-xs border border-border/50">
-        <img src={user.avatar} alt={user.name} className="h-5 w-5 rounded-full border border-border/20" />
+      <span className="inline-flex items-center gap-2 px-3 py-1 bg-muted/50 text-muted-foreground text-xs border border-border/50">
+        <img src={user.avatar} alt={user.name} className="h-5 w-5 border border-border/20" />
         <span className="font-medium">{user.name}</span>
       </span>
     );
@@ -431,7 +426,7 @@ export default function ContentCalendar() {
 
   const StageProgressBar = ({ stage }) => (
     <div
-      className="w-full h-2 bg-muted rounded-full overflow-hidden"
+      className="w-full h-2 bg-muted overflow-hidden"
       title={`${stageIndex(stage) + 1}/${STAGES.length}`}
     >
       <div className="h-full bg-gradient-primary transition-all duration-500" style={{ width: `${progressPct(stage)}%` }} />
@@ -440,68 +435,8 @@ export default function ContentCalendar() {
 
   return (
     <div className="min-h-screen bg-background">
-        <div className="flex">
-          {/* Filters Sidebar - Now secondary to content navigation */}
-          <aside className="w-64 bg-muted/30 border-r border-border hidden lg:block">
-            <div className="p-4 space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-foreground">Stage</h3>
-                <button
-                  className="text-xs text-primary hover:text-primary/80 hover:underline transition-colors"
-                  onClick={() => setStageFilter("All")}
-                >
-                  Reset
-                </button>
-              </div>
-              <ul className="space-y-1 text-sm">
-                <li
-                  className={sidebarItemCls(stageFilter === "All")}
-                  onClick={() => setStageFilter("All")}
-                >
-                  All ({stageCounts.all})
-                </li>
-                {STAGES.map((s) => (
-                  <li
-                    key={s}
-                    className={sidebarItemCls(stageFilter === s)}
-                    onClick={() => setStageFilter(s)}
-                  >
-                    {s} ({stageCounts.map[s] || 0})
-                  </li>
-                ))}
-              </ul>
-
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-foreground">Content Format</h3>
-                <button
-                  className="text-xs text-primary hover:text-primary/80 hover:underline transition-colors"
-                  onClick={() => setFormatFilter("All")}
-                >
-                  Reset
-                </button>
-              </div>
-              <ul className="space-y-1 text-sm">
-                <li
-                  className={sidebarItemCls(formatFilter === "All")}
-                  onClick={() => setFormatFilter("All")}
-                >
-                  All ({formatCounts.all})
-                </li>
-                {FORMATS.map((f) => (
-                  <li
-                    key={f}
-                    className={sidebarItemCls(formatFilter === f)}
-                    onClick={() => setFormatFilter(f)}
-                  >
-                    {f} ({formatCounts.map[f] || 0})
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </aside>
-
-          {/* Main content */}
-          <main className="flex-1 p-6 space-y-6">
+      {/* Main content */}
+      <main className="p-6 space-y-6">
             {/* Modern Header Section */}
             <div className="border-b border-border pb-6">
               {/* Desktop Layout */}
@@ -569,6 +504,59 @@ export default function ContentCalendar() {
                   </div>
                 </div>
 
+                {/* Search & Filters for Mobile */}
+                <div className="space-y-3 w-full">
+                  {/* Search Bar */}
+                  <div className="relative">
+                    <Input
+                      type="text"
+                      placeholder="Search by ID, Title, or Format..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="shadow-sm"
+                    />
+                    {searchTerm && (
+                      <button
+                        onClick={() => setSearchTerm("")}
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Filter Dropdowns */}
+                  <div className="flex gap-3">
+                    {/* Stage Filter */}
+                    <select
+                      value={stageFilter}
+                      onChange={(e) => setStageFilter(e.target.value)}
+                      className="flex-1 px-3 py-2 border border-border bg-card text-foreground shadow-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
+                    >
+                      <option value="All">All Stages ({stageCounts.all})</option>
+                      {STAGES.map((stage) => (
+                        <option key={stage} value={stage}>
+                          {stage} ({stageCounts.map[stage] || 0})
+                        </option>
+                      ))}
+                    </select>
+
+                    {/* Format Filter */}
+                    <select
+                      value={formatFilter}
+                      onChange={(e) => setFormatFilter(e.target.value)}
+                      className="flex-1 px-3 py-2 border border-border bg-card text-foreground shadow-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
+                    >
+                      <option value="All">All Formats ({formatCounts.all})</option>
+                      {FORMATS.map((format) => (
+                        <option key={format} value={format}>
+                          {format} ({formatCounts.map[format] || 0})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
                 {/* Bottom Row: Action Button */}
                 <div className="flex justify-start">
                   <Button 
@@ -581,24 +569,60 @@ export default function ContentCalendar() {
                 </div>
               </div>
 
-              {/* Search & View Controls */}
+              {/* Search & Filter Controls */}
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                <div className="relative w-full sm:w-80">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                {/* Search */}
+                <div className="relative">
                   <Input
                     type="text"
                     placeholder="Search by ID, Title, or Format..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 shadow-sm"
+                    className="w-80 shadow-sm"
                   />
+                  {searchTerm && (
+                    <button
+                      onClick={() => setSearchTerm("")}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      ×
+                    </button>
+                  )}
                 </div>
-                <div className="flex items-center gap-1 bg-card border border-border rounded-xl p-1 shadow-sm">
+
+                {/* Stage Filter Dropdown */}
+                <select
+                  value={stageFilter}
+                  onChange={(e) => setStageFilter(e.target.value)}
+                  className="px-3 py-2 border border-border bg-card text-foreground shadow-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
+                >
+                  <option value="All">All Stages ({stageCounts.all})</option>
+                  {STAGES.map((stage) => (
+                    <option key={stage} value={stage}>
+                      {stage} ({stageCounts.map[stage] || 0})
+                    </option>
+                  ))}
+                </select>
+
+                {/* Content Format Filter Dropdown */}
+                <select
+                  value={formatFilter}
+                  onChange={(e) => setFormatFilter(e.target.value)}
+                  className="px-3 py-2 border border-border bg-card text-foreground shadow-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
+                >
+                  <option value="All">All Formats ({formatCounts.all})</option>
+                  {FORMATS.map((format) => (
+                    <option key={format} value={format}>
+                      {format} ({formatCounts.map[format] || 0})
+                    </option>
+                  ))}
+                </select>
+                <div className="flex items-center gap-1 bg-card border border-border p-1 shadow-sm">
                   <button
                     onClick={() => setViewMode("cards")}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                  viewMode === "cards" 
-                    ? "bg-primary text-primary-foreground shadow-sm" 
+                    className={`px-4 py-2 text-sm font-medium transition-all duration-200 ${
+                  viewMode === "cards"
+                    ? "bg-primary text-primary-foreground shadow-sm"
                     : "hover:bg-muted text-muted-foreground"
                 }`}
               >
@@ -606,9 +630,9 @@ export default function ContentCalendar() {
               </button>
               <button
                 onClick={() => setViewMode("table")}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                  viewMode === "table" 
-                    ? "bg-primary text-primary-foreground shadow-sm" 
+                className={`px-4 py-2 text-sm font-medium transition-all duration-200 ${
+                  viewMode === "table"
+                    ? "bg-primary text-primary-foreground shadow-sm"
                     : "hover:bg-muted text-muted-foreground"
                 }`}
               >
@@ -656,13 +680,13 @@ export default function ContentCalendar() {
                   >
                     <CardContent className="p-6 space-y-4">
                       <div className="flex items-center justify-between gap-2">
-                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${dl.cls.includes('red') ? 'bg-destructive/10 text-destructive border border-destructive/20' : dl.cls.includes('yellow') ? 'bg-warning/10 text-warning border border-warning/20' : 'bg-success/10 text-success border border-success/20'}`}>
+                        <span className={`px-3 py-1 text-xs font-medium ${dl.cls.includes('red') ? 'bg-destructive/10 text-destructive border border-destructive/20' : dl.cls.includes('yellow') ? 'bg-warning/10 text-warning border border-warning/20' : 'bg-success/10 text-success border border-success/20'}`}>
                           {dl.label}
                         </span>
                         <AssigneePill id={card.assignedTo} />
                       </div>
                       <div className="flex justify-between items-center">
-                        <div className="px-2 py-1 bg-primary/10 text-primary text-xs font-semibold rounded-md border border-primary/20">
+                        <div className="px-2 py-1 bg-primary/10 text-primary text-xs font-semibold border border-primary/20">
                           {card.stage}
                         </div>
                         <span className="text-xs text-muted-foreground">{card.date}</span>
@@ -678,7 +702,7 @@ export default function ContentCalendar() {
                         </p>
                         <p className="flex items-center gap-2">
                           <span className="font-medium text-foreground">Format:</span> 
-                          <span className="px-2 py-0.5 bg-muted text-muted-foreground rounded-md text-xs">
+                          <span className="px-2 py-0.5 bg-muted text-muted-foreground text-xs">
                             {card.format}
                           </span>
                         </p>
@@ -689,7 +713,7 @@ export default function ContentCalendar() {
               })}
             </div>
           ) : (
-            <div className="overflow-auto bg-card rounded-xl shadow-soft border border-border/50">
+            <div className="overflow-auto bg-card shadow-soft border border-border/50">
               <table className="w-full text-sm">
                 <thead className="text-left border-b bg-muted/30">
                   <tr>
@@ -729,11 +753,11 @@ export default function ContentCalendar() {
                         </td>
                         <td className="px-6 py-4">{row.stage}</td>
                         <td className="px-6 py-4">
-                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${dl.cls.includes('red') ? 'bg-destructive/10 text-destructive border border-destructive/20' : dl.cls.includes('yellow') ? 'bg-warning/10 text-warning border border-warning/20' : 'bg-success/10 text-success border border-success/20'}`}>{dl.label}</span>
+                          <span className={`px-3 py-1 text-xs font-medium ${dl.cls.includes('red') ? 'bg-destructive/10 text-destructive border border-destructive/20' : dl.cls.includes('yellow') ? 'bg-warning/10 text-warning border border-warning/20' : 'bg-success/10 text-success border border-success/20'}`}>{dl.label}</span>
                         </td>
                         <td className="px-6 py-4">{row.product}</td>
                         <td className="px-6 py-4">
-                          <span className="px-2 py-1 bg-muted text-muted-foreground rounded-md text-xs">
+                          <span className="px-2 py-1 bg-muted text-muted-foreground text-xs">
                             {row.format}
                           </span>
                         </td>
@@ -772,12 +796,11 @@ export default function ContentCalendar() {
               </table>
             </div>
           )}
-          </main>
-        </div>
+      </main>
 
         {/* New Idea Dialog */}
       <Dialog open={newOpen} onOpenChange={setNewOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border-border/50 shadow-elegant bg-card">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto border-border/50 shadow-elegant bg-card">
           <DialogHeader className="border-b border-border pb-4">
             <DialogTitle className="text-xl font-semibold text-foreground">✨ New Idea</DialogTitle>
           </DialogHeader>
@@ -806,7 +829,7 @@ export default function ContentCalendar() {
             <div className="space-y-1">
               <Label>Stage</Label>
               <select
-                className="w-full border border-border rounded-lg px-3 py-2 bg-card focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
+                className="w-full border border-border px-3 py-2 bg-card focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
                 value={newData.stage}
                 onChange={(e) => setNewData({ ...newData, stage: e.target.value })}
               >
@@ -821,7 +844,7 @@ export default function ContentCalendar() {
             <div className="space-y-1">
               <Label>Format</Label>
               <select
-                className="w-full border border-border rounded-lg px-3 py-2 bg-card focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
+                className="w-full border border-border px-3 py-2 bg-card focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
                 value={newData.format}
                 onChange={(e) => setNewData({ ...newData, format: e.target.value })}
               >
@@ -846,7 +869,7 @@ export default function ContentCalendar() {
             <div className="space-y-1">
               <Label>Priority</Label>
               <select
-                className="w-full border border-border rounded-lg px-3 py-2 bg-card focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
+                className="w-full border border-border px-3 py-2 bg-card focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
                 value={newData.priority}
                 onChange={(e) => setNewData({ ...newData, priority: e.target.value })}
               >
@@ -859,7 +882,7 @@ export default function ContentCalendar() {
             <div className="space-y-1">
               <Label>Assigned To</Label>
               <select
-                className="w-full border border-border rounded-lg px-3 py-2 bg-card focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
+                className="w-full border border-border px-3 py-2 bg-card focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
                 value={newData.assignedTo}
                 onChange={(e) => setNewData({ ...newData, assignedTo: e.target.value })}
                 disabled={isLoadingUsers}
@@ -899,7 +922,7 @@ export default function ContentCalendar() {
               />
               <ul className="mt-2 space-y-1">
                 {(newData.referenceLinks || []).map((link, i) => (
-                  <li key={i} className="text-sm text-muted-foreground truncate bg-muted/30 px-2 py-1 rounded border border-border/50">
+                  <li key={i} className="text-sm text-muted-foreground truncate bg-muted/30 px-2 py-1 border border-border/50">
                     {link}
                   </li>
                 ))}

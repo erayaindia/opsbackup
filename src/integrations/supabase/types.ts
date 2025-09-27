@@ -2194,6 +2194,7 @@ export type Database = {
       tasks: {
         Row: {
           id: string
+          task_id: number | null
           template_id: string | null
           title: string
           description: string | null
@@ -2220,6 +2221,7 @@ export type Database = {
         }
         Insert: {
           id?: string
+          task_id?: number | null
           template_id?: string | null
           title: string
           description?: string | null
@@ -2246,6 +2248,7 @@ export type Database = {
         }
         Update: {
           id?: string
+          task_id?: number | null
           template_id?: string | null
           title?: string
           description?: string | null

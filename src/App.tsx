@@ -7,6 +7,7 @@ import { AuthWrapper } from "./components/AuthWrapper";
 import { Layout } from "./components/Layout";
 import { PermissionGuard } from "./components/PermissionGuard";
 import { PermissionsProvider } from "./contexts/PermissionsContext";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import Dashboard from "./pages/Dashboard";
 import Orders from "./pages/orders/OrdersList";
 import AbandonedCart from "./pages/orders/AbandonedCart";
@@ -130,17 +131,18 @@ const queryClient = new QueryClient({
 });
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <PermissionsProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter
-          future={{
-            v7_startTransition: true,
-            v7_relativeSplatPath: true
-          }}
-        >
+  <ErrorBoundary>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <PermissionsProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter
+            future={{
+              v7_startTransition: true,
+              v7_relativeSplatPath: true
+            }}
+          >
       <Routes>
         <Route path="/auth" element={<Auth />} />
         <Route path="/onboard" element={<Onboard />} />
@@ -560,6 +562,7 @@ const App = () => (
     </PermissionsProvider>
   </TooltipProvider>
   </QueryClientProvider>
+  </ErrorBoundary>
 )
 
 export default App;

@@ -169,7 +169,7 @@
   }
 
   ::-webkit-scrollbar-thumb {
-    @apply bg-muted-foreground/30 rounded-full;
+    @apply bg-muted-foreground/30;
   }
 
   ::-webkit-scrollbar-thumb:hover {
@@ -180,7 +180,7 @@
 @layer components {
   /* Enhanced card component */
   .enhanced-card {
-    @apply bg-gradient-to-br from-card to-card/80 border border-border/50 rounded-xl shadow-lg backdrop-blur-sm;
+    @apply bg-gradient-to-br from-card to-card/80 border border-border/50 shadow-lg backdrop-blur-sm;
     background: var(--gradient-card);
     box-shadow: var(--shadow-md);
     transition: var(--transition-smooth);
@@ -233,7 +233,7 @@
   .table-compact td {
     @apply py-1 text-xs;
   }
-  
+
   .table-compact th {
     @apply py-1 text-xs;
   }

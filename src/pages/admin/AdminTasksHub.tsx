@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { renderRichContent } from '@/lib/textUtils';
+import { getHierarchicalTaskId } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Table,
@@ -119,7 +120,7 @@ export default function AdminTasksHub() {
   const [assigneePopovers, setAssigneePopovers] = useState<Record<string, boolean>>({});
   const [selectedTasks, setSelectedTasks] = useState<Set<string>>(new Set());
   const [filters, setFilters] = useState<TaskFilters>({});
-  const [sortField, setSortField] = useState<string>('due_date');
+  const [sortField, setSortField] = useState<string>('task_id');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false);
   const [groupBy, setGroupBy] = useState<'none' | 'priority' | 'assignee' | 'status'>('none');
@@ -642,6 +643,10 @@ export default function AdminTasksHub() {
           aValue = a.due_date ? new Date(a.due_date).getTime() : 0;
           bValue = b.due_date ? new Date(b.due_date).getTime() : 0;
           break;
+        case 'task_id':
+          aValue = a.task_id || 999999;
+          bValue = b.task_id || 999999;
+          break;
         default:
           return 0;
       }
@@ -737,7 +742,7 @@ export default function AdminTasksHub() {
   };
 
   // Function to render task with subtasks
-  const renderTaskWithSubtasks = (task: TaskWithDetails, depth: number = 0) => {
+  const renderTaskWithSubtasks = (task: TaskWithDetails, depth: number = 0, allTasks: TaskWithDetails[] = []) => {
     // Add null safety checks
     if (!task || !task.id) {
       console.error('renderTaskWithSubtasks: Invalid task data', task);
@@ -786,6 +791,13 @@ export default function AdminTasksHub() {
                   L{depth}
                 </span>
               )}
+            </div>
+          </TableCell>
+
+          {/* Task ID */}
+          <TableCell className="border-r border-border/50 py-2 whitespace-nowrap text-center">
+            <div className="text-sm font-mono font-medium text-primary">
+              #{getHierarchicalTaskId(task, allTasks)}
             </div>
           </TableCell>
 
@@ -1291,7 +1303,7 @@ export default function AdminTasksHub() {
 
         {/* Render Subtasks */}
         {hasSubtasks && isExpanded && task.subtasks!.map((subtask) =>
-          renderTaskWithSubtasks(subtask, depth + 1)
+          renderTaskWithSubtasks(subtask, depth + 1, allTasks)
         )}
       </React.Fragment>
     );
@@ -1358,9 +1370,10 @@ export default function AdminTasksHub() {
 
   const handleExportCSV = () => {
     // Create CSV content
-    const headers = ['ID', 'Title', 'Type', 'Priority', 'Status', 'Assignee', 'Due Date', 'Created'];
+    const headers = ['System ID', 'Task ID', 'Title', 'Type', 'Priority', 'Status', 'Assignee', 'Due Date', 'Created'];
     const rows = tasks.map(task => [
       task.id,
+      task.task_id || '--',
       task.title,
       task.task_type,
       task.priority,
@@ -1532,6 +1545,16 @@ export default function AdminTasksHub() {
             <TableHeader className="sticky top-0 z-10 bg-background">
               <TableRow>
                 <TableHead className="w-8 border-r border-border/50"></TableHead>
+                <TableHead className="w-16 border-r border-border/50 whitespace-nowrap">
+                  <Button
+                    variant="ghost"
+                    className="flex items-center gap-2 p-0 h-auto font-semibold hover:bg-transparent"
+                    onClick={() => handleSort('task_id')}
+                  >
+                    ID
+                    {getSortIcon('task_id')}
+                  </Button>
+                </TableHead>
                 <TableHead className="border-r border-border/50 whitespace-nowrap">
                   <Button
                     variant="ghost"
@@ -1749,7 +1772,7 @@ export default function AdminTasksHub() {
                   {/* Group Header Row */}
                   {groupBy !== 'none' && (
                     <TableRow className="bg-muted/20 hover:bg-muted/30 transition-colors">
-                      <TableCell colSpan={9} className="py-3">
+                      <TableCell colSpan={10} className="py-3">
                         <Button
                           variant="ghost"
                           className="flex items-center gap-2 p-0 h-auto font-semibold hover:bg-transparent text-left w-full justify-start"
@@ -1774,7 +1797,7 @@ export default function AdminTasksHub() {
                     .filter(task => !task.parent_task_id) // Only render parent tasks, subtasks will be handled recursively
                     .map((task) => {
                       // Use renderTaskWithSubtasks for all tasks (handles both with and without subtasks)
-                      return renderTaskWithSubtasks(task);
+                      return renderTaskWithSubtasks(task, 0, sortedTasks);
                     })}
                 </React.Fragment>
               ))}

@@ -179,12 +179,32 @@ const CheckIn = () => {
 
       console.log('✅ Attendance record inserted successfully!');
 
+      // Create daily task instances for the user now that they've checked in
+      try {
+        console.log('🔄 Creating daily task instances after check-in...');
+        const today = new Date().toISOString().split('T')[0];
+
+        const { data: tasksData, error: tasksError } = await supabase.rpc('create_daily_task_instances_for_user', {
+          user_id: appUser.id,
+          target_date: today
+        });
+
+        if (tasksError) {
+          console.error('❌ Error creating daily task instances:', tasksError);
+        } else {
+          console.log('✅ Daily task instances created successfully after check-in - Created:', tasksData?.instances_created, 'from', tasksData?.templates_found, 'templates');
+        }
+      } catch (tasksError) {
+        console.error('❌ Exception creating daily task instances:', tasksError);
+        // Don't block check-in if task creation fails
+      }
+
       setIsCheckedIn(true);
       setCurrentStep('complete');
 
       toast({
         title: "Check-in successful!",
-        description: "Your attendance has been recorded.",
+        description: "Your attendance has been recorded and daily tasks are now available.",
       });
 
     } catch (error) {

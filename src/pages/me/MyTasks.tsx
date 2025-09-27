@@ -1,6 +1,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { renderRichContent } from '@/lib/textUtils';
+import { getHierarchicalTaskId } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Table,
   TableBody,
@@ -13,6 +15,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -50,7 +53,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { Label } from '@/components/ui/label';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -85,6 +87,9 @@ import {
   GitBranch,
   Code,
   RotateCcw,
+  UserCheck,
+  MapPin,
+  ChevronUp,
 } from 'lucide-react';
 import { TaskCard } from '@/components/tasks/TaskCard';
 import { TaskDrawer } from '@/components/tasks/TaskDrawer';
@@ -97,6 +102,8 @@ import { useTaskSubmissions } from '@/hooks/useTaskSubmissions';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useUsers } from '@/hooks/useUsers';
 import { useToast } from '@/components/ui/use-toast';
+import { useUserAttendanceStatus } from '@/hooks/useUserAttendanceStatus';
+import { useDailyTaskRecurrence } from '@/hooks/useDailyTaskRecurrence';
 import {
   Task,
   TaskWithDetails,
@@ -124,14 +131,24 @@ export default function MyTasks() {
   const [timerStartTimes, setTimerStartTimes] = useState<Record<string, number>>({});
   const [selectedTasks, setSelectedTasks] = useState<Set<string>>(new Set());
   const [filters, setFilters] = useState<TaskFilters>({});
-  const [sortField, setSortField] = useState<string>('due_date');
+  const [sortField, setSortField] = useState<string>('task_id');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false);
-  const [groupBy, setGroupBy] = useState<'none' | 'priority' | 'assignee' | 'status'>('none');
+  const [groupBy, setGroupBy] = useState<'none' | 'priority' | 'assignee' | 'status' | 'task_type'>('task_type');
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [typeFilter, setTypeFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [dateFilter, setDateFilter] = useState<Date | undefined>(new Date()); // Default to today
+  const [activeTab, setActiveTab] = useState<'todo' | 'completed'>('todo');
+  // Default to last 7 days - DateRangePicker expects string format
+  const getDefaultDateRangeString = () => {
+    const today = new Date();
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(today.getDate() - 7);
+    const fromStr = sevenDaysAgo.toISOString().split('T')[0];
+    const toStr = today.toISOString().split('T')[0];
+    return `${fromStr} to ${toStr}`;
+  };
+  const [dateRangeString, setDateRangeString] = useState<string>(getDefaultDateRangeString());
   const [advancedFilters, setAdvancedFilters] = useState({
     dateRange: '',
     selectedStatuses: [] as string[],
@@ -145,6 +162,10 @@ export default function MyTasks() {
 
   const { toast } = useToast();
   const { profile, loading: profileLoading } = useUserProfile();
+  const { isPresent, isLoading: attendanceLoading, attendanceRecord } = useUserAttendanceStatus();
+
+  // Initialize daily task recurrence
+  useDailyTaskRecurrence();
 
   // Load tasks assigned to current user only - including subtasks
   // Only make the query when we have a valid user ID
@@ -180,27 +201,88 @@ export default function MyTasks() {
           const { supabase } = await import('@/integrations/supabase/client');
           console.log('🎯 DIRECT QUERY: Fetching tasks for user:', currentUserId);
 
-          const { data: directTaskData, error: directError } = await supabase
+          // First get tasks assigned to current user
+          const { data: userTasks, error: userTasksError } = await supabase
             .from('tasks')
             .select(`
-              id, title, description, task_type, status, priority, due_date, due_time,
+              id, task_id, title, description, task_type, status, priority, evidence_required, due_date, due_time,
               assigned_to, assigned_by, reviewer_id, parent_task_id, task_level,
               completion_percentage, created_at, updated_at, work_duration_seconds,
+              original_task_id, is_recurring_instance, instance_date,
               assigned_user:app_users!tasks_assigned_to_fkey(id, full_name, role, department),
               assigned_by_user:app_users!tasks_assigned_by_fkey(id, full_name),
               reviewer:app_users!tasks_reviewer_id_fkey(id, full_name),
               submissions:task_submissions(*),
               reviews:task_reviews(*)
             `)
-            .eq('assigned_to', currentUserId)
-            .order('due_date', { ascending: true });
+            .eq('assigned_to', currentUserId);
+
+          if (userTasksError) {
+            console.error('🎯 ERROR fetching user tasks:', userTasksError);
+            setDirectLoading(false);
+            return;
+          }
+
+          // Get parent task IDs for user tasks
+          const parentTaskIds = userTasks.filter(task => !task.parent_task_id).map(task => task.id);
+
+          // Get subtasks for these parent tasks, but exclude ones already assigned to current user
+          const { data: subtasks, error: subtasksError } = await supabase
+            .from('tasks')
+            .select(`
+              id, task_id, title, description, task_type, status, priority, evidence_required, due_date, due_time,
+              assigned_to, assigned_by, reviewer_id, parent_task_id, task_level,
+              completion_percentage, created_at, updated_at, work_duration_seconds,
+              original_task_id, is_recurring_instance, instance_date,
+              assigned_user:app_users!tasks_assigned_to_fkey(id, full_name, role, department),
+              assigned_by_user:app_users!tasks_assigned_by_fkey(id, full_name),
+              reviewer:app_users!tasks_reviewer_id_fkey(id, full_name),
+              submissions:task_submissions(*),
+              reviews:task_reviews(*)
+            `)
+            .in('parent_task_id', parentTaskIds)
+            .neq('assigned_to', currentUserId); // Exclude subtasks already assigned to current user
+
+          if (subtasksError) {
+            console.error('🎯 ERROR fetching subtasks:', subtasksError);
+          }
+
+          // Combine user tasks and subtasks, then sort by due date
+          const allTasks = [...userTasks, ...(subtasks || [])];
+          const directTaskData = allTasks.sort((a, b) => {
+            if (!a.due_date && !b.due_date) return 0;
+            if (!a.due_date) return 1;
+            if (!b.due_date) return -1;
+            return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
+          });
+          const directError = null;
 
           console.log('🎯 DIRECT QUERY RESULT:', { directTaskData, directError, currentUserId });
 
           if (!directError && directTaskData) {
-            setDirectTasks(directTaskData);
+            // Group subtasks under their parent tasks
+            const parentTasks = directTaskData.filter(task => !task.parent_task_id);
+            const subtasks = directTaskData.filter(task => task.parent_task_id);
 
-            // Initialize timers from database for in_progress tasks
+            // Group subtasks by parent_task_id
+            const subtasksByParent = subtasks.reduce((acc, subtask) => {
+              if (!acc[subtask.parent_task_id]) {
+                acc[subtask.parent_task_id] = [];
+              }
+              acc[subtask.parent_task_id].push(subtask);
+              return acc;
+            }, {} as Record<string, any[]>);
+
+            // Attach subtasks to their parent tasks
+            const tasksWithSubtasks = parentTasks.map(task => ({
+              ...task,
+              subtasks: (subtasksByParent[task.id] || []).sort((a, b) => (a.task_order || 0) - (b.task_order || 0))
+            }));
+
+
+            setDirectTasks(tasksWithSubtasks);
+
+            // Initialize timers from database for in_progress tasks (including subtasks)
             directTaskData.forEach((task: any) => {
               if (task.status === 'in_progress' && task.work_duration_seconds > 0) {
                 setTaskTimers(prev => ({
@@ -241,10 +323,11 @@ export default function MyTasks() {
       const { supabase } = await import('@/integrations/supabase/client');
       console.log('🎯 REFETCH: Fetching tasks for user:', currentUserId);
 
-      const { data: directTaskData, error: directError } = await supabase
+      // First get tasks assigned to current user
+      const { data: userTasks, error: userTasksError } = await supabase
         .from('tasks')
         .select(`
-          id, title, description, task_type, status, priority, due_date, due_time,
+          id, task_id, title, description, task_type, status, priority, evidence_required, due_date, due_time,
           assigned_to, assigned_by, reviewer_id, parent_task_id, task_level,
           completion_percentage, created_at, updated_at, work_duration_seconds,
           assigned_user:app_users!tasks_assigned_to_fkey(id, full_name, role, department),
@@ -253,16 +336,67 @@ export default function MyTasks() {
           submissions:task_submissions(*),
           reviews:task_reviews(*)
         `)
-        .eq('assigned_to', currentUserId)
-        .order('due_date', { ascending: true });
+        .eq('assigned_to', currentUserId);
+
+      if (userTasksError) {
+        console.error('🎯 ERROR fetching user tasks:', userTasksError);
+        return;
+      }
+
+      // Get parent task IDs for user tasks
+      const parentTaskIds = userTasks.filter(task => !task.parent_task_id).map(task => task.id);
+
+      // Get subtasks for these parent tasks, but exclude ones already assigned to current user
+      const { data: subtasks, error: subtasksError } = await supabase
+        .from('tasks')
+        .select(`
+          id, task_id, title, description, task_type, status, priority, evidence_required, due_date, due_time,
+          assigned_to, assigned_by, reviewer_id, parent_task_id, task_level,
+          completion_percentage, created_at, updated_at, work_duration_seconds,
+          assigned_user:app_users!tasks_assigned_to_fkey(id, full_name, role, department),
+          assigned_by_user:app_users!tasks_assigned_by_fkey(id, full_name),
+          reviewer:app_users!tasks_reviewer_id_fkey(id, full_name),
+          submissions:task_submissions(*),
+          reviews:task_reviews(*)
+        `)
+        .in('parent_task_id', parentTaskIds)
+        .neq('assigned_to', currentUserId); // Exclude subtasks already assigned to current user
+
+      if (subtasksError) {
+        console.error('🎯 ERROR fetching subtasks:', subtasksError);
+      }
+
+      // Combine user tasks and subtasks
+      const directTaskData = [...userTasks, ...(subtasks || [])];
+      const directError = null;
 
       console.log('🎯 REFETCH RESULT:', { directTaskData, directError, currentUserId });
 
       if (!directError && directTaskData) {
-        setDirectTasks(directTaskData);
-        console.log('✅ Refetch successful, loaded', directTaskData.length, 'tasks');
+        // Group subtasks under their parent tasks (same logic as initial fetch)
+        const parentTasks = directTaskData.filter(task => !task.parent_task_id);
+        const subtasks = directTaskData.filter(task => task.parent_task_id);
 
-        // Initialize timers from database for in_progress tasks
+        // Group subtasks by parent_task_id
+        const subtasksByParent = subtasks.reduce((acc, subtask) => {
+          if (!acc[subtask.parent_task_id]) {
+            acc[subtask.parent_task_id] = [];
+          }
+          acc[subtask.parent_task_id].push(subtask);
+          return acc;
+        }, {} as Record<string, any[]>);
+
+        // Attach subtasks to their parent tasks
+        const tasksWithSubtasks = parentTasks.map(task => ({
+          ...task,
+          subtasks: (subtasksByParent[task.id] || []).sort((a, b) => (a.task_order || 0) - (b.task_order || 0))
+        }));
+
+
+        setDirectTasks(tasksWithSubtasks);
+        console.log('✅ Refetch successful, loaded', directTaskData.length, 'total tasks,', parentTasks.length, 'parent tasks with', subtasks.length, 'subtasks');
+
+        // Initialize timers from database for in_progress tasks (including subtasks)
         directTaskData.forEach((task: any) => {
           if (task.status === 'in_progress' && task.work_duration_seconds > 0) {
             setTaskTimers(prev => ({
@@ -616,6 +750,39 @@ export default function MyTasks() {
       : <ArrowDown className="h-4 w-4 text-primary" />;
   };
 
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  // Format date in IST timezone
+  const formatDateIST = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
+  };
+
+  const formatDateTimeIST = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+  };
+
   const filteredTasks = useMemo(() => {
     if (!tasks.length) return tasks;
 
@@ -638,35 +805,147 @@ export default function MyTasks() {
         if (task.task_type !== typeFilter) return false;
       }
 
-      // Date filter - compare created_at with selected date
-      if (dateFilter) {
-        const filterDate = new Date(dateFilter);
-        const taskDate = new Date(task.created_at);
-
-        // Compare dates ignoring time (same day)
-        const filterDateOnly = new Date(filterDate.getFullYear(), filterDate.getMonth(), filterDate.getDate());
-        const taskDateOnly = new Date(taskDate.getFullYear(), taskDate.getMonth(), taskDate.getDate());
-
-        if (taskDateOnly.getTime() !== filterDateOnly.getTime()) return false;
+      // Attendance check - show tasks only if user is checked in
+      if (!isPresent) {
+        return false;
       }
 
-      // Advanced filters are disabled for My Tasks page
-      // Since tasks are already filtered by assigned_to in the database query,
-      // we only need basic filtering here
+      // For daily tasks: Show instances, hide templates
+      if (task.task_type === 'daily') {
+        // Hide templates (show only instances)
+        if (!task.is_recurring_instance) {
+          return false; // This is a template, don't show it
+        }
+
+        // Show instances based on date range or default to today's instances
+        const today = new Date().toISOString().split('T')[0];
+
+        if (dateRangeString && dateRangeString.includes(' to ')) {
+          // For date range views, show instances in that range
+          const [fromStr, toStr] = dateRangeString.split(' to ');
+          if (fromStr && toStr) {
+            const instanceDate = task.instance_date || task.due_date;
+            if (instanceDate < fromStr || instanceDate > toStr) {
+              return false;
+            }
+          }
+        } else {
+          // Default view: show today's instances only
+          const instanceDate = task.instance_date || task.due_date;
+          if (instanceDate !== today) {
+            return false;
+          }
+        }
+      }
+
+      // One-off tasks: always show if checked in
+
+      // Date range filter - parse date range string and compare with created_at
+      if (dateRangeString) {
+        const taskDate = new Date(task.created_at);
+        const taskDateOnly = new Date(taskDate.getFullYear(), taskDate.getMonth(), taskDate.getDate());
+
+        if (dateRangeString.includes(' to ')) {
+          // Range format: "2025-01-15 to 2025-01-20"
+          const [fromStr, toStr] = dateRangeString.split(' to ');
+
+          if (fromStr) {
+            const fromDate = new Date(fromStr);
+            const fromDateOnly = new Date(fromDate.getFullYear(), fromDate.getMonth(), fromDate.getDate());
+            if (taskDateOnly.getTime() < fromDateOnly.getTime()) return false;
+          }
+
+          if (toStr) {
+            const toDate = new Date(toStr);
+            const toDateOnly = new Date(toDate.getFullYear(), toDate.getMonth(), toDate.getDate());
+            if (taskDateOnly.getTime() > toDateOnly.getTime()) return false;
+          }
+        } else {
+          // Single date format: "2025-01-15"
+          const filterDate = new Date(dateRangeString);
+          const filterDateOnly = new Date(filterDate.getFullYear(), filterDate.getMonth(), filterDate.getDate());
+          if (taskDateOnly.getTime() !== filterDateOnly.getTime()) return false;
+        }
+      }
+
+      // Tab-based filtering
+      if (activeTab === 'completed') {
+        // Completed tab: show only approved or done tasks
+        return ['approved', 'done', 'done_auto_approved'].includes(task.status);
+      } else {
+        // To Do tab: show all other statuses (pending, in_progress, submitted_for_review, etc.)
+        return !['approved', 'done', 'done_auto_approved'].includes(task.status);
+      }
 
       return true;
     });
-  }, [tasks, searchTerm, statusFilter, typeFilter, dateFilter]);
+  }, [tasks, searchTerm, statusFilter, typeFilter, dateRangeString, activeTab, isPresent]);
+
+  // Apply sorting to filtered tasks
+  const sortedTasks = useMemo(() => {
+    if (!filteredTasks.length) return filteredTasks;
+
+    return [...filteredTasks].sort((a, b) => {
+      let aValue: any;
+      let bValue: any;
+
+      switch (sortField) {
+        case 'title':
+          aValue = a.title?.toLowerCase() || '';
+          bValue = b.title?.toLowerCase() || '';
+          break;
+        case 'priority':
+          const priorityOrder = { 'urgent': 1, 'high': 2, 'medium': 3, 'low': 4 };
+          aValue = priorityOrder[a.priority as keyof typeof priorityOrder] || 999;
+          bValue = priorityOrder[b.priority as keyof typeof priorityOrder] || 999;
+          break;
+        case 'status':
+          aValue = a.status?.toLowerCase() || '';
+          bValue = b.status?.toLowerCase() || '';
+          break;
+        case 'assignee':
+          aValue = a.assignee?.full_name?.toLowerCase() || '';
+          bValue = b.assignee?.full_name?.toLowerCase() || '';
+          break;
+        case 'assigned_by':
+          aValue = a.assigned_by_user?.full_name?.toLowerCase() || '';
+          bValue = b.assigned_by_user?.full_name?.toLowerCase() || '';
+          break;
+        case 'due_date':
+          aValue = a.due_date ? new Date(a.due_date).getTime() : 0;
+          bValue = b.due_date ? new Date(b.due_date).getTime() : 0;
+          break;
+        case 'created_at':
+          aValue = a.created_at ? new Date(a.created_at).getTime() : 0;
+          bValue = b.created_at ? new Date(b.created_at).getTime() : 0;
+          break;
+        case 'task_id':
+          aValue = a.task_id || 999999;
+          bValue = b.task_id || 999999;
+          break;
+        default:
+          return 0;
+      }
+
+      if (aValue === bValue) return 0;
+
+      if (sortDirection === 'asc') {
+        return aValue > bValue ? 1 : -1;
+      } else {
+        return aValue < bValue ? 1 : -1;
+      }
+    });
+  }, [filteredTasks, sortField, sortDirection]);
 
   // Group tasks by the selected groupBy option
   const groupedTasks = useMemo(() => {
     if (groupBy === 'none') {
-      return { 'All Tasks': filteredTasks };
+      return { 'All Tasks': sortedTasks };
     }
 
     const groups: Record<string, TaskWithDetails[]> = {};
 
-    filteredTasks.forEach(task => {
+    sortedTasks.forEach(task => {
       let groupKey = '';
 
       if (groupBy === 'priority') {
@@ -681,6 +960,8 @@ export default function MyTasks() {
         }
       } else if (groupBy === 'assignee') {
         groupKey = task.assigned_user?.full_name || 'Unassigned';
+      } else if (groupBy === 'task_type') {
+        groupKey = task.task_type === 'daily' ? 'Daily Tasks' : 'One-off Tasks';
       }
 
       if (!groups[groupKey]) {
@@ -698,6 +979,9 @@ export default function MyTasks() {
       } else if (groupBy === 'status') {
         const statusOrder = { 'Pending': 1, 'In Progress': 2, 'Under Review': 3, 'Approved': 4, 'Rejected': 5 };
         return (statusOrder[a as keyof typeof statusOrder] || 999) - (statusOrder[b as keyof typeof statusOrder] || 999);
+      } else if (groupBy === 'task_type') {
+        const typeOrder = { 'Daily Tasks': 1, 'One-off Tasks': 2 };
+        return (typeOrder[a as keyof typeof typeOrder] || 999) - (typeOrder[b as keyof typeof typeOrder] || 999);
       }
       return a.localeCompare(b);
     });
@@ -707,7 +991,7 @@ export default function MyTasks() {
     });
 
     return sortedGroups;
-  }, [filteredTasks, groupBy]);
+  }, [sortedTasks, groupBy]);
 
   // Add toggleRowExpansion function
   const toggleRowExpansion = (taskId: string) => {
@@ -723,7 +1007,7 @@ export default function MyTasks() {
   };
 
   // Copy exact rendering function from AdminTasksHub with employee-specific modifications
-  const renderTaskWithSubtasks = (task: TaskWithDetails, depth: number = 0) => {
+  const renderTaskWithSubtasks = (task: TaskWithDetails, depth: number = 0, allTasks: TaskWithDetails[] = []) => {
     // Add null safety checks
     if (!task || !task.id) {
       console.error('renderTaskWithSubtasks: Invalid task data', task);
@@ -731,10 +1015,11 @@ export default function MyTasks() {
     }
 
     const isExpanded = expandedRows.has(task.id);
-    // Get subtasks either from the task's subtasks property or from the main tasks list
-    const taskSubtasks = task.subtasks || filteredTasks.filter(t => t.parent_task_id === task.id);
+    // Get subtasks from the task's subtasks property (now properly attached)
+    const taskSubtasks = task.subtasks || [];
     const hasSubtasks = taskSubtasks && taskSubtasks.length > 0;
     const indentClass = depth > 0 ? `pl-${depth * 6}` : '';
+
 
     return (
       <React.Fragment key={task.id}>
@@ -776,6 +1061,13 @@ export default function MyTasks() {
             </div>
           </TableCell>
 
+          {/* Task ID */}
+          <TableCell className="border-r border-border/50 py-2 whitespace-nowrap text-center">
+            <div className="text-sm font-mono font-medium text-primary">
+              #{getHierarchicalTaskId(task, allTasks)}
+            </div>
+          </TableCell>
+
           {/* Task Title */}
           <TableCell className="border-r border-border/50 py-2">
             <div className={`flex items-center gap-2 ${indentClass}`}>
@@ -801,7 +1093,9 @@ export default function MyTasks() {
                 </div>
               )}
 
-              <span className="text-sm font-medium truncate">{task.title}</span>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium truncate">{task.title}</span>
+              </div>
               {hasSubtasks && (
                 <div className="text-xs text-muted-foreground whitespace-nowrap">
                   ({task.completion_percentage || 0}% complete)
@@ -860,12 +1154,12 @@ export default function MyTasks() {
                     <TooltipTrigger asChild>
                       <div className="flex items-center gap-1 text-muted-foreground cursor-help">
                         <Calendar className="h-3 w-3" />
-                        <span>{new Date(task.created_at).toLocaleDateString()}</span>
+                        <span>{formatDateIST(task.created_at)}</span>
                       </div>
                     </TooltipTrigger>
                     <TooltipContent side="top" className="text-xs bg-popover border shadow-lg">
-                      <div className="font-medium">Created at:</div>
-                      <div className="text-muted-foreground">{formatCreationTime(task.created_at)}</div>
+                      <div className="font-medium">Created at (IST):</div>
+                      <div className="text-muted-foreground">{formatDateTimeIST(task.created_at)}</div>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
@@ -875,32 +1169,29 @@ export default function MyTasks() {
             </div>
           </TableCell>
 
-          {/* Due Date */}
-          <TableCell className="border-r border-border/50 py-2 whitespace-nowrap">
-            <div className="text-sm">
-              {task.due_date ? (
-                <div className={`flex items-center gap-1 ${
-                  new Date(task.due_date) < new Date() && !['completed', 'approved'].includes(task.status)
-                    ? 'text-red-600' : 'text-muted-foreground'
-                }`}>
-                  <Calendar className="h-3 w-3" />
-                  <span>{new Date(task.due_date).toLocaleDateString()}</span>
-                </div>
-              ) : (
-                <span className="text-muted-foreground">No date</span>
-              )}
-            </div>
-          </TableCell>
-
-          {/* Created By */}
+          {/* Assigned By */}
           <TableCell className="border-r border-border/50 py-2 whitespace-nowrap">
             <span className="text-sm truncate">
               {task.assigned_by_user?.full_name || 'Unknown'}
             </span>
           </TableCell>
 
-          {/* Smart Actions - Start, Pause, Resume, Done */}
-          <TableCell className="w-40 py-2 whitespace-nowrap border-r border-border/50" onClick={(e) => e.stopPropagation()}>
+          {/* Work Time */}
+          <TableCell className="border-r border-border/50 py-2 whitespace-nowrap">
+            <div className="text-sm flex items-center gap-1 text-muted-foreground">
+              {task.work_duration_seconds ? (
+                <>
+                  <Clock className="h-3 w-3" />
+                  <span>{Math.floor(task.work_duration_seconds / 60)}:{(task.work_duration_seconds % 60).toString().padStart(2, '0')}</span>
+                </>
+              ) : (
+                <span>--</span>
+              )}
+            </div>
+          </TableCell>
+
+          {/* Actions */}
+          <TableCell className="w-40 py-2 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
             {(() => {
               // Use optimistic status if available, otherwise use actual task status
               const currentStatus = optimisticTaskStatuses[task.id] || task.status;
@@ -1024,39 +1315,6 @@ export default function MyTasks() {
             })()}
           </TableCell>
 
-          {/* Timer Column */}
-          <TableCell className="w-24 py-2 whitespace-nowrap text-center">
-            {(() => {
-              const currentStatus = optimisticTaskStatuses[task.id] || task.status;
-              const isWorking = workingSessions[task.id] || false;
-              const currentTime = taskTimers[task.id] || 0;
-
-              // Show timer for in_progress tasks
-              if (currentStatus === 'in_progress') {
-                return (
-                  <div className={`text-sm font-mono text-center ${isWorking ? 'text-green-600' : 'text-orange-600'}`}>
-                    {formatTimer(currentTime)}
-                  </div>
-                );
-              }
-
-              // Show final time for completed/submitted tasks
-              if (['submitted_for_review', 'approved', 'rejected', 'done_auto_approved'].includes(currentStatus)) {
-                return (
-                  <div className="text-sm font-mono text-center text-gray-600">
-                    {currentTime > 0 ? formatTimer(currentTime) : '--'}
-                  </div>
-                );
-              }
-
-              // No timer for pending tasks
-              return (
-                <div className="text-xs text-muted-foreground">
-                  --
-                </div>
-              );
-            })()}
-          </TableCell>
         </TableRow>
 
         {/* Expanded Details Row - EXACT copy from AdminTasksHub */}
@@ -1371,14 +1629,14 @@ export default function MyTasks() {
 
         {/* Render Subtasks */}
         {hasSubtasks && isExpanded && taskSubtasks.map((subtask) =>
-          renderTaskWithSubtasks(subtask, depth + 1)
+          renderTaskWithSubtasks(subtask, depth + 1, allTasks)
         )}
       </React.Fragment>
     );
   };
 
   // Show loading state for faster perceived performance
-  if ((loading && tasks.length === 0) || profileLoading) {
+  if ((loading && tasks.length === 0) || profileLoading || attendanceLoading) {
     return (
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -1394,6 +1652,45 @@ export default function MyTasks() {
           {[...Array(10)].map((_, i) => (
             <div key={i} className="h-16 bg-muted animate-pulse rounded"></div>
           ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Check-in prompt when user is not present
+  if (!isPresent && !attendanceLoading) {
+    return (
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <h1 className="text-2xl font-bold">
+            {profile?.appUser?.full_name ? `${getFirstName(profile.appUser.full_name)}'s Tasks` : 'My Tasks'}
+          </h1>
+        </div>
+
+        {/* Check-in Required Card */}
+        <div className="flex items-center justify-center min-h-[50vh]">
+          <Card className="max-w-sm w-full shadow-sm">
+            <CardContent className="text-center p-8 space-y-6">
+              <div className="mx-auto h-12 w-12 rounded-full bg-muted flex items-center justify-center">
+                <UserCheck className="h-6 w-6 text-muted-foreground" />
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="text-lg font-semibold">Check-in Required</h3>
+                <p className="text-sm text-muted-foreground">
+                  Please check in to access your tasks
+                </p>
+              </div>
+
+              <Button
+                className="w-full"
+                onClick={() => window.location.href = '/checkin'}
+              >
+                Start Check-in
+              </Button>
+            </CardContent>
+          </Card>
         </div>
       </div>
     );
@@ -1420,8 +1717,16 @@ export default function MyTasks() {
         </div>
       </div>
 
-      {/* Search and filters */}
-      <Card>
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'todo' | 'completed')}>
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="todo">To Do</TabsTrigger>
+          <TabsTrigger value="completed">Completed</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="todo" className="space-y-6">
+          {/* Search and filters */}
+          <Card>
         <CardContent className="pt-6">
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="w-80">
@@ -1438,6 +1743,7 @@ export default function MyTasks() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">No Grouping</SelectItem>
+                  <SelectItem value="task_type">Group by Task Type</SelectItem>
                   <SelectItem value="priority">Group by Priority</SelectItem>
                   <SelectItem value="status">Group by Status</SelectItem>
                 </SelectContent>
@@ -1466,17 +1772,77 @@ export default function MyTasks() {
                 </SelectContent>
               </Select>
               <div className="flex items-center gap-1">
-                <DatePicker
-                  value={dateFilter}
-                  onChange={setDateFilter}
-                  placeholder="Filter by date"
-                  className="w-40 min-w-[10rem] text-sm"
+                <DateRangePicker
+                  value={dateRangeString}
+                  onChange={setDateRangeString}
+                  placeholder="Filter by date range"
+                  className="w-60 min-w-[15rem] text-sm"
                 />
-                {dateFilter && (
+
+                {/* Quick date range presets */}
+                <div className="flex items-center gap-1 ml-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const today = new Date().toISOString().split('T')[0];
+                      setDateRangeString(`${today} to ${today}`);
+                    }}
+                    className="text-xs px-2 py-1 h-7"
+                  >
+                    Today
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const today = new Date();
+                      const yesterday = new Date();
+                      yesterday.setDate(today.getDate() - 1);
+                      const yesterdayStr = yesterday.toISOString().split('T')[0];
+                      setDateRangeString(`${yesterdayStr} to ${yesterdayStr}`);
+                    }}
+                    className="text-xs px-2 py-1 h-7"
+                  >
+                    Yesterday
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const today = new Date();
+                      const weekAgo = new Date();
+                      weekAgo.setDate(today.getDate() - 7);
+                      const fromStr = weekAgo.toISOString().split('T')[0];
+                      const toStr = today.toISOString().split('T')[0];
+                      setDateRangeString(`${fromStr} to ${toStr}`);
+                    }}
+                    className="text-xs px-2 py-1 h-7"
+                  >
+                    Last 7 Days
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const today = new Date();
+                      const monthAgo = new Date();
+                      monthAgo.setDate(today.getDate() - 30);
+                      const fromStr = monthAgo.toISOString().split('T')[0];
+                      const toStr = today.toISOString().split('T')[0];
+                      setDateRangeString(`${fromStr} to ${toStr}`);
+                    }}
+                    className="text-xs px-2 py-1 h-7"
+                  >
+                    Last 30 Days
+                  </Button>
+                </div>
+
+                {dateRangeString && (
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => setDateFilter(undefined)}
+                    onClick={() => setDateRangeString("")}
                     className="h-9 w-9 p-0 text-muted-foreground hover:text-foreground"
                     title="Clear date filter"
                   >
@@ -1506,19 +1872,23 @@ export default function MyTasks() {
                   }}
                 />
               </TableHead>
+              <TableHead className="w-16 border-r border-border/50 whitespace-nowrap">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 px-2 lg:px-3 font-medium"
+                  onClick={() => handleSort('task_id')}
+                >
+                  ID
+                  {getSortIcon('task_id')}
+                </Button>
+              </TableHead>
               <TableHead className="border-r border-border/50 whitespace-nowrap">
                 <Button
                   variant="ghost"
                   size="sm"
                   className="h-8 px-2 lg:px-3 font-medium"
-                  onClick={() => {
-                    if (sortField === 'title') {
-                      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-                    } else {
-                      setSortField('title');
-                      setSortDirection('asc');
-                    }
-                  }}
+                  onClick={() => handleSort('title')}
                 >
                   Task
                   {getSortIcon('title')}
@@ -1530,14 +1900,7 @@ export default function MyTasks() {
                   variant="ghost"
                   size="sm"
                   className="h-8 px-2 lg:px-3 font-medium"
-                  onClick={() => {
-                    if (sortField === 'priority') {
-                      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-                    } else {
-                      setSortField('priority');
-                      setSortDirection('asc');
-                    }
-                  }}
+                  onClick={() => handleSort('priority')}
                 >
                   Priority
                   {getSortIcon('priority')}
@@ -1548,14 +1911,7 @@ export default function MyTasks() {
                   variant="ghost"
                   size="sm"
                   className="h-8 px-2 lg:px-3 font-medium"
-                  onClick={() => {
-                    if (sortField === 'status') {
-                      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-                    } else {
-                      setSortField('status');
-                      setSortDirection('asc');
-                    }
-                  }}
+                  onClick={() => handleSort('status')}
                 >
                   Status
                   {getSortIcon('status')}
@@ -1566,16 +1922,9 @@ export default function MyTasks() {
                   variant="ghost"
                   size="sm"
                   className="h-8 px-2 lg:px-3 font-medium"
-                  onClick={() => {
-                    if (sortField === 'created_at') {
-                      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-                    } else {
-                      setSortField('created_at');
-                      setSortDirection('asc');
-                    }
-                  }}
+                  onClick={() => handleSort('created_at')}
                 >
-                  Created
+                  Created Date
                   {getSortIcon('created_at')}
                 </Button>
               </TableHead>
@@ -1584,22 +1933,14 @@ export default function MyTasks() {
                   variant="ghost"
                   size="sm"
                   className="h-8 px-2 lg:px-3 font-medium"
-                  onClick={() => {
-                    if (sortField === 'due_date') {
-                      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-                    } else {
-                      setSortField('due_date');
-                      setSortDirection('asc');
-                    }
-                  }}
+                  onClick={() => handleSort('assigned_by')}
                 >
-                  Due Date
-                  {getSortIcon('due_date')}
+                  Assigned By
+                  {getSortIcon('assigned_by')}
                 </Button>
               </TableHead>
-              <TableHead className="w-28 border-r border-border/50 whitespace-nowrap">Created By</TableHead>
-              <TableHead className="w-40 border-r border-border/50 whitespace-nowrap">Actions</TableHead>
-              <TableHead className="w-24 whitespace-nowrap">Timer</TableHead>
+              <TableHead className="w-28 border-r border-border/50 whitespace-nowrap">Work Time</TableHead>
+              <TableHead className="w-40 whitespace-nowrap">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -1627,15 +1968,67 @@ export default function MyTasks() {
                     <TableRow className="bg-muted/50">
                       <TableCell colSpan={10} className="py-3 px-4 font-semibold text-foreground border-b">
                         <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 bg-primary rounded-full"></div>
+                          {(() => {
+                            // Custom SVG icons for different group types
+                            if (groupName === 'Daily Tasks') {
+                              return (
+                                <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
+                                  <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/>
+                                </svg>
+                              );
+                            } else if (groupName === 'One-off Tasks') {
+                              return (
+                                <svg className="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 24 24">
+                                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                                </svg>
+                              );
+                            } else if (groupName.includes('High')) {
+                              return (
+                                <svg className="w-5 h-5 text-red-600" fill="currentColor" viewBox="0 0 24 24">
+                                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                                </svg>
+                              );
+                            } else if (groupName.includes('Medium')) {
+                              return (
+                                <svg className="w-5 h-5 text-yellow-600" fill="currentColor" viewBox="0 0 24 24">
+                                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                                </svg>
+                              );
+                            } else if (groupName.includes('Low')) {
+                              return (
+                                <svg className="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 24 24">
+                                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                                </svg>
+                              );
+                            } else if (groupName.includes('Progress')) {
+                              return (
+                                <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
+                                  <path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M12,6A6,6 0 0,0 6,12A6,6 0 0,0 12,18V12H18A6,6 0 0,0 12,6Z"/>
+                                </svg>
+                              );
+                            } else if (groupName.includes('Pending')) {
+                              return (
+                                <svg className="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 24 24">
+                                  <path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M13,7H11V12L15.75,14.85L16.5,13.6L12.5,11.25V7Z"/>
+                                </svg>
+                              );
+                            } else {
+                              // Default icon for other groups
+                              return (
+                                <svg className="w-5 h-5 text-primary" fill="currentColor" viewBox="0 0 24 24">
+                                  <path d="M9 11H7v6h2v-6zm4 0h-2v6h2v-6zm4 0h-2v6h2v-6zm2.5-5H18V4c0-.55-.45-1-1-1s-1 .45-1 1v2H8V4c0-.55-.45-1-1-1s-1 .45-1 1v2H4.5C3.67 6 3 6.67 3 7.5v11C3 19.33 3.67 20 4.5 20h15c.83 0 1.5-.67 1.5-1.5v-11C21 6.67 20.33 6 19.5 6z"/>
+                                </svg>
+                              );
+                            }
+                          })()}
                           {groupName} ({groupTasks.length})
                         </div>
                       </TableCell>
                     </TableRow>
                   )}
                   {groupTasks
-                    .filter(task => !task.parent_task_id || !groupTasks.some(t => t.id === task.parent_task_id))
-                    .map((task) => renderTaskWithSubtasks(task))
+                    .filter(task => !task.parent_task_id) // Only show parent tasks since subtasks are now attached as task.subtasks
+                    .map((task) => renderTaskWithSubtasks(task, 0, sortedTasks))
                   }
                 </React.Fragment>
               ))
@@ -1643,6 +2036,173 @@ export default function MyTasks() {
           </TableBody>
         </Table>
       </Card>
+        </TabsContent>
+
+        <TabsContent value="completed" className="space-y-6">
+          {/* Search and filters for completed tab */}
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="w-80">
+                  <Input
+                    placeholder="Search completed tasks..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Tasks Table for Completed - Using same structure as To Do tab */}
+          <Card>
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/30">
+                  <TableHead className="w-12 whitespace-nowrap">
+                    <Checkbox
+                      checked={selectedTasks.size > 0 && selectedTasks.size === filteredTasks.length}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedTasks(new Set(filteredTasks.map(task => task.id)));
+                        } else {
+                          setSelectedTasks(new Set());
+                        }
+                      }}
+                    />
+                  </TableHead>
+                  <TableHead className="w-16 border-r border-border/50 whitespace-nowrap">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 p-0 text-left justify-start font-medium hover:bg-transparent"
+                      onClick={() => handleSort('task_id')}
+                    >
+                      ID
+                      {getSortIcon('task_id')}
+                    </Button>
+                  </TableHead>
+                  <TableHead className="border-r border-border/50 whitespace-nowrap">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 p-0 text-left justify-start font-medium hover:bg-transparent"
+                      onClick={() => handleSort('title')}
+                    >
+                      Task
+                      {sortField === 'title' && (
+                        sortDirection === 'asc' ? <ChevronUp className="ml-1 h-3 w-3" /> : <ChevronDown className="ml-1 h-3 w-3" />
+                      )}
+                    </Button>
+                  </TableHead>
+                  <TableHead className="border-r border-border/50 w-[100px] whitespace-nowrap">Type</TableHead>
+                  <TableHead className="border-r border-border/50 w-[100px] whitespace-nowrap">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 p-0 text-left justify-start font-medium hover:bg-transparent"
+                      onClick={() => handleSort('priority')}
+                    >
+                      Priority
+                      {getSortIcon('priority')}
+                    </Button>
+                  </TableHead>
+                  <TableHead className="border-r border-border/50 w-[120px] whitespace-nowrap">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 p-0 text-left justify-start font-medium hover:bg-transparent"
+                      onClick={() => handleSort('status')}
+                    >
+                      Status
+                      {getSortIcon('status')}
+                    </Button>
+                  </TableHead>
+                  <TableHead className="border-r border-border/50 w-[140px] whitespace-nowrap">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 p-0 text-left justify-start font-medium hover:bg-transparent"
+                      onClick={() => handleSort('created_at')}
+                    >
+                      Created Date
+                      {getSortIcon('created_at')}
+                    </Button>
+                  </TableHead>
+                  <TableHead className="border-r border-border/50 w-[120px] whitespace-nowrap">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 p-0 text-left justify-start font-medium hover:bg-transparent"
+                      onClick={() => handleSort('assigned_by')}
+                    >
+                      Assigned By
+                      {getSortIcon('assigned_by')}
+                    </Button>
+                  </TableHead>
+                  <TableHead className="border-r border-border/50 w-[100px] whitespace-nowrap">Work Time</TableHead>
+                  <TableHead className="w-[100px] whitespace-nowrap">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredTasks.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={10} className="text-center py-12">
+                      <div className="flex flex-col items-center gap-4">
+                        <Clock className="h-12 w-12 text-muted-foreground" />
+                        <div className="text-center">
+                          <h3 className="text-lg font-semibold mb-2">No completed tasks found</h3>
+                          <p className="text-muted-foreground">
+                            No completed tasks match your current filters.
+                          </p>
+                        </div>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  Object.entries(groupedTasks).map(([groupName, groupTasks]) => (
+                    <React.Fragment key={groupName}>
+                      {/* Group Header Row */}
+                      <TableRow className="bg-muted/30 hover:bg-muted/30">
+                        <TableCell colSpan={10} className="font-semibold py-3">
+                          <div className="flex items-center gap-3">
+                            {(() => {
+                              if (groupName === 'Daily Tasks') {
+                                return (
+                                  <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/>
+                                  </svg>
+                                );
+                              } else if (groupName === 'One-off Tasks') {
+                                return (
+                                  <svg className="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                                  </svg>
+                                );
+                              } else {
+                                return (
+                                  <svg className="w-5 h-5 text-primary" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M9 11H7v6h2v-6zm4 0h-2v6h2v-6zm4 0h-2v6h2v-6zm2.5-5H18V4c0-.55-.45-1-1-1s-1 .45-1 1v2H8V4c0-.55-.45-1-1-1s-1 .45-1 1v2H4.5C3.67 6 3 6.67 3 7.5v11C3 19.33 3.67 20 4.5 20h15c.83 0 1.5-.67 1.5-1.5v-11C21 6.67 20.33 6 19.5 6z"/>
+                                  </svg>
+                                );
+                              }
+                            })()}
+                            {groupName} ({groupTasks.length})
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                      {groupTasks
+                        .filter(task => !task.parent_task_id)
+                        .map((task) => renderTaskWithSubtasks(task, 0, sortedTasks))
+                      }
+                    </React.Fragment>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       {/* Task Edit/View Drawer */}
       {editTaskOpen && editingTask && (

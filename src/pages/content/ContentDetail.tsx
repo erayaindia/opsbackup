@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback, useMemo } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo, Component } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,15 +12,33 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { 
-  ArrowLeft, 
-  Save, 
-  Trash2, 
-  Loader2, 
-  AlertCircle, 
-  Wifi, 
-  WifiOff, 
-  Sparkles, 
+import { SidebarProvider, useSidebar } from "@/components/ui/sidebar";
+import { AppSidebar } from "@/components/AppSidebar";
+import { AppHeader } from "@/components/AppHeader";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { useUsers } from "@/hooks/useUsers";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  ArrowLeft,
+  Save,
+  Trash2,
+  Loader2,
+  AlertCircle,
+  Wifi,
+  WifiOff,
+  Sparkles,
   Plus,
   Folder,
   FolderOpen,
@@ -37,7 +55,8 @@ import {
   Send,
   Filter,
   AtSign,
-  Paperclip
+  Paperclip,
+  ChevronsUpDown
 } from "lucide-react";
 import { ContentService } from "@/services/contentService";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -160,11 +179,66 @@ const getTimeSince = (date) => {
 
 const teamById = Object.fromEntries(TEAM.map((t) => [t.id, t]));
 
+class ErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error('ContentDetail Error:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-background">
+          <div className="text-center space-y-4 max-w-md mx-auto p-6">
+            <div className="w-16 h-16 mx-auto bg-red-100 flex items-center justify-center">
+              <AlertCircle className="w-8 h-8 text-red-600" />
+            </div>
+            <h1 className="text-2xl font-bold text-foreground">Something went wrong</h1>
+            <p className="text-muted-foreground">
+              An error occurred while loading the content detail page. Please refresh the page to try again.
+            </p>
+            <Button onClick={() => window.location.reload()}>
+              Refresh Page
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+function ContentDetailLayout({ children }) {
+  const { state } = useSidebar();
+  const isCollapsed = state === "collapsed";
+
+  return (
+    <div className="min-h-screen flex w-full bg-background relative">
+      <AppSidebar />
+      <div className={`flex-1 flex flex-col transition-all duration-500 ease-in-out ${isCollapsed ? 'ml-16' : 'ml-0'}`}>
+        <AppHeader />
+        <main className="flex-1 bg-background">
+          {children}
+        </main>
+      </div>
+    </div>
+  );
+}
 
 export default function ContentDetail() {
   const { slug } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const isMobile = useIsMobile(); // Move hook to top level
   const [editable, setEditable] = useState(null);
   const [loading, setLoading] = useState(true);
   // Removed isSaving state for Notion-like silent auto-save
@@ -180,7 +254,11 @@ export default function ContentDetail() {
   const [rawFilesLoading, setRawFilesLoading] = useState(false);
   const [isAutoSaving, setIsAutoSaving] = useState(false);
   const lastRawFilesLoadTime = useRef<number>(0);
-  
+
+  // Users data for Assigned To dropdown
+  const { users, loading: usersLoading, error: usersError } = useUsers();
+  const [userSelectorOpen, setUserSelectorOpen] = useState(false);
+
   // Define loadRawFiles before useEffect hooks that use it
   const loadRawFiles = useCallback(async () => {
     const actualContentId = contentId || editable?.id;
@@ -831,14 +909,15 @@ export default function ContentDetail() {
       }
     };
   }, [
-    editable?.title, 
-    editable?.notesHtml, 
+    editable?.title,
+    editable?.notesHtml,
     editable?.planning,
     editable?.shotList,
     editable?.editing,
     editable?.review,
     isOnline
   ]);
+
 
   const autoSaveContent = async () => {
     // Silent auto-save like Notion - no UI feedback or logging
@@ -1063,7 +1142,7 @@ export default function ContentDetail() {
 
   const StageProgressBar = ({ stage }) => (
     <div
-      className="w-full h-3 bg-muted rounded-full overflow-hidden"
+      className="w-full h-3 bg-muted overflow-hidden"
       title={`${stageIndex(stage) + 1}/${STAGES.length}`}
     >
       <div className="h-full bg-gradient-primary transition-all duration-500" style={{ width: `${progressPct(stage)}%` }} />
@@ -1071,12 +1150,35 @@ export default function ContentDetail() {
   );
 
   const AssigneePill = ({ id }) => {
-    const t = teamById[id];
-    if (!t) return null;
+    // If users are still loading, show loading state
+    if (usersLoading) {
+      return (
+        <span className="inline-flex items-center gap-2 px-3 py-1 bg-muted/50 text-muted-foreground text-xs border border-border/50">
+          Loading user...
+        </span>
+      );
+    }
+
+    // Try to find user in database
+    const user = users.find(u => u.id === id);
+
+    if (!user) {
+      return (
+        <span className="inline-flex items-center gap-2 px-3 py-1 bg-muted/50 text-muted-foreground text-xs border border-border/50">
+          No user assigned
+        </span>
+      );
+    }
+
+    // Use database user data - note the field names from useUsers hook
+    const initials = user.full_name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
     return (
-      <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-muted/50 text-muted-foreground text-xs border border-border/50">
-        <img src={t.avatar} alt={t.name} className="h-5 w-5 rounded-full border border-border/20" />
-        <span className="font-medium">{t.name}</span>
+      <span className="inline-flex items-center gap-2 px-3 py-1 bg-muted/50 text-muted-foreground text-xs border border-border/50">
+        <div className="h-5 w-5 bg-primary text-primary-foreground text-xs flex items-center justify-center border border-border/20 font-medium">
+          {initials}
+        </div>
+        <span className="font-medium">{user.full_name}</span>
+        {user.role && <span className="text-xs opacity-70">({user.role})</span>}
       </span>
     );
   };
@@ -1085,7 +1187,7 @@ export default function ContentDetail() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <div className="animate-spin h-8 w-8 border-b-2 border-primary"></div>
       </div>
     );
   }
@@ -1094,7 +1196,7 @@ export default function ContentDetail() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center space-y-4 max-w-md mx-auto p-6">
-          <div className="w-16 h-16 mx-auto bg-red-100 rounded-full flex items-center justify-center">
+          <div className="w-16 h-16 mx-auto bg-red-100 flex items-center justify-center">
             <AlertCircle className="w-8 h-8 text-red-600" />
           </div>
           <h1 className="text-2xl font-bold text-foreground">Content Not Found</h1>
@@ -1125,7 +1227,7 @@ export default function ContentDetail() {
         <div className="text-center space-y-4">
           <h1 className="text-2xl font-bold text-foreground">Loading Content</h1>
           <p className="text-muted-foreground">Please wait while we load your content...</p>
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <div className="animate-spin h-8 w-8 border-b-2 border-primary mx-auto"></div>
         </div>
       </div>
     );
@@ -1134,8 +1236,17 @@ export default function ContentDetail() {
   const dl = deadlineInfo(editable.deadline);
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border">
+    <ErrorBoundary>
+      <SidebarProvider
+        defaultOpen={!isMobile}
+        style={{
+          "--sidebar-width": "16rem",
+          "--sidebar-width-mobile": "18rem",
+          "--sidebar-width-icon": "4rem",
+        } as React.CSSProperties}
+      >
+        <ContentDetailLayout>
+        <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border">
         <div className="max-w-7xl mx-auto px-6 py-3">
           {/* Desktop Layout */}
           <div className="hidden md:flex items-start justify-between">
@@ -1151,10 +1262,10 @@ export default function ContentDetail() {
                 {/* Main title row with badges */}
                 <div className="flex items-center gap-3 mb-1">
                   <h1 className="text-2xl font-bold text-foreground truncate">{editable.title}</h1>
-                  <span className="px-2 py-0.5 bg-accent text-accent-foreground rounded text-xs font-medium">
+                  <span className="px-2 py-0.5 bg-accent text-accent-foreground text-xs font-medium">
                     {editable.format}
                   </span>
-                  <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                  <span className={`px-2 py-0.5 text-xs font-medium ${
                     dl.cls.includes('red') 
                       ? 'bg-red-50 text-red-700 border border-red-200' 
                       : dl.cls.includes('yellow') 
@@ -1163,7 +1274,7 @@ export default function ContentDetail() {
                   }`}>
                     {dl.label}
                   </span>
-                  <span className="px-2 py-0.5 bg-primary/10 text-primary rounded text-xs font-medium">
+                  <span className="px-2 py-0.5 bg-primary/10 text-primary text-xs font-medium">
                     {editable.stage}
                   </span>
                 </div>
@@ -1233,10 +1344,10 @@ export default function ContentDetail() {
                 <h1 className="text-xl font-bold text-foreground truncate leading-tight">{editable.title}</h1>
                 {/* Badges row */}
                 <div className="flex items-center gap-2 mt-1 flex-wrap">
-                  <span className="px-2 py-0.5 bg-accent text-accent-foreground rounded text-xs font-medium">
+                  <span className="px-2 py-0.5 bg-accent text-accent-foreground text-xs font-medium">
                     {editable.format}
                   </span>
-                  <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                  <span className={`px-2 py-0.5 text-xs font-medium ${
                     dl.cls.includes('red') 
                       ? 'bg-red-50 text-red-700 border border-red-200' 
                       : dl.cls.includes('yellow') 
@@ -1245,7 +1356,7 @@ export default function ContentDetail() {
                   }`}>
                     {dl.label}
                   </span>
-                  <span className="px-2 py-0.5 bg-primary/10 text-primary rounded text-xs font-medium">
+                  <span className="px-2 py-0.5 bg-primary/10 text-primary text-xs font-medium">
                     {editable.stage || 'Draft'}
                   </span>
                 </div>
@@ -1309,7 +1420,7 @@ export default function ContentDetail() {
 
       <div className="max-w-7xl mx-auto px-6 py-8">
         <Tabs defaultValue="basic-info" className="w-full">
-          <TabsList className="grid grid-cols-6 w-full max-w-4xl bg-muted/30 p-1 rounded-lg mb-8">
+          <TabsList className="grid grid-cols-6 w-full max-w-4xl bg-muted/30 p-1 mb-8">
             <TabsTrigger value="basic-info" className="data-[state=active]:bg-card data-[state=active]:shadow-sm text-xs sm:text-sm">Basic Info</TabsTrigger>
             <TabsTrigger value="planning" className="data-[state=active]:bg-card data-[state=active]:shadow-sm text-xs sm:text-sm">Planning</TabsTrigger>
             <TabsTrigger value="shot-list" className="data-[state=active]:bg-card data-[state=active]:shadow-sm text-xs sm:text-sm">Shoot Prep</TabsTrigger>
@@ -1320,158 +1431,183 @@ export default function ContentDetail() {
 
           {/* TAB 1: BASIC INFO */}
           <TabsContent value="basic-info" className="space-y-8">
-            {/* BASIC INFO */}
             <div className="enhanced-card p-6">
               <h3 className="text-lg font-semibold mb-6 text-foreground flex items-center gap-2">
-                📝 Basic Info
+                📝 Content Information
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="title">Title</Label>
-                  <Input id="title" value={editable.title} onChange={(e) => setEditable({ ...editable, title: e.target.value })} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="id">Content ID</Label>
-                  <Input id="id" value={editable.id} disabled />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="date">Date Created</Label>
-                  <Input id="date" type="date" value={editable.date || ""} onChange={(e) => setEditable({ ...editable, date: e.target.value })} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="deadline">Deadline</Label>
-                  <Input id="deadline" type="date" value={editable.deadline || ""} onChange={(e) => setEditable({ ...editable, deadline: e.target.value })} />
-                </div>
-              </div>
-            </div>
 
-            {/* CLASSIFICATION */}
-            <div className="enhanced-card p-6">
-              <h3 className="text-lg font-semibold mb-6 text-foreground flex items-center gap-2">
-                🏷️ Classification
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="space-y-2">
-                  <Label>Stage</Label>
-                  <select
-                    className="w-full border border-border rounded-lg px-3 py-2 bg-card focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
-                    value={editable.stage}
-                    onChange={(e) => setEditable({ ...editable, stage: e.target.value })}
-                  >
-                    {STAGES.map((s) => (
-                      <option key={s} value={s}>{s}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Format</Label>
-                  <select
-                    className="w-full border border-border rounded-lg px-3 py-2 bg-card focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
-                    value={editable.format}
-                    onChange={(e) => setEditable({ ...editable, format: e.target.value })}
-                  >
-                    {FORMATS.map((f) => (
-                      <option key={f} value={f}>{f}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="product">Product</Label>
-                  <Input id="product" value={editable.product} onChange={(e) => setEditable({ ...editable, product: e.target.value })} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Priority</Label>
-                  <select
-                    className="w-full border border-border rounded-lg px-3 py-2 bg-card focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
-                    value={editable.priority || "Medium"}
-                    onChange={(e) => setEditable({ ...editable, priority: e.target.value })}
-                  >
-                    <option value="High">🔥 High</option>
-                    <option value="Medium">⚖️ Medium</option>
-                    <option value="Low">🕊️ Low</option>
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Assigned To</Label>
-                  <select
-                    className="w-full border border-border rounded-lg px-3 py-2 bg-card focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
-                    value={editable.assignedTo || TEAM[0].id}
-                    onChange={(e) => setEditable({ ...editable, assignedTo: e.target.value })}
-                  >
-                    {TEAM.map((m) => (
-                      <option key={m.id} value={m.id}>{m.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="md:col-span-3 space-y-2">
-                  <Label>Progress</Label>
-                  <StageProgressBar stage={editable.stage} />
-                </div>
-              </div>
-            </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Left Column */}
+                <div className="space-y-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="title">Title</Label>
+                    <Input
+                      id="title"
+                      value={editable.title}
+                      onChange={(e) => setEditable({ ...editable, title: e.target.value })}
+                    />
+                  </div>
 
-            {/* DETAILS */}
-            <div className="enhanced-card p-6">
-              <h3 className="text-lg font-semibold mb-6 text-foreground flex items-center gap-2">
-                📋 Details
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2 md:col-span-2">
-                  <Label>Notes (Rich Text)</Label>
-                  <div
-                    contentEditable
-                    className="min-h-[120px] p-4 bg-card border border-border rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
-                    onInput={(e) => setEditable({ ...editable, notesHtml: e.currentTarget.innerHTML })}
-                    dangerouslySetInnerHTML={{ __html: editable.notesHtml || "" }}
-                  />
+                  <div className="space-y-2">
+                    <Label htmlFor="product">Product Name</Label>
+                    <Input
+                      id="product"
+                      value={editable.product}
+                      onChange={(e) => setEditable({ ...editable, product: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Stage</Label>
+                    <select
+                      className="w-full border border-border px-3 py-2 bg-card focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
+                      value={editable.stage}
+                      onChange={(e) => setEditable({ ...editable, stage: e.target.value })}
+                    >
+                      {STAGES.map((s) => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Format</Label>
+                    <select
+                      className="w-full border border-border px-3 py-2 bg-card focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
+                      value={editable.format}
+                      onChange={(e) => setEditable({ ...editable, format: e.target.value })}
+                    >
+                      {FORMATS.map((f) => (
+                        <option key={f} value={f}>{f}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Priority</Label>
+                    <select
+                      className="w-full border border-border px-3 py-2 bg-card focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
+                      value={editable.priority || "Medium"}
+                      onChange={(e) => setEditable({ ...editable, priority: e.target.value })}
+                    >
+                      <option value="High">🔥 High</option>
+                      <option value="Medium">⚖️ Medium</option>
+                      <option value="Low">🕊️ Low</option>
+                    </select>
+                  </div>
                 </div>
 
-                {/* Reference Links */}
-                <div className="space-y-2 md:col-span-2">
-                  <Label>Reference Links</Label>
-                  <Input
-                    placeholder="https://... (press Enter to add)"
-                    onKeyDown={(e) => {
-                      const v = e.currentTarget.value.trim();
-                      if (e.key === "Enter" && v) {
-                        try {
-                          new URL(v);
-                          setEditable({
-                            ...editable,
-                            referenceLinks: [...(editable.referenceLinks || []), v],
-                          });
-                          e.currentTarget.value = "";
-                        } catch (error) {
-                          console.error('Invalid URL:', error);
-                        }
-                      }
-                    }}
-                  />
-                  <ul className="mt-2 space-y-1">
-                    {(editable.referenceLinks || []).map((link, i) => (
-                      <li key={i} className="flex items-center justify-between text-sm">
-                        <a
-                          href={link}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-primary hover:text-primary/80 hover:underline truncate max-w-[85%] transition-colors"
+                {/* Right Column */}
+                <div className="space-y-6">
+                  <div className="space-y-1">
+                    <Label>Assigned To</Label>
+                    <Popover open={userSelectorOpen} onOpenChange={setUserSelectorOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={userSelectorOpen}
+                          className="w-full justify-between"
+                          disabled={usersLoading}
                         >
-                          {link}
-                        </a>
-                        <button
-                          className="text-xs text-destructive hover:text-destructive/80 transition-colors"
-                          onClick={() =>
-                            setEditable({
-                              ...editable,
-                              referenceLinks: editable.referenceLinks.filter((_, idx) => idx !== i),
-                            })
-                          }
-                        >
-                          remove
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
+                          {editable.assignedTo
+                            ? users.find((user) => user.id === editable.assignedTo)?.full_name || "Unknown User"
+                            : "Select a user..."}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-full p-0">
+                        <Command>
+                          <CommandInput placeholder="Search users..." />
+                          <CommandList>
+                            <CommandEmpty>No users found.</CommandEmpty>
+                            <CommandGroup>
+                              <CommandItem
+                                value=""
+                                onSelect={() => {
+                                  setEditable({ ...editable, assignedTo: "" });
+                                  setUserSelectorOpen(false);
+                                }}
+                              >
+                                <Check
+                                  className={`mr-2 h-4 w-4 ${
+                                    editable.assignedTo === "" ? "opacity-100" : "opacity-0"
+                                  }`}
+                                />
+                                No one assigned
+                              </CommandItem>
+                              {users.map((user) => (
+                                <CommandItem
+                                  key={user.id}
+                                  value={user.full_name}
+                                  onSelect={() => {
+                                    setEditable({ ...editable, assignedTo: user.id });
+                                    setUserSelectorOpen(false);
+                                  }}
+                                >
+                                  <Check
+                                    className={`mr-2 h-4 w-4 ${
+                                      editable.assignedTo === user.id ? "opacity-100" : "opacity-0"
+                                    }`}
+                                  />
+                                  {user.full_name}
+                                  {user.role && (
+                                    <span className="ml-auto text-xs text-muted-foreground">
+                                      {user.role}
+                                    </span>
+                                  )}
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                    {usersLoading && (
+                      <p className="text-xs text-muted-foreground">Loading users...</p>
+                    )}
+                    {usersError && (
+                      <p className="text-xs text-red-500">Error loading users: {usersError}</p>
+                    )}
+                    {!usersLoading && !usersError && users.length === 0 && (
+                      <p className="text-xs text-orange-500">No users found in database.</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="date">Date Created</Label>
+                    <Input
+                      id="date"
+                      type="date"
+                      value={editable.date || ""}
+                      onChange={(e) => setEditable({ ...editable, date: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="deadline">Deadline</Label>
+                    <Input
+                      id="deadline"
+                      type="date"
+                      value={editable.deadline || ""}
+                      onChange={(e) => setEditable({ ...editable, deadline: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="id">Content ID</Label>
+                    <Input
+                      id="id"
+                      value={editable.id}
+                      disabled
+                      className="bg-muted/50"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Progress</Label>
+                    <StageProgressBar stage={editable.stage} />
+                  </div>
                 </div>
               </div>
             </div>
@@ -1633,9 +1769,9 @@ export default function ContentDetail() {
                 
                 {/* Progress Bar */}
                 {editable?.shotList && editable.shotList.length > 0 && (
-                  <div className="w-full bg-secondary rounded-full h-2 mb-1">
+                  <div className="w-full bg-secondary h-2 mb-1">
                     <div 
-                      className="bg-gradient-to-r from-green-500 to-green-600 h-2 rounded-full transition-all duration-300 ease-out"
+                      className="bg-gradient-to-r from-green-500 to-green-600 h-2 transition-all duration-300 ease-out"
                       style={{ 
                         width: `${Math.round((editable.shotList.filter(shot => shot.completed).length / editable.shotList.length) * 100)}%`
                       }}
@@ -1647,7 +1783,7 @@ export default function ContentDetail() {
               {/* Shot List */}
               <div className="space-y-3">
                 {editable?.shotList?.length === 0 ? (
-                  <div className="text-center text-muted-foreground py-6 border-2 border-dashed border-border rounded-lg">
+                  <div className="text-center text-muted-foreground py-6 border-2 border-dashed border-border">
                     <div className="space-y-1">
                       <p>No shots added yet</p>
                       <p className="text-sm">Click "Add Shot" to create your first shot</p>
@@ -1718,16 +1854,16 @@ export default function ContentDetail() {
               
               {/* Progress Summary */}
               {editable?.shotList?.length > 0 && (
-                <div className="mt-6 p-4 bg-muted/30 rounded-lg">
+                <div className="mt-6 p-4 bg-muted/30">
                   <div className="flex items-center justify-between text-sm">
                     <span>Progress:</span>
                     <span className="font-medium">
                       {editable.shotList.filter(shot => shot.completed).length} / {editable.shotList.length} shots completed
                     </span>
                   </div>
-                  <div className="w-full bg-muted rounded-full h-2 mt-2">
+                  <div className="w-full bg-muted h-2 mt-2">
                     <div 
-                      className="bg-primary rounded-full h-2 transition-all duration-300"
+                      className="bg-primary h-2 transition-all duration-300"
                       style={{
                         width: `${(editable.shotList.filter(shot => shot.completed).length / editable.shotList.length) * 100}%`
                       }}
@@ -1753,7 +1889,7 @@ export default function ContentDetail() {
               />
               
               {!(contentId || editable?.id) && (
-                <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
+                <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 text-sm text-yellow-800">
                   <p>⚠️ Please save this content first to enable file uploads</p>
                 </div>
               )}
@@ -1812,7 +1948,7 @@ export default function ContentDetail() {
               </div>
 
               {editable?.editing?.deliverables?.length === 0 ? (
-                <div className="text-center text-muted-foreground py-8 border-2 border-dashed border-border rounded-lg">
+                <div className="text-center text-muted-foreground py-8 border-2 border-dashed border-border">
                   <div className="space-y-2">
                     <p>No deliverables added yet</p>
                     <p className="text-sm">Click "Add Deliverable" to upload your first edit</p>
@@ -1863,7 +1999,7 @@ export default function ContentDetail() {
                                   editing: { ...editable.editing, deliverables: updated }
                                 });
                               }}
-                              className="w-full h-8 text-sm border border-border rounded px-2 bg-card"
+                              className="w-full h-8 text-sm border border-border px-2 bg-card"
                             >
                               <option value="">Select type...</option>
                               <option value="final">Final Cut</option>
@@ -2011,7 +2147,7 @@ export default function ContentDetail() {
               </div>
 
               {/* Add New Comment */}
-              <div className="border border-border rounded-lg p-4 mb-6">
+              <div className="border border-border p-4 mb-6">
                 <div className="flex items-start gap-3">
                   <div className="flex-1">
                     <Textarea
@@ -2080,7 +2216,7 @@ export default function ContentDetail() {
 
                   if (filteredComments.length === 0) {
                     return (
-                      <div className="text-center text-muted-foreground py-8 border-2 border-dashed border-border rounded-lg">
+                      <div className="text-center text-muted-foreground py-8 border-2 border-dashed border-border">
                         <div className="space-y-2">
                           <MessageSquare className="h-8 w-8 mx-auto text-muted-foreground" />
                           <p>{commentFilter === 'all' ? 'No comments yet' : `No ${commentFilter} comments`}</p>
@@ -2093,12 +2229,12 @@ export default function ContentDetail() {
                   }
 
                   return filteredComments.map((comment) => (
-                    <div key={comment.id} className={`border rounded-lg p-4 ${comment.resolved ? 'bg-green-50/50 border-green-200' : 'bg-card border-border'}`}>
+                    <div key={comment.id} className={`border p-4 ${comment.resolved ? 'bg-green-50/50 border-green-200' : 'bg-card border-border'}`}>
                       <div className="flex items-start gap-3">
                         <img 
                           src={comment.avatar} 
                           alt={comment.author}
-                          className="w-8 h-8 rounded-full"
+                          className="w-8 h-8"
                         />
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-2">
@@ -2107,7 +2243,7 @@ export default function ContentDetail() {
                               {new Date(comment.createdAt).toLocaleString()}
                             </span>
                             {comment.resolved && (
-                              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs">
+                              <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 text-xs">
                                 <Check className="h-3 w-3" />
                                 Resolved
                               </span>
@@ -2178,6 +2314,8 @@ export default function ContentDetail() {
 
         </Tabs>
       </div>
-    </div>
+        </ContentDetailLayout>
+      </SidebarProvider>
+    </ErrorBoundary>
   );
 }
