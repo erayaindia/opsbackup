@@ -126,7 +126,7 @@ export default function AdminTasksHub() {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false);
   const [groupBy, setGroupBy] = useState<'none' | 'priority' | 'assignee' | 'status'>('assignee');
-  const [activeTab, setActiveTab] = useState<'all' | 'completed' | 'under_review' | 'incomplete' | 'archived'>('all');
+  const [activeTab, setActiveTab] = useState<'todo' | 'under_review' | 'incomplete' | 'completed' | 'archived' | 'all'>('todo');
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => {
     // Load collapsed groups from localStorage on initial load
     try {
@@ -678,6 +678,10 @@ export default function AdminTasksHub() {
       } else if (activeTab === 'incomplete') {
         // Incomplete tab: show only incomplete tasks
         if (!isIncomplete) return false;
+      } else if (activeTab === 'todo') {
+        // Todo tab: show only pending and in-progress tasks
+        const isTodo = task.status === 'pending' || task.status === 'in_progress';
+        if (!isTodo) return false;
       } else if (activeTab === 'all') {
         // All tab: hide archived tasks by default unless showArchived filter is true
         if (!advancedFilters.showArchived && isArchived) {
@@ -2038,14 +2042,98 @@ export default function AdminTasksHub() {
       </div>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'all' | 'completed' | 'under_review' | 'incomplete' | 'archived')}>
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="all">All Tasks</TabsTrigger>
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'todo' | 'under_review' | 'incomplete' | 'completed' | 'archived' | 'all')}>
+        <TabsList className="grid w-full grid-cols-6">
+          <TabsTrigger value="todo">To Do</TabsTrigger>
           <TabsTrigger value="under_review">Under Review</TabsTrigger>
           <TabsTrigger value="incomplete">Incomplete</TabsTrigger>
           <TabsTrigger value="completed">Completed Tasks</TabsTrigger>
           <TabsTrigger value="archived">Archived Tasks</TabsTrigger>
+          <TabsTrigger value="all">All Tasks</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="todo" className="space-y-6">
+          {/* Search and filters */}
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="w-80">
+                  <Input
+                    placeholder="Search to-do tasks by title, assignee, or description..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full"
+                  />
+                </div>
+            <div className="flex gap-2">
+              <Select value={groupBy} onValueChange={(value) => setGroupBy(value as typeof groupBy)}>
+                <SelectTrigger className="w-36">
+                  <SelectValue placeholder="Group By" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No Grouping</SelectItem>
+                  <SelectItem value="assignee">By Assignee</SelectItem>
+                  <SelectItem value="priority">By Priority</SelectItem>
+                  <SelectItem value="status">By Status</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={sortField} onValueChange={(value) => setSortField(value as typeof sortField)}>
+                <SelectTrigger className="w-32">
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="created_at">Created</SelectItem>
+                  <SelectItem value="due_date">Due Date</SelectItem>
+                  <SelectItem value="title">Title</SelectItem>
+                  <SelectItem value="priority">Priority</SelectItem>
+                  <SelectItem value="assignee">Assignee</SelectItem>
+                  <SelectItem value="status">Status</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')}
+                className="px-3"
+              >
+                {getSortIcon()}
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setAdvancedFiltersOpen(!advancedFiltersOpen)}
+                className="whitespace-nowrap"
+              >
+                <Filter className="mr-2 h-4 w-4" />
+                Filters
+              </Button>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="px-3">
+                    <Download className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => exportTasks('csv', sortedTasks.filter(task => ['pending', 'in_progress'].includes(task.status)))}>
+                    Export To-Do as CSV
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => exportTasks('json', sortedTasks.filter(task => ['pending', 'in_progress'].includes(task.status)))}>
+                    Export To-Do as JSON
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Tasks display */}
+          {renderTasksList()}
+        </TabsContent>
 
         <TabsContent value="all" className="space-y-6">
           {/* Search and filters */}
