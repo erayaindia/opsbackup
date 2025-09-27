@@ -90,6 +90,7 @@ import { TaskCard } from '@/components/tasks/TaskCard';
 import { TaskDrawer } from '@/components/tasks/TaskDrawer';
 import { CreateTaskForm } from '@/components/tasks/CreateTaskForm';
 import { EvidenceUploader } from '@/components/tasks/EvidenceUploader';
+import { TaskComments } from '@/components/tasks/TaskComments';
 import { useTasks } from '@/hooks/useTasks';
 import { useTaskCreation } from '@/hooks/useTaskCreation';
 import { useTaskReviews } from '@/hooks/useTaskReviews';
@@ -137,6 +138,8 @@ export default function AdminTasksHub() {
     hasNoAssignee: false,
   });
   const [deletingSubmissionId, setDeletingSubmissionId] = useState<string | null>(null);
+  const [commentsDialogOpen, setCommentsDialogOpen] = useState(false);
+  const [selectedTaskForComments, setSelectedTaskForComments] = useState<TaskWithDetails | null>(null);
 
   const { toast } = useToast();
   const { profile } = useUserProfile();
@@ -996,6 +999,15 @@ export default function AdminTasksHub() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={() => {
+                    setSelectedTaskForComments(task);
+                    setCommentsDialogOpen(true);
+                  }}
+                >
+                  <MessageSquare className="h-4 w-4 mr-2" />
+                  Comments
+                </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => {
                     setEditingTask(task);
@@ -2157,6 +2169,20 @@ export default function AdminTasksHub() {
           setEditingTask(null);
         }}
       />
+
+      {/* Task Comments Dialog */}
+      <Dialog open={commentsDialogOpen} onOpenChange={setCommentsDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              Task Comments: {selectedTaskForComments?.title}
+            </DialogTitle>
+          </DialogHeader>
+          {selectedTaskForComments && (
+            <TaskComments taskId={selectedTaskForComments.id} />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
