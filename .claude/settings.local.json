@@ -44,7 +44,8 @@
       "Bash(taskkill:*)",
       "Bash(VITE_PORT=8081 npm run dev)",
       "Bash(head:*)",
-      "Bash(git pull:*)"
+      "Bash(git pull:*)",
+      "Bash(timeout 10s npm run build)"
     ],
     "deny": [],
     "ask": []

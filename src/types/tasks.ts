@@ -82,6 +82,7 @@ export const TaskStatus = {
   SUBMITTED_FOR_REVIEW: 'submitted_for_review',
   APPROVED: 'approved',
   REJECTED: 'rejected',
+  INCOMPLETE: 'incomplete',
   DONE_AUTO_APPROVED: 'done_auto_approved',
 } as const;
 export type TaskStatusValue = typeof TaskStatus[keyof typeof TaskStatus];

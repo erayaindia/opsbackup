@@ -61,7 +61,7 @@ export function useTaskReviews() {
       }
 
       // Update task status based on review
-      const newTaskStatus = status === 'approved' ? TaskStatus.APPROVED : TaskStatus.REJECTED;
+      const newTaskStatus = status === 'approved' ? TaskStatus.APPROVED : TaskStatus.INCOMPLETE;
 
       const { error: updateError } = await supabase
         .from('tasks')
@@ -130,7 +130,7 @@ export function useTaskReviews() {
       }
 
       // Update all task statuses
-      const newTaskStatus = status === 'approved' ? TaskStatus.APPROVED : TaskStatus.REJECTED;
+      const newTaskStatus = status === 'approved' ? TaskStatus.APPROVED : TaskStatus.INCOMPLETE;
       const timestamp = new Date().toISOString();
 
       const { error: updateError } = await supabase

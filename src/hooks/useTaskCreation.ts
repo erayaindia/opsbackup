@@ -82,6 +82,10 @@ export function useTaskCreation() {
           tags: taskData.tags || [],
           checklist_items: taskData.checklistItems ? JSON.stringify(taskData.checklistItems) : null,
           status: 'pending',
+          // For daily tasks, mark them as templates (will auto-create instances at 12am)
+          is_recurring_instance: taskData.taskType === 'daily' ? false : null,
+          original_task_id: null,
+          instance_date: null, // Templates don't have instance dates
         };
 
         const { data: task, error } = await supabase

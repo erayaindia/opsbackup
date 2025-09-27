@@ -54,6 +54,7 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Plus,
   Search,
@@ -121,14 +122,24 @@ export default function AdminTasksHub() {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [assigneePopovers, setAssigneePopovers] = useState<Record<string, boolean>>({});
   const [selectedTasks, setSelectedTasks] = useState<Set<string>>(new Set());
-  const [filters, setFilters] = useState<TaskFilters>({});
-  const [sortField, setSortField] = useState<string>('task_id');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [sortField, setSortField] = useState<string>('priority');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false);
-  const [groupBy, setGroupBy] = useState<'none' | 'priority' | 'assignee' | 'status'>('none');
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
-  const [typeFilter, setTypeFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [groupBy, setGroupBy] = useState<'none' | 'priority' | 'assignee' | 'status'>('assignee');
+  const [activeTab, setActiveTab] = useState<'all' | 'completed' | 'under_review' | 'incomplete' | 'archived'>('all');
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => {
+    // Load collapsed groups from localStorage on initial load
+    try {
+      const saved = localStorage.getItem('adminTasksHub_collapsedGroups');
+      if (saved) {
+        const parsedGroups = JSON.parse(saved);
+        return new Set(parsedGroups);
+      }
+    } catch (error) {
+      console.error('Error loading collapsed groups from localStorage:', error);
+    }
+    return new Set();
+  });
   const [advancedFilters, setAdvancedFilters] = useState({
     dateRange: '',
     selectedStatuses: [] as string[],
@@ -137,6 +148,7 @@ export default function AdminTasksHub() {
     selectedAssignees: [] as string[],
     isOverdue: false,
     hasNoAssignee: false,
+    showArchived: false,
   });
   const [deletingSubmissionId, setDeletingSubmissionId] = useState<string | null>(null);
   const [commentsDialogOpen, setCommentsDialogOpen] = useState(false);
@@ -147,9 +159,9 @@ export default function AdminTasksHub() {
 
   // Load tasks first (highest priority)
   const { tasks, loading, error, refetch, bulkAction, updateTask, deleteTask } = useTasks({
-    ...filters,
     search: searchTerm,
   });
+
 
   // Lazy load users only when needed (when dropdowns are opened)
   const [usersEnabled, setUsersEnabled] = useState(false);
@@ -283,7 +295,7 @@ export default function AdminTasksHub() {
 
   const handleStatusChange = async (taskId: string, newStatus: string) => {
     // Validate status value
-    const validStatuses = ['pending', 'in_progress', 'submitted_for_review', 'approved', 'rejected', 'done_auto_approved'];
+    const validStatuses = ['pending', 'in_progress', 'submitted_for_review', 'approved', 'rejected', 'done_auto_approved', 'incomplete'];
     if (!newStatus || !validStatuses.includes(newStatus)) {
       toast({
         title: 'Invalid status',
@@ -475,6 +487,58 @@ export default function AdminTasksHub() {
     }
   };
 
+  // Archive/unarchive task function
+  const handleArchiveTask = async (taskId: string, taskTitle: string) => {
+    try {
+      // First get the current task to check its status
+      const currentTask = tasks.find(t => t.id === taskId);
+      const isCurrentlyArchived = currentTask?.status === 'done_auto_approved';
+      const newStatus = isCurrentlyArchived ? 'pending' : 'done_auto_approved';
+      const action = isCurrentlyArchived ? 'unarchived' : 'archived';
+
+      console.log('Archive task attempt:', {
+        taskId,
+        taskTitle,
+        currentStatus: currentTask?.status,
+        newStatus,
+        action
+      });
+
+      const { supabase } = await import('@/integrations/supabase/client');
+      const { data, error } = await supabase
+        .from('tasks')
+        .update({
+          status: newStatus,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', taskId)
+        .select();
+
+      if (error) {
+        console.error('Supabase error details:', error);
+        throw error;
+      }
+
+      console.log('Archive success:', data);
+
+      toast({
+        title: `Task ${action}`,
+        description: `"${taskTitle}" has been successfully ${action}.`,
+      });
+
+      // Refresh the tasks list
+      refetch();
+    } catch (error) {
+      console.error('Archive task error:', error);
+      const currentTask = tasks.find(t => t.id === taskId);
+      toast({
+        title: "Error",
+        description: `Failed to ${currentTask?.status === 'archived' ? 'unarchive' : 'archive'} task. Please check console for details.`,
+        variant: "destructive",
+      });
+    }
+  };
+
   // Bulk update function for multiple tasks
   const handleBulkUpdate = async (taskIds: string[], updates: Partial<Task>, description: string) => {
     if (taskIds.length === 0) {
@@ -596,9 +660,34 @@ export default function AdminTasksHub() {
         if (task.assigned_to) return false;
       }
 
+      // Tab-based filtering
+      const isArchived = task.status === 'done_auto_approved';
+      const isCompleted = task.status === 'approved';
+      const isUnderReview = task.status === 'submitted_for_review';
+      const isIncomplete = task.status === 'incomplete';
+
+      if (activeTab === 'archived') {
+        // Archived tab: show only archived tasks
+        if (!isArchived) return false;
+      } else if (activeTab === 'completed') {
+        // Completed tab: show only completed tasks (approved status)
+        if (!isCompleted) return false;
+      } else if (activeTab === 'under_review') {
+        // Under Review tab: show only tasks submitted for review
+        if (!isUnderReview) return false;
+      } else if (activeTab === 'incomplete') {
+        // Incomplete tab: show only incomplete tasks
+        if (!isIncomplete) return false;
+      } else if (activeTab === 'all') {
+        // All tab: hide archived tasks by default unless showArchived filter is true
+        if (!advancedFilters.showArchived && isArchived) {
+          return false;
+        }
+      }
+
       return true;
     });
-  }, [tasks, advancedFilters]);
+  }, [tasks, advancedFilters, activeTab]);
 
   // Build hierarchical task structure
   const buildTaskHierarchy = (tasks: TaskWithDetails[]): TaskWithDetails[] => {
@@ -694,7 +783,8 @@ export default function AdminTasksHub() {
             submitted_for_review: 'Submitted',
             approved: 'Approved',
             rejected: 'Rejected',
-            done_auto_approved: 'Done'
+            done_auto_approved: 'Done',
+            incomplete: 'Incomplete'
           };
           groupKey = statusLabels[task.status as keyof typeof statusLabels] || 'Unknown Status';
           break;
@@ -745,6 +835,14 @@ export default function AdminTasksHub() {
       } else {
         newSet.add(groupKey);
       }
+
+      // Save to localStorage
+      try {
+        localStorage.setItem('adminTasksHub_collapsedGroups', JSON.stringify(Array.from(newSet)));
+      } catch (error) {
+        console.error('Error saving collapsed groups to localStorage:', error);
+      }
+
       return newSet;
     });
   };
@@ -975,6 +1073,7 @@ export default function AdminTasksHub() {
                 <SelectItem value="approved">Approved</SelectItem>
                 <SelectItem value="rejected">Rejected</SelectItem>
                 <SelectItem value="done_auto_approved">Done</SelectItem>
+                <SelectItem value="incomplete">Incomplete</SelectItem>
               </SelectContent>
             </Select>
           </TableCell>
@@ -1036,6 +1135,12 @@ export default function AdminTasksHub() {
                   >
                     Edit Task
                   </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => handleArchiveTask(task.id, task.title)}
+                  >
+                    {task.status === 'done_auto_approved' ? 'Unarchive Task' : 'Archive Task'}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem
                     className="text-destructive"
                     onClick={() => handleDeleteTask(task.id, task.title, hasSubtasks)}
@@ -1127,7 +1232,10 @@ export default function AdminTasksHub() {
                       {task.submissions && task.submissions.length > 0 ? (
                         <div className="space-y-2">
                           {task.submissions
-                            .filter(submission => submission.file_url || submission.link_url)
+                            .filter(submission =>
+                              submission.submission_type === 'evidence' &&
+                              (submission.file_url || submission.link_url)
+                            )
                             .map((submission, index) => (
                               <div key={submission.id || index} className="flex items-center gap-2 p-2 bg-muted/30 rounded border">
                                 {submission.evidence_type === 'photo' && (
@@ -1366,7 +1474,8 @@ export default function AdminTasksHub() {
       submitted_for_review: { icon: Clock, color: 'text-yellow-600', label: 'Submitted' },
       approved: { icon: CheckCircle, color: 'text-green-600', label: 'Approved' },
       rejected: { icon: AlertTriangle, color: 'text-red-600', label: 'Rejected' },
-      done_auto_approved: { icon: CheckCircle, color: 'text-green-600', label: 'Done' }
+      done_auto_approved: { icon: CheckCircle, color: 'text-green-600', label: 'Done' },
+      incomplete: { icon: AlertTriangle, color: 'text-orange-600', label: 'Incomplete' }
     };
 
     const { icon: Icon, color, label } = config[status as keyof typeof config] || config.pending;
@@ -1486,6 +1595,7 @@ export default function AdminTasksHub() {
       selectedAssignees: [],
       isOverdue: false,
       hasNoAssignee: false,
+      showArchived: false,
     });
   };
 
@@ -1498,6 +1608,7 @@ export default function AdminTasksHub() {
     if (advancedFilters.selectedAssignees.length > 0) count++;
     if (advancedFilters.isOverdue) count++;
     if (advancedFilters.hasNoAssignee) count++;
+    if (advancedFilters.showArchived) count++;
     return count;
   };
 
@@ -1508,6 +1619,7 @@ export default function AdminTasksHub() {
     { value: 'approved', label: 'Approved', icon: CheckCircle },
     { value: 'rejected', label: 'Rejected', icon: AlertTriangle },
     { value: 'done_auto_approved', label: 'Done', icon: CheckCircle },
+    { value: 'incomplete', label: 'Incomplete', icon: AlertTriangle },
   ];
 
   const priorityOptions = [
@@ -1621,13 +1733,13 @@ export default function AdminTasksHub() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="start">
-                        <DropdownMenuItem onClick={() => setFilters({...filters, assignee: 'all'})}>
+                        <DropdownMenuItem onClick={() => setAdvancedFilters({...advancedFilters, selectedAssignees: []})}>
                           All Assignees
                         </DropdownMenuItem>
                         {users?.map((user) => (
                           <DropdownMenuItem
                             key={user.id}
-                            onClick={() => setFilters({...filters, assignee: user.id})}
+                            onClick={() => setAdvancedFilters({...advancedFilters, selectedAssignees: [user.id]})}
                           >
                             {user.full_name}
                           </DropdownMenuItem>
@@ -1653,13 +1765,13 @@ export default function AdminTasksHub() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="start">
-                        <DropdownMenuItem onClick={() => setFilters({...filters, type: 'all'})}>
+                        <DropdownMenuItem onClick={() => setAdvancedFilters({...advancedFilters, selectedTypes: []})}>
                           All Types
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setFilters({...filters, type: 'daily'})}>
+                        <DropdownMenuItem onClick={() => setAdvancedFilters({...advancedFilters, selectedTypes: ['daily']})}>
                           Daily
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setFilters({...filters, type: 'one-off'})}>
+                        <DropdownMenuItem onClick={() => setAdvancedFilters({...advancedFilters, selectedTypes: ['one-off']})}>
                           One-off
                         </DropdownMenuItem>
                       </DropdownMenuContent>
@@ -1683,16 +1795,16 @@ export default function AdminTasksHub() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="start">
-                        <DropdownMenuItem onClick={() => setFilters({...filters, priority: 'all'})}>
+                        <DropdownMenuItem onClick={() => setAdvancedFilters({...advancedFilters, selectedPriorities: []})}>
                           All Priorities
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setFilters({...filters, priority: 'high'})}>
+                        <DropdownMenuItem onClick={() => setAdvancedFilters({...advancedFilters, selectedPriorities: ['high']})}>
                           High
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setFilters({...filters, priority: 'medium'})}>
+                        <DropdownMenuItem onClick={() => setAdvancedFilters({...advancedFilters, selectedPriorities: ['medium']})}>
                           Medium
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setFilters({...filters, priority: 'low'})}>
+                        <DropdownMenuItem onClick={() => setAdvancedFilters({...advancedFilters, selectedPriorities: ['low']})}>
                           Low
                         </DropdownMenuItem>
                       </DropdownMenuContent>
@@ -1716,26 +1828,29 @@ export default function AdminTasksHub() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="start">
-                        <DropdownMenuItem onClick={() => setFilters({...filters, status: 'all'})}>
+                        <DropdownMenuItem onClick={() => setAdvancedFilters({...advancedFilters, selectedStatuses: []})}>
                           All Status
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setFilters({...filters, status: 'pending'})}>
+                        <DropdownMenuItem onClick={() => setAdvancedFilters({...advancedFilters, selectedStatuses: ['pending']})}>
                           Pending
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setFilters({...filters, status: 'in_progress'})}>
+                        <DropdownMenuItem onClick={() => setAdvancedFilters({...advancedFilters, selectedStatuses: ['in_progress']})}>
                           In Progress
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setFilters({...filters, status: 'submitted_for_review'})}>
+                        <DropdownMenuItem onClick={() => setAdvancedFilters({...advancedFilters, selectedStatuses: ['submitted_for_review']})}>
                           Submitted
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setFilters({...filters, status: 'approved'})}>
+                        <DropdownMenuItem onClick={() => setAdvancedFilters({...advancedFilters, selectedStatuses: ['approved']})}>
                           Approved
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setFilters({...filters, status: 'rejected'})}>
+                        <DropdownMenuItem onClick={() => setAdvancedFilters({...advancedFilters, selectedStatuses: ['rejected']})}>
                           Rejected
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setFilters({...filters, status: 'done_auto_approved'})}>
-                          Done
+                        <DropdownMenuItem onClick={() => setAdvancedFilters({...advancedFilters, selectedStatuses: ['done_auto_approved']})}>
+                          Done/Archived
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setAdvancedFilters({...advancedFilters, selectedStatuses: ['incomplete']})}>
+                          Incomplete
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -1758,12 +1873,12 @@ export default function AdminTasksHub() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="start">
-                        <DropdownMenuItem onClick={() => setFilters({...filters, dateRange: undefined})}>
+                        <DropdownMenuItem onClick={() => setAdvancedFilters({...advancedFilters, dateRange: ''})}>
                           All Dates
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => {
                           const today = new Date().toISOString().split('T')[0];
-                          setFilters({...filters, dateRange: { start: new Date(today), end: new Date(today) }});
+                          setAdvancedFilters({...advancedFilters, dateRange: today});
                         }}>
                           Today
                         </DropdownMenuItem>
@@ -1771,23 +1886,28 @@ export default function AdminTasksHub() {
                           const tomorrow = new Date();
                           tomorrow.setDate(tomorrow.getDate() + 1);
                           const tomorrowStr = tomorrow.toISOString().split('T')[0];
-                          setFilters({...filters, dateRange: { start: new Date(tomorrowStr), end: new Date(tomorrowStr) }});
+                          setAdvancedFilters({...advancedFilters, dateRange: tomorrowStr});
                         }}>
                           Tomorrow
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => {
-                          const today = new Date();
+                          const today = new Date().toISOString().split('T')[0];
                           const nextWeek = new Date();
-                          nextWeek.setDate(today.getDate() + 7);
-                          setFilters({...filters, dateRange: { start: today, end: nextWeek }});
+                          nextWeek.setDate(nextWeek.getDate() + 7);
+                          const nextWeekStr = nextWeek.toISOString().split('T')[0];
+                          setAdvancedFilters({...advancedFilters, dateRange: `${today} to ${nextWeekStr}`});
                         }}>
                           Next 7 Days
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => {
-                          const today = new Date();
-                          setFilters({...filters, isLate: true});
+                          setAdvancedFilters({...advancedFilters, isOverdue: true});
                         }}>
                           Overdue
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => {
+                          setAdvancedFilters({...advancedFilters, showArchived: true});
+                        }}>
+                          Archived
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -1917,17 +2037,29 @@ export default function AdminTasksHub() {
         </div>
       </div>
 
-      {/* Search and filters */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="w-80">
-              <Input
-                placeholder="Search tasks by title, assignee, or description..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'all' | 'completed' | 'under_review' | 'incomplete' | 'archived')}>
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="all">All Tasks</TabsTrigger>
+          <TabsTrigger value="under_review">Under Review</TabsTrigger>
+          <TabsTrigger value="incomplete">Incomplete</TabsTrigger>
+          <TabsTrigger value="completed">Completed Tasks</TabsTrigger>
+          <TabsTrigger value="archived">Archived Tasks</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="all" className="space-y-6">
+          {/* Search and filters */}
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="w-80">
+                  <Input
+                    placeholder="Search tasks by title, assignee, or description..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full"
+                  />
+                </div>
             <div className="flex gap-2">
               <Select value={groupBy} onValueChange={(value) => setGroupBy(value as typeof groupBy)}>
                 <SelectTrigger className="w-36">
@@ -1940,7 +2072,16 @@ export default function AdminTasksHub() {
                   <SelectItem value="status">Group by Status</SelectItem>
                 </SelectContent>
               </Select>
-              <Select value={typeFilter} onValueChange={setTypeFilter}>
+              <Select
+                value={advancedFilters.selectedTypes?.length === 1 ? advancedFilters.selectedTypes[0] : "all"}
+                onValueChange={(value) => {
+                  if (value === "all") {
+                    setAdvancedFilters({...advancedFilters, selectedTypes: []});
+                  } else {
+                    setAdvancedFilters({...advancedFilters, selectedTypes: [value]});
+                  }
+                }}
+              >
                 <SelectTrigger className="w-32">
                   <SelectValue placeholder="Type" />
                 </SelectTrigger>
@@ -1950,7 +2091,16 @@ export default function AdminTasksHub() {
                   <SelectItem value="one-off">One-off</SelectItem>
                 </SelectContent>
               </Select>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <Select
+                value={advancedFilters.selectedStatuses?.length === 1 ? advancedFilters.selectedStatuses[0] : "all"}
+                onValueChange={(value) => {
+                  if (value === "all") {
+                    setAdvancedFilters({...advancedFilters, selectedStatuses: []});
+                  } else {
+                    setAdvancedFilters({...advancedFilters, selectedStatuses: [value]});
+                  }
+                }}
+              >
                 <SelectTrigger className="w-32">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
@@ -1960,6 +2110,9 @@ export default function AdminTasksHub() {
                   <SelectItem value="in_progress">In Progress</SelectItem>
                   <SelectItem value="submitted_for_review">Submitted</SelectItem>
                   <SelectItem value="approved">Approved</SelectItem>
+                  <SelectItem value="rejected">Rejected</SelectItem>
+                  <SelectItem value="done_auto_approved">Done</SelectItem>
+                  <SelectItem value="incomplete">Incomplete</SelectItem>
                 </SelectContent>
               </Select>
               <Dialog
@@ -2123,6 +2276,16 @@ export default function AdminTasksHub() {
                             Unassigned tasks only
                           </Label>
                         </div>
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id="archived"
+                            checked={advancedFilters.showArchived}
+                            onCheckedChange={(checked) => handleAdvancedFilterChange('showArchived', checked)}
+                          />
+                          <Label htmlFor="archived" className="text-sm cursor-pointer">
+                            Show archived tasks
+                          </Label>
+                        </div>
                       </div>
                     </div>
 
@@ -2213,6 +2376,92 @@ export default function AdminTasksHub() {
           )}
         </DialogContent>
       </Dialog>
+        </TabsContent>
+
+        <TabsContent value="completed" className="space-y-6">
+          {/* Search and filters */}
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="w-80">
+                  <Input
+                    placeholder="Search completed tasks..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full"
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Tasks Table for Completed */}
+          {renderTasksList()}
+        </TabsContent>
+
+        <TabsContent value="under_review" className="space-y-6">
+          {/* Search and filters */}
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="w-80">
+                  <Input
+                    placeholder="Search tasks under review..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full"
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Tasks Table for Under Review */}
+          {renderTasksList()}
+        </TabsContent>
+
+        <TabsContent value="incomplete" className="space-y-6">
+          {/* Search and filters */}
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="w-80">
+                  <Input
+                    placeholder="Search incomplete tasks..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full"
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Tasks Table for Incomplete */}
+          {renderTasksList()}
+        </TabsContent>
+
+        <TabsContent value="archived" className="space-y-6">
+          {/* Search and filters */}
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="w-80">
+                  <Input
+                    placeholder="Search archived tasks..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full"
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Tasks Table for Archived */}
+          {renderTasksList()}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

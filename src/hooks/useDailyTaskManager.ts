@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useUserProfile } from './useUserProfile';
-import { useUserAttendanceStatus } from './useUserAttendanceStatus';
 
 interface DailyTaskManager {
   ensureDailyTasks: () => Promise<void>;
@@ -21,7 +20,6 @@ export const useDailyTaskManager = (onTasksCreated?: () => void): DailyTaskManag
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { profile } = useUserProfile();
-  const { isPresent, attendanceRecord } = useUserAttendanceStatus();
 
   const checkDailyTasksStatus = useCallback(async (): Promise<DailyTaskStatus> => {
     if (!profile?.appUser?.id) {
@@ -126,27 +124,21 @@ export const useDailyTaskManager = (onTasksCreated?: () => void): DailyTaskManag
     }
   }, [profile?.appUser?.id, onTasksCreated, checkDailyTasksStatus]);
 
-  // Auto-ensure daily tasks when user is present
+  // Auto-ensure daily tasks when user profile loads (simulating 12am creation)
   useEffect(() => {
-    if (!profile?.appUser?.id || !isPresent || !attendanceRecord) {
+    if (!profile?.appUser?.id) {
       return;
     }
 
-    const checkInTime = new Date(attendanceRecord.check_in_time);
-    const checkInDate = checkInTime.toISOString().split('T')[0];
-    const today = new Date().toISOString().split('T')[0];
+    // Add a small delay to ensure database is ready
+    const timer = setTimeout(() => {
+      ensureDailyTasks().catch(() => {
+        // Silently handle auto-creation failures
+      });
+    }, 1000);
 
-    if (checkInDate === today) {
-      // Add a small delay to ensure database is ready
-      const timer = setTimeout(() => {
-        ensureDailyTasks().catch(() => {
-          // Silently handle auto-creation failures
-        });
-      }, 1000);
-
-      return () => clearTimeout(timer);
-    }
-  }, [profile?.appUser?.id, isPresent, attendanceRecord, ensureDailyTasks]);
+    return () => clearTimeout(timer);
+  }, [profile?.appUser?.id, ensureDailyTasks]);
 
   // Retry mechanism for failed attempts
   useEffect(() => {

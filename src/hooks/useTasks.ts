@@ -36,14 +36,16 @@ export function useTasks(initialFilters: TaskFilters = {}): UseTasksReturn {
   }, []);
 
   const buildQuery = useCallback(() => {
-    // Simplified query for faster initial loading - load detailed data only when needed
+    // Include submissions and reviews for AdminTasksHub evidence display
     const fastSelect = `
       id, task_id, title, description, task_type, status, priority, evidence_required, due_date, due_time,
       assigned_to, assigned_by, reviewer_id, parent_task_id, task_level,
       completion_percentage, created_at, updated_at,
       assigned_user:app_users!tasks_assigned_to_fkey(id, full_name, role, department),
       assigned_by_user:app_users!tasks_assigned_by_fkey(id, full_name),
-      reviewer:app_users!tasks_reviewer_id_fkey(id, full_name)
+      reviewer:app_users!tasks_reviewer_id_fkey(id, full_name),
+      submissions:task_submissions(*),
+      reviews:task_reviews(*)
     `;
 
     // Use simplified query for faster loading
@@ -918,6 +920,30 @@ export function useTasks(initialFilters: TaskFilters = {}): UseTasksReturn {
         },
         () => {
           // Refetch tasks when there are changes
+          fetchTasks();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'task_submissions',
+        },
+        () => {
+          // Refetch tasks when evidence/submissions are added/updated/deleted
+          fetchTasks();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'task_reviews',
+        },
+        () => {
+          // Refetch tasks when reviews are added/updated/deleted
           fetchTasks();
         }
       )

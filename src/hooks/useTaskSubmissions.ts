@@ -67,18 +67,22 @@ export function useTaskSubmissions() {
           fileName = uploadResult.name;
           fileSize = uploadResult.size;
         } catch (uploadError) {
-          console.error('File upload failed due to RLS policy:', uploadError);
+          console.error('File upload failed:', uploadError);
 
-          // For now, create submission without file until RLS policies are fixed
-          // Store file info but mark as upload failed
-          fileName = submissionData.file.name;
-          fileSize = submissionData.file.size;
+          // Try to provide more specific error information
+          let errorMessage = 'Unknown upload error';
+          if (uploadError instanceof Error) {
+            if (uploadError.message.includes('row-level security') || uploadError.message.includes('RLS')) {
+              errorMessage = 'Storage permissions need to be configured. Please run the latest database migration.';
+            } else if (uploadError.message.includes('bucket')) {
+              errorMessage = 'Storage bucket configuration issue. Please check task-evidence bucket settings.';
+            } else {
+              errorMessage = uploadError.message;
+            }
+          }
 
-          toast({
-            title: "Partial Success",
-            description: "Task evidence recorded but file upload failed due to permissions. Contact admin to fix storage policies.",
-            variant: "destructive",
-          });
+          // Don't create submission record without file data - throw error instead
+          throw new Error(`File upload failed: ${errorMessage}`);
         }
       }
 

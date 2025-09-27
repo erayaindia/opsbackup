@@ -87,7 +87,6 @@ import {
   GitBranch,
   Code,
   RotateCcw,
-  UserCheck,
   MapPin,
   ChevronUp,
 } from 'lucide-react';
@@ -95,6 +94,8 @@ import { TaskCard } from '@/components/tasks/TaskCard';
 import { TaskDrawer } from '@/components/tasks/TaskDrawer';
 import { CreateTaskForm } from '@/components/tasks/CreateTaskForm';
 import { EvidenceUploader } from '@/components/tasks/EvidenceUploader';
+import { EvidenceRequiredDialog } from '@/components/tasks/EvidenceRequiredDialog';
+import { validateTaskEvidence, TaskWithSubmissions } from '@/lib/evidenceValidation';
 import { useTasks } from '@/hooks/useTasks';
 import { useTaskCreation } from '@/hooks/useTaskCreation';
 import { useTaskReviews } from '@/hooks/useTaskReviews';
@@ -103,7 +104,6 @@ import { useUserProfile } from '@/hooks/useUserProfile';
 import { useUsers } from '@/hooks/useUsers';
 import { useTaskComments } from '@/hooks/useTaskComments';
 import { useToast } from '@/components/ui/use-toast';
-import { useUserAttendanceStatus } from '@/hooks/useUserAttendanceStatus';
 import { useDailyTaskRecurrence } from '@/hooks/useDailyTaskRecurrence';
 import { TaskComments } from '@/components/tasks/TaskComments';
 import {
@@ -142,7 +142,7 @@ export default function MyTasks() {
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [typeFilter, setTypeFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [activeTab, setActiveTab] = useState<'todo' | 'completed'>('todo');
+  const [activeTab, setActiveTab] = useState<'todo' | 'under_review' | 'incomplete' | 'completed'>('todo');
   // No default date filter - show all tasks
   const [dateRangeString, setDateRangeString] = useState<string>("");
   const [advancedFilters, setAdvancedFilters] = useState({
@@ -155,10 +155,16 @@ export default function MyTasks() {
     hasNoAssignee: false,
   });
   const [deletingSubmissionId, setDeletingSubmissionId] = useState<string | null>(null);
+  const [evidenceDialogOpen, setEvidenceDialogOpen] = useState(false);
+  const [taskRequiringEvidence, setTaskRequiringEvidence] = useState<TaskWithDetails | null>(null);
+  const [pendingTaskCompletion, setPendingTaskCompletion] = useState<{
+    taskId: string;
+    taskTitle: string;
+  } | null>(null);
 
   const { toast } = useToast();
   const { profile, loading: profileLoading } = useUserProfile();
-  const { isPresent, isLoading: attendanceLoading, attendanceRecord } = useUserAttendanceStatus();
+  // Attendance system removed from task viewing
 
   // Daily task recurrence will be initialized after refetch is defined
 
@@ -444,6 +450,7 @@ export default function MyTasks() {
   useDailyTaskRecurrence(refetch);
 
 
+
   // Original useTasks call (commented out)
   // const { tasks, loading, error, refetch, bulkAction, updateTask, deleteTask } = useTasks(taskFilters);
 
@@ -461,32 +468,36 @@ export default function MyTasks() {
   useEffect(() => {
     const interval = setInterval(() => {
       const now = Date.now();
-      setTaskTimers(prev => {
-        const updated = { ...prev };
-        Object.keys(workingSessions).forEach(taskId => {
-          if (workingSessions[taskId] && timerStartTimes[taskId]) {
-            // Add elapsed time since last update
-            const elapsed = now - timerStartTimes[taskId];
-            updated[taskId] = (updated[taskId] || 0) + elapsed;
-          }
-        });
-        return updated;
-      });
 
-      // Update start times to current time for next interval
-      setTimerStartTimes(prev => {
-        const updated = { ...prev };
-        Object.keys(workingSessions).forEach(taskId => {
-          if (workingSessions[taskId]) {
-            updated[taskId] = now;
+      setTaskTimers(prevTimers => {
+        const updatedTimers = { ...prevTimers };
+
+        // Update each working session
+        Object.entries(workingSessions).forEach(([taskId, isWorking]) => {
+          if (isWorking) {
+            setTimerStartTimes(prevStartTimes => {
+              const startTime = prevStartTimes[taskId];
+              if (startTime) {
+                // Add 1 second (1000ms) to the current timer value
+                updatedTimers[taskId] = (prevTimers[taskId] || 0) + 1000;
+
+                // Update the start time to prevent drift
+                return {
+                  ...prevStartTimes,
+                  [taskId]: now
+                };
+              }
+              return prevStartTimes;
+            });
           }
         });
-        return updated;
+
+        return updatedTimers;
       });
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [workingSessions, timerStartTimes]);
+  }, [workingSessions]);
 
   // Lazy load users only when needed (when dropdowns are opened)
   const [usersEnabled, setUsersEnabled] = useState(false);
@@ -582,21 +593,8 @@ export default function MyTasks() {
     const finalDuration = taskTimers[taskId] || 0;
     const durationInSeconds = Math.floor(finalDuration / 1000);
 
-    await handleStatusUpdate(taskId, taskTitle, 'submitted_for_review');
-
-    // Update submitted_at and final duration in database
-    try {
-      const { supabase } = await import('@/integrations/supabase/client');
-      await supabase
-        .from('tasks')
-        .update({
-          submitted_at: new Date().toISOString(),
-          work_duration_seconds: durationInSeconds
-        })
-        .eq('id', taskId);
-    } catch (error) {
-      console.error('Error updating submitted_at and duration:', error);
-    }
+    // Use evidence validation before completion (includes duration saving)
+    await validateAndCompleteTask(taskId, taskTitle);
   };
 
   const handleStatusUpdate = async (taskId: string, taskTitle: string, newStatus: string) => {
@@ -662,9 +660,146 @@ export default function MyTasks() {
     }
   };
 
+  // Function to validate task evidence before completion
+  const validateAndCompleteTask = async (taskId: string, taskTitle: string) => {
+    try {
+      // Find the task to check evidence requirements
+      const task = tasks.find(t => t.id === taskId);
+      if (!task) {
+        toast({
+          title: 'Error',
+          description: 'Task not found',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // If no evidence required, proceed with completion
+      if (!task.evidence_required || task.evidence_required === 'none') {
+        await handleStatusUpdate(taskId, taskTitle, 'submitted_for_review');
+        return;
+      }
+
+      // Check if evidence has been uploaded
+      const { supabase } = await import('@/integrations/supabase/client');
+      const { data: submissions, error } = await supabase
+        .from('task_submissions')
+        .select('evidence_type, submission_type')
+        .eq('task_id', taskId)
+        .eq('submission_type', 'evidence');
+
+      if (error) {
+        console.error('Error checking task submissions:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to check task evidence',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Validate evidence using our validation function
+      const taskWithSubmissions: TaskWithSubmissions = {
+        id: task.id,
+        evidence_required: task.evidence_required,
+        submissions: submissions || []
+      };
+
+      const validation = validateTaskEvidence(taskWithSubmissions);
+
+      if (!validation.isValid) {
+        // Show evidence upload dialog
+        setTaskRequiringEvidence(task);
+        setPendingTaskCompletion({ taskId, taskTitle });
+        setEvidenceDialogOpen(true);
+        return;
+      }
+
+      // Evidence is valid, proceed with completion
+      await handleStatusUpdate(taskId, taskTitle, 'submitted_for_review');
+
+      // Update submitted_at and final duration for timed tasks
+      const finalDuration = taskTimers[taskId] || 0;
+      if (finalDuration > 0) {
+        const durationInSeconds = Math.floor(finalDuration / 1000);
+        try {
+          const { supabase } = await import('@/integrations/supabase/client');
+          await supabase
+            .from('tasks')
+            .update({
+              submitted_at: new Date().toISOString(),
+              work_duration_seconds: durationInSeconds
+            })
+            .eq('id', taskId);
+        } catch (error) {
+          console.error('Error updating task duration:', error);
+        }
+      }
+
+    } catch (error) {
+      console.error('Error validating task evidence:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to validate task evidence',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Handle evidence upload completion
+  const handleEvidenceUploaded = async () => {
+    if (pendingTaskCompletion) {
+      await handleStatusUpdate(
+        pendingTaskCompletion.taskId,
+        pendingTaskCompletion.taskTitle,
+        'submitted_for_review'
+      );
+
+      // Update submitted_at and final duration for timed tasks
+      const finalDuration = taskTimers[pendingTaskCompletion.taskId] || 0;
+      if (finalDuration > 0) {
+        const durationInSeconds = Math.floor(finalDuration / 1000);
+        try {
+          const { supabase } = await import('@/integrations/supabase/client');
+          await supabase
+            .from('tasks')
+            .update({
+              submitted_at: new Date().toISOString(),
+              work_duration_seconds: durationInSeconds
+            })
+            .eq('id', pendingTaskCompletion.taskId);
+        } catch (error) {
+          console.error('Error updating task duration:', error);
+        }
+      }
+
+      setPendingTaskCompletion(null);
+      setTaskRequiringEvidence(null);
+    }
+  };
+
+  // Handle proceeding without evidence (admin override)
+  const handleProceedWithoutEvidence = async () => {
+    if (pendingTaskCompletion) {
+      await handleStatusUpdate(
+        pendingTaskCompletion.taskId,
+        pendingTaskCompletion.taskTitle,
+        'submitted_for_review'
+      );
+      setPendingTaskCompletion(null);
+      setTaskRequiringEvidence(null);
+
+      toast({
+        title: 'Task submitted without evidence',
+        description: 'Task has been submitted for review without required evidence.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   // Keep the old functions for backward compatibility with button clicks
   const handleMarkCompleted = async (taskId: string, taskTitle: string) => {
-    await handleStatusUpdate(taskId, taskTitle, 'submitted_for_review');
+    await validateAndCompleteTask(taskId, taskTitle);
   };
 
   // Format timer display
@@ -708,6 +843,7 @@ export default function MyTasks() {
       console.log('🔄 Starting evidence upload:', { taskId: task.id, evidenceData: { ...evidenceData, file: evidenceData.file?.name } });
 
       const success = await submitTaskEvidence(task, evidenceData);
+
 
       if (success) {
         toast({
@@ -833,40 +969,54 @@ export default function MyTasks() {
         if (task.task_type !== typeFilter) return false;
       }
 
-      // Attendance check - show tasks only if user is checked in
-      if (!isPresent) {
-        return false;
+      // Attendance check removed - all users can see their tasks
+
+      // Hide archived tasks (status: done_auto_approved when used for archiving)
+      // Only hide if this is a template (not a completed instance)
+      if (task.status === 'done_auto_approved' &&
+          task.task_type === 'daily' &&
+          (!task.is_recurring_instance || task.is_recurring_instance === null)) {
+        return false; // Hide archived daily task templates
       }
 
-      // For daily tasks: Show instances, hide templates
+      // For daily tasks: Show today's instances only (24-hour expiry)
       if (task.task_type === 'daily') {
-        // Hide templates (show only instances)
-        if (!task.is_recurring_instance) {
-          return false; // This is a template, don't show it
-        }
-
-        // Show instances based on date range or default to today's instances
         const today = new Date().toISOString().split('T')[0];
 
-        if (dateRangeString && dateRangeString.includes(' to ')) {
-          // For date range views, show instances in that range
-          const [fromStr, toStr] = dateRangeString.split(' to ');
-          if (fromStr && toStr) {
-            const instanceDate = task.instance_date || task.due_date;
-            if (instanceDate < fromStr || instanceDate > toStr) {
-              return false;
+        // Hide expired daily tasks
+        if (task.status === 'expired') {
+          return false;
+        }
+
+        // If this is an instance, check date filtering
+        if (task.is_recurring_instance === true) {
+          if (dateRangeString && dateRangeString.includes(' to ')) {
+            // For date range views, show instances in that range (but not expired)
+            const [fromStr, toStr] = dateRangeString.split(' to ');
+            if (fromStr && toStr) {
+              const instanceDate = task.instance_date;
+              if (instanceDate && (instanceDate < fromStr || instanceDate > toStr)) {
+                return false;
+              }
+            }
+          } else {
+            // Default view: show only today's instances (24-hour window)
+            const instanceDate = task.instance_date;
+            if (instanceDate && instanceDate !== today) {
+              return false; // Hide yesterday's and future instances
             }
           }
-        } else {
-          // Default view: show today's instances only
-          const instanceDate = task.instance_date || task.due_date;
-          if (instanceDate !== today) {
-            return false;
-          }
+        }
+
+        // If this is a template (not an instance), show it for now
+        // The auto-creation will happen in the background and create instances
+        if (!task.is_recurring_instance || task.is_recurring_instance === null) {
+          // This is a template - show it until instances are created
+          return true;
         }
       }
 
-      // One-off tasks: always show if checked in
+      // One-off tasks: always show
 
       // Date range filter - parse date range string and compare with created_at
       if (dateRangeString) {
@@ -900,14 +1050,20 @@ export default function MyTasks() {
       if (activeTab === 'completed') {
         // Completed tab: show only approved or done tasks
         return ['approved', 'done', 'done_auto_approved'].includes(task.status);
+      } else if (activeTab === 'under_review') {
+        // Under Review tab: show only tasks submitted for review
+        return task.status === 'submitted_for_review';
+      } else if (activeTab === 'incomplete') {
+        // Incomplete tab: show only incomplete tasks
+        return task.status === 'incomplete';
       } else {
-        // To Do tab: show all other statuses (pending, in_progress, submitted_for_review, etc.)
-        return !['approved', 'done', 'done_auto_approved'].includes(task.status);
+        // To Do tab: show all other statuses (pending, in_progress, etc.) - excluding submitted_for_review and incomplete
+        return !['approved', 'done', 'done_auto_approved', 'submitted_for_review', 'incomplete'].includes(task.status);
       }
 
       return true;
     });
-  }, [tasks, searchTerm, statusFilter, typeFilter, dateRangeString, activeTab, isPresent]);
+  }, [tasks, searchTerm, statusFilter, typeFilter, dateRangeString, activeTab]);
 
   // Apply sorting to filtered tasks
   const sortedTasks = useMemo(() => {
@@ -1207,14 +1363,30 @@ export default function MyTasks() {
           {/* Work Time */}
           <TableCell className="border-r border-border/50 py-2 whitespace-nowrap">
             <div className="text-sm flex items-center gap-1 text-muted-foreground">
-              {task.work_duration_seconds ? (
-                <>
-                  <Clock className="h-3 w-3" />
-                  <span>{Math.floor(task.work_duration_seconds / 60)}:{(task.work_duration_seconds % 60).toString().padStart(2, '0')}</span>
-                </>
-              ) : (
-                <span>--</span>
-              )}
+              {(() => {
+                // Show live timer if task is currently running, otherwise show saved duration
+                const isWorking = workingSessions[task.id] || false;
+                const liveTimer = taskTimers[task.id] || 0;
+                const savedDuration = task.work_duration_seconds || 0;
+
+                // Use live timer if actively working, otherwise use saved duration
+                const displayTime = isWorking && liveTimer > 0 ? liveTimer : savedDuration * 1000;
+
+                if (displayTime > 0) {
+                  const timeDisplay = isWorking && liveTimer > 0
+                    ? formatTimer(liveTimer)
+                    : `${Math.floor(savedDuration / 60)}:${(savedDuration % 60).toString().padStart(2, '0')}`;
+
+                  return (
+                    <>
+                      <Clock className={`h-3 w-3 ${isWorking ? 'text-green-600 animate-pulse' : ''}`} />
+                      <span className={isWorking ? 'font-medium text-green-600' : ''}>{timeDisplay}</span>
+                    </>
+                  );
+                } else {
+                  return <span>--</span>;
+                }
+              })()}
             </div>
           </TableCell>
 
@@ -1591,7 +1763,7 @@ export default function MyTasks() {
                                 } else if (file.type.startsWith('video/')) {
                                   evidenceType = 'file';
                                 }
-                                await handleEvidenceUpload(task, { type: evidenceType, file });
+                                await handleEvidenceUpload(task, { type: 'evidence', evidenceType: evidenceType as any, file });
                               }
                             }}
                           >
@@ -1624,7 +1796,7 @@ export default function MyTasks() {
                                   if (url) {
                                     try {
                                       new URL(url);
-                                      handleEvidenceUpload(task, { type: 'link', url });
+                                      handleEvidenceUpload(task, { type: 'evidence', evidenceType: 'link', url });
                                       input.value = '';
                                     } catch {
                                       toast({
@@ -1646,7 +1818,7 @@ export default function MyTasks() {
                                 if (url) {
                                   try {
                                     new URL(url);
-                                    handleEvidenceUpload(task, { type: 'link', url });
+                                    handleEvidenceUpload(task, { type: 'evidence', evidenceType: 'link', url });
                                     input.value = '';
                                   } catch {
                                     toast({
@@ -1691,7 +1863,7 @@ export default function MyTasks() {
   };
 
   // Show loading state for faster perceived performance
-  if ((loading && tasks.length === 0) || profileLoading || attendanceLoading) {
+  if ((loading && tasks.length === 0) || profileLoading) {
     return (
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -1712,44 +1884,7 @@ export default function MyTasks() {
     );
   }
 
-  // Check-in prompt when user is not present
-  if (!isPresent && !attendanceLoading) {
-    return (
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <h1 className="text-2xl font-bold">
-            {profile?.appUser?.full_name ? `${getFirstName(profile.appUser.full_name)}'s Tasks` : 'My Tasks'}
-          </h1>
-        </div>
-
-        {/* Check-in Required Card */}
-        <div className="flex items-center justify-center min-h-[50vh]">
-          <Card className="max-w-sm w-full shadow-sm">
-            <CardContent className="text-center p-8 space-y-6">
-              <div className="mx-auto h-12 w-12 rounded-full bg-muted flex items-center justify-center">
-                <UserCheck className="h-6 w-6 text-muted-foreground" />
-              </div>
-
-              <div className="space-y-2">
-                <h3 className="text-lg font-semibold">Check-in Required</h3>
-                <p className="text-sm text-muted-foreground">
-                  Please check in to access your tasks
-                </p>
-              </div>
-
-              <Button
-                className="w-full"
-                onClick={() => window.location.href = '/checkin'}
-              >
-                Start Check-in
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    );
-  }
+  // Attendance check removed - all users can access tasks
 
   return (
     <div className="space-y-6">
@@ -1773,9 +1908,11 @@ export default function MyTasks() {
       </div>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'todo' | 'completed')}>
-        <TabsList className="grid w-full grid-cols-2">
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'todo' | 'under_review' | 'incomplete' | 'completed')}>
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="todo">To Do</TabsTrigger>
+          <TabsTrigger value="under_review">Under Review</TabsTrigger>
+          <TabsTrigger value="incomplete">Incomplete</TabsTrigger>
           <TabsTrigger value="completed">Completed</TabsTrigger>
         </TabsList>
 
@@ -1824,6 +1961,8 @@ export default function MyTasks() {
                   <SelectItem value="submitted_for_review">Submitted</SelectItem>
                   <SelectItem value="approved">Approved</SelectItem>
                   <SelectItem value="rejected">Rejected</SelectItem>
+                  <SelectItem value="done_auto_approved">Done</SelectItem>
+                  <SelectItem value="incomplete">Incomplete</SelectItem>
                 </SelectContent>
               </Select>
               <div className="flex items-center gap-1">
@@ -2093,6 +2232,154 @@ export default function MyTasks() {
       </Card>
         </TabsContent>
 
+        <TabsContent value="under_review" className="space-y-6">
+          {/* Search and filters for under review tab */}
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="w-80">
+                  <Input
+                    placeholder="Search tasks under review..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full"
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Tasks Table for Under Review */}
+          <Card>
+            <Table>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent border-b border-border/50">
+                  <TableHead className="border-r border-border/50 w-12 text-center">
+                    <Checkbox
+                      checked={selectedTasks.size > 0 && selectedTasks.size === filteredTasks.length}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedTasks(new Set(filteredTasks.map(task => task.id)));
+                        } else {
+                          setSelectedTasks(new Set());
+                        }
+                      }}
+                    />
+                  </TableHead>
+                  <TableHead className="border-r border-border/50 cursor-pointer" onClick={() => setSortField('task_id')}>
+                    ID {sortField === 'task_id' && (sortDirection === 'asc' ? '↑' : '↓')}
+                  </TableHead>
+                  <TableHead className="border-r border-border/50 cursor-pointer" onClick={() => setSortField('title')}>
+                    Task {sortField === 'title' && (sortDirection === 'asc' ? '↑' : '↓')}
+                  </TableHead>
+                  <TableHead className="border-r border-border/50 cursor-pointer" onClick={() => setSortField('priority')}>
+                    Priority {sortField === 'priority' && (sortDirection === 'asc' ? '↑' : '↓')}
+                  </TableHead>
+                  <TableHead className="border-r border-border/50 cursor-pointer" onClick={() => setSortField('due_date')}>
+                    Due Date {sortField === 'due_date' && (sortDirection === 'asc' ? '↑' : '↓')}
+                  </TableHead>
+                  <TableHead className="border-r border-border/50">Assigned By</TableHead>
+                  <TableHead className="border-r border-border/50">Work Time</TableHead>
+                  <TableHead className="w-40">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredTasks.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="text-center py-12">
+                      <div className="flex flex-col items-center gap-4">
+                        <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
+                          <Clock className="w-8 h-8 text-muted-foreground" />
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-medium mb-2">No tasks under review</h3>
+                          <p className="text-muted-foreground">Tasks you've submitted for review will appear here.</p>
+                        </div>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  sortedTasks.map((task) => renderTaskWithSubtasks(task, 0, sortedTasks))
+                )}
+              </TableBody>
+            </Table>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="incomplete" className="space-y-6">
+          {/* Search and filters for incomplete tab */}
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="w-80">
+                  <Input
+                    placeholder="Search incomplete tasks..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full"
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Tasks Table for Incomplete */}
+          <Card>
+            <Table>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent border-b border-border/50">
+                  <TableHead className="border-r border-border/50 w-12 text-center">
+                    <Checkbox
+                      checked={selectedTasks.size > 0 && selectedTasks.size === filteredTasks.length}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedTasks(new Set(filteredTasks.map(task => task.id)));
+                        } else {
+                          setSelectedTasks(new Set());
+                        }
+                      }}
+                    />
+                  </TableHead>
+                  <TableHead className="border-r border-border/50 cursor-pointer" onClick={() => setSortField('task_id')}>
+                    ID {sortField === 'task_id' && (sortDirection === 'asc' ? '↑' : '↓')}
+                  </TableHead>
+                  <TableHead className="border-r border-border/50 cursor-pointer" onClick={() => setSortField('title')}>
+                    Task {sortField === 'title' && (sortDirection === 'asc' ? '↑' : '↓')}
+                  </TableHead>
+                  <TableHead className="border-r border-border/50 cursor-pointer" onClick={() => setSortField('priority')}>
+                    Priority {sortField === 'priority' && (sortDirection === 'asc' ? '↑' : '↓')}
+                  </TableHead>
+                  <TableHead className="border-r border-border/50 cursor-pointer" onClick={() => setSortField('due_date')}>
+                    Due Date {sortField === 'due_date' && (sortDirection === 'asc' ? '↑' : '↓')}
+                  </TableHead>
+                  <TableHead className="border-r border-border/50">Assigned By</TableHead>
+                  <TableHead className="border-r border-border/50">Work Time</TableHead>
+                  <TableHead className="w-40">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredTasks.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="text-center py-12">
+                      <div className="flex flex-col items-center gap-4">
+                        <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
+                          <AlertTriangle className="w-8 h-8 text-red-500" />
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-medium mb-2">No incomplete tasks</h3>
+                          <p className="text-muted-foreground">Tasks marked as incomplete will appear here.</p>
+                        </div>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  sortedTasks.map((task) => renderTaskWithSubtasks(task, 0, sortedTasks))
+                )}
+              </TableBody>
+            </Table>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="completed" className="space-y-6">
           {/* Search and filters for completed tab */}
           <Card>
@@ -2293,6 +2580,18 @@ export default function MyTasks() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Evidence Required Dialog */}
+      {taskRequiringEvidence && (
+        <EvidenceRequiredDialog
+          open={evidenceDialogOpen}
+          onOpenChange={setEvidenceDialogOpen}
+          task={taskRequiringEvidence}
+          onEvidenceUploaded={handleEvidenceUploaded}
+          onProceedWithoutEvidence={handleProceedWithoutEvidence}
+          allowProceedWithoutEvidence={false} // Only allow for admin users if needed
+        />
+      )}
     </div>
   );
 }

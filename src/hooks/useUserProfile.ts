@@ -35,55 +35,23 @@ export function useUserProfile() {
 
       console.log('👤 Auth user:', { id: user.id, email: user.email })
 
-      // Get app user details from the correct table
+      // Get app user details by auth_user_id only (email column doesn't exist)
       let { data: employeeDetails, error: employeeError } = await supabase
         .from('app_users')
         .select('*')
-        .or(`email.eq."${user.email}",auth_user_id.eq.${user.id}`)
+        .eq('auth_user_id', user.id)
         .maybeSingle()
 
       console.log('👨‍💼 App user result:', { employeeDetails, employeeError })
 
       if (employeeError) {
         console.log('❌ App user error:', employeeError)
-
-        // Try fallback queries on app_users table
-        console.log('🔄 Trying fallback queries...')
-
-        // Try by email
-        const { data: fallback1, error: error1 } = await supabase
-          .from('app_users')
-          .select('*')
-          .eq('email', user.email)
-          .maybeSingle()
-
-        if (!error1 && fallback1) {
-          employeeDetails = fallback1
-        } else {
-          // Try by auth_user_id
-          const { data: fallback2, error: error2 } = await supabase
-            .from('app_users')
-            .select('*')
-            .eq('auth_user_id', user.id)
-            .maybeSingle()
-
-          if (!error2 && fallback2) {
-            employeeDetails = fallback2
-          }
-        }
-
-        console.log('🔄 Fallback result:', { employeeDetails })
+        throw new Error(`Failed to fetch user profile: ${employeeError.message}`)
       }
 
-      // Update auth_user_id if needed
-      if (employeeDetails && !employeeDetails.auth_user_id) {
-        console.log('🔗 Linking auth_user_id...')
-        await supabase
-          .from('app_users')
-          .update({ auth_user_id: user.id })
-          .eq('id', employeeDetails.id)
-
-        employeeDetails.auth_user_id = user.id
+      if (!employeeDetails) {
+        console.log('❌ No app user found for auth user:', user.id)
+        throw new Error('User profile not found. Please contact support.')
       }
 
       // Use employeeDetails as our appUser (they contain the same info)
