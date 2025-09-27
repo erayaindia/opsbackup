@@ -96,7 +96,6 @@ CREATE POLICY "Users can delete their own task comments" ON task_comments
 
 -- Grant permissions
 GRANT ALL ON task_comments TO authenticated;
-GRANT USAGE ON SEQUENCE task_comments_id_seq TO authenticated;
 
 -- Add helpful comments
 COMMENT ON TABLE task_comments IS 'Comments and discussions on tasks for collaboration and updates';
