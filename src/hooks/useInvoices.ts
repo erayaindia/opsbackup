@@ -45,6 +45,7 @@ export interface Bill {
   updated_at?: Date;
   organization_id?: string;
   is_deleted: boolean;
+  verified: boolean;
 }
 
 export interface InvoiceStats {
@@ -113,7 +114,8 @@ export const useInvoices = () => {
     approved_by: invoice.approved_by,
     updated_at: invoice.updated_at ? new Date(invoice.updated_at) : undefined,
     organization_id: invoice.organization_id,
-    is_deleted: invoice.is_deleted
+    is_deleted: invoice.is_deleted,
+    verified: invoice.verified
   });
 
   // Transform UI bill to database format for creation
@@ -261,6 +263,7 @@ export const useInvoices = () => {
       if (updates.file_type !== undefined) updateData.file_type = updates.file_type;
       if (updates.file_name !== undefined) updateData.file_name = updates.file_name;
       if (updates.file_size !== undefined) updateData.file_size = updates.file_size;
+      if (updates.verified !== undefined) updateData.verified = updates.verified;
 
       const updatedInvoice = await invoiceService.updateInvoice(id, updateData);
       const transformedBill = transformInvoiceToBill(updatedInvoice);
@@ -355,6 +358,22 @@ export const useInvoices = () => {
     }
   }, [fetchStats]);
 
+  // Toggle verification status
+  const toggleVerification = useCallback(async (id: string, verified: boolean): Promise<Bill> => {
+    try {
+      const updatedInvoice = await invoiceService.updateInvoice(id, { verified });
+      const transformedBill = transformInvoiceToBill(updatedInvoice);
+
+      // Update local state
+      setBills(prev => prev.map(bill => bill.id === id ? transformedBill : bill));
+
+      return transformedBill;
+    } catch (err) {
+      console.error('Error toggling verification:', err);
+      throw err;
+    }
+  }, []);
+
   // Refresh all data
   const refreshData = useCallback(async () => {
     await Promise.all([
@@ -407,6 +426,7 @@ export const useInvoices = () => {
       approveInvoice,
       markPayment,
       voidInvoice,
+      toggleVerification,
       refreshData,
       generateNextBillNumber
     }

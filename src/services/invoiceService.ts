@@ -42,6 +42,7 @@ export interface InvoiceDetail {
   updated_at?: string;
   organization_id?: string;
   is_deleted: boolean;
+  verified: boolean;
 }
 
 export interface CreateInvoiceData {
@@ -115,6 +116,7 @@ export interface UpdateInvoiceData {
   file_size?: number;
   approved_by?: string;
   updated_at?: string;
+  verified?: boolean;
 }
 
 export interface InvoiceFilters {
@@ -202,6 +204,7 @@ export const invoiceService = {
           currency: invoiceData.currency || 'INR',
           exchange_rate: invoiceData.exchange_rate || 1.0,
           is_deleted: false,
+          verified: false,
         })
         .select()
         .single();

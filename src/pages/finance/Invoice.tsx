@@ -62,6 +62,11 @@ export default function Invoice() {
   const [showFileViewer, setShowFileViewer] = useState(false);
   const [viewingFile, setViewingFile] = useState<{ url: string; name?: string; type?: string } | null>(null);
 
+  // Verification confirmation modal states
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const [pendingVerification, setPendingVerification] = useState<{ billId: string; newStatus: boolean; billNumber: string } | null>(null);
+
+
   // Handle sorting
   const handleSort = (field: string, event?: React.MouseEvent) => {
     event?.preventDefault();
@@ -304,6 +309,32 @@ export default function Invoice() {
       });
       setShowFileViewer(true);
     }
+  };
+
+  const handleVerificationToggle = (bill: Bill, newStatus: boolean) => {
+    setPendingVerification({
+      billId: bill.id,
+      newStatus,
+      billNumber: bill.bill_number
+    });
+    setShowVerificationModal(true);
+  };
+
+  const confirmVerificationChange = async () => {
+    if (!pendingVerification) return;
+
+    try {
+      await actions.toggleVerification(pendingVerification.billId, pendingVerification.newStatus);
+      setShowVerificationModal(false);
+      setPendingVerification(null);
+    } catch (error) {
+      console.error('Error toggling verification:', error);
+    }
+  };
+
+  const cancelVerificationChange = () => {
+    setShowVerificationModal(false);
+    setPendingVerification(null);
   };
 
   return (
@@ -662,6 +693,7 @@ export default function Invoice() {
                         </div>
                       </TableHead>
                       <TableHead className="border-r border-border/50 text-center">File</TableHead>
+                      <TableHead className="border-r border-border/50 text-center">Verified</TableHead>
                       <TableHead className="text-center">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -749,6 +781,22 @@ export default function Invoice() {
                           ) : (
                             <span className="text-muted-foreground text-xs">No file</span>
                           )}
+                        </TableCell>
+                        <TableCell className="border-r border-border/50 text-center">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleVerificationToggle(bill, !bill.verified);
+                            }}
+                            className="rounded-none p-1 h-8 w-8"
+                          >
+                            <Check className={cn(
+                              "h-4 w-4",
+                              bill.verified ? "text-green-600" : "text-muted-foreground"
+                            )} />
+                          </Button>
                         </TableCell>
                         <TableCell className="text-center">
                           <DropdownMenu>
@@ -968,6 +1016,35 @@ export default function Invoice() {
           fileName={viewingFile?.name}
           fileType={viewingFile?.type}
         />
+
+        {/* Verification Confirmation Modal */}
+        <Dialog open={showVerificationModal} onOpenChange={setShowVerificationModal}>
+          <DialogContent className="rounded-none">
+            <DialogHeader>
+              <DialogTitle>Confirm Verification Status Change</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to {pendingVerification?.newStatus ? 'mark' : 'unmark'} invoice{' '}
+                <span className="font-medium text-blue-600">#{pendingVerification?.billNumber}</span>{' '}
+                as {pendingVerification?.newStatus ? 'verified' : 'unverified'}?
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={cancelVerificationChange}
+                className="rounded-none"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={confirmVerificationChange}
+                className="rounded-none"
+              >
+                {pendingVerification?.newStatus ? 'Mark as Verified' : 'Mark as Unverified'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </TooltipProvider>
   );
