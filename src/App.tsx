@@ -54,6 +54,7 @@ import NDRRTOManagement from "./pages/support/NDRRTOManagement";
 import Attendance from "./pages/team-hub/Attendance";
 import AttendanceSummary from "./components/attendance/AttendanceSummary";
 import CheckIn from "./pages/team-hub/CheckIn";
+import CheckOut from "./pages/team-hub/CheckOut";
 import TasksTodos from "./pages/team-hub/TasksTodos";
 import Announcements from "./pages/team-hub/Announcements";
 import TrainingKnowledge from "./pages/team-hub/TrainingKnowledge";
@@ -63,6 +64,7 @@ import Holidays from "./pages/team-hub/Holidays";
 import MyTasks from "./pages/me/MyTasks";
 import AdminTasksHub from "./pages/admin/AdminTasksHub";
 import ReviewInbox from "./pages/review/ReviewInbox";
+import AITaskAnalyzer from "./pages/ai/AITaskAnalyzer";
 
 // Marketing pages
 import Campaigns from "./pages/marketing/Campaigns";
@@ -303,6 +305,11 @@ const App = () => (
                     <CheckIn />
                   </PermissionGuard>
                 } />
+                <Route path="checkout" element={
+                  <PermissionGuard requiredModule="team-hub">
+                    <CheckOut />
+                  </PermissionGuard>
+                } />
                 <Route path="team-hub/tasks" element={
                   <PermissionGuard requiredModule="team-hub">
                     <TasksTodos />
@@ -314,6 +321,11 @@ const App = () => (
                 <Route path="admin/tasks" element={
                   <PermissionGuard requiredModule="admin">
                     <AdminTasksHub />
+                  </PermissionGuard>
+                } />
+                <Route path="ai-task-analyzer" element={
+                  <PermissionGuard requiredModule="admin">
+                    <AITaskAnalyzer />
                   </PermissionGuard>
                 } />
                 <Route path="review" element={
