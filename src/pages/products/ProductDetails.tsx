@@ -165,6 +165,9 @@ export default function ProductDetails() {
   const [targetAudience, setTargetAudience] = useState('')
   const [designStyle, setDesignStyle] = useState('')
 
+  // Production Details state - connecting to product_production table
+  const [productionDetails, setProductionDetails] = useState('')
+
   // Visual Identity state - connecting to product_design table
   const [primaryColors, setPrimaryColors] = useState('')
   const [secondaryColors, setSecondaryColors] = useState('')
@@ -490,7 +493,11 @@ export default function ProductDetails() {
       const production = await productProductionService.getOrCreateProductProduction(productId)
       if (production) {
         setProductionData(production)
-        // Update state with production data - Supplier & Pricing
+        // Update state with production data - Production Details (main rich text)
+        console.log('🔄 Loading production_details from database:', production.production_details)
+        setProductionDetails(production.production_details || '')
+
+        // Supplier & Pricing
         setSelectedSuppliers(production.selected_suppliers || [])
         setSupplierComparisonNotes(production.supplier_comparison_notes || '')
         setPreferredSupplierId(production.preferred_supplier_id || '')
@@ -673,21 +680,23 @@ export default function ProductDetails() {
       const productionRecord = await productProductionService.getOrCreateProductProduction(product.id)
       if (productionRecord) {
         await productProductionService.updateProductProductionByProductId(product.id, {
+          // Production Details (main rich text field)
+          production_details: productionDetails,
           // Supplier & Pricing fields
           selected_suppliers: selectedSuppliers,
           supplier_comparison_notes: supplierComparisonNotes,
-          preferred_supplier_id: preferredSupplierId,
+          preferred_supplier_id: preferredSupplierId || null,
           // Product Links
           product_links: productLinks,
           // Sample Management fields
-          sample_request_date: sampleRequestDate,
-          sample_received_date: sampleReceivedDate,
+          sample_request_date: sampleRequestDate || null,
+          sample_received_date: sampleReceivedDate || null,
           sample_status: sampleStatus,
           sample_notes: sampleNotes,
-          sample_quality_rating: sampleQualityRating,
+          sample_quality_rating: sampleQualityRating || null,
           // Production Timeline fields
-          production_start_date: productionStartDate,
-          production_completion_date: productionCompletionDate,
+          production_start_date: productionStartDate || null,
+          production_completion_date: productionCompletionDate || null,
           production_milestones: productionMilestones,
           production_status: productionStatus,
           // Materials & Specifications fields
@@ -699,17 +708,17 @@ export default function ProductDetails() {
           quality_standards: qualityStandards,
           compliance_requirements: complianceRequirements,
           // Cost tracking fields
-          estimated_unit_cost: estimatedUnitCost,
-          actual_unit_cost: actualUnitCost,
-          tooling_cost: toolingCost,
-          setup_cost: setupCost,
+          estimated_unit_cost: estimatedUnitCost || null,
+          actual_unit_cost: actualUnitCost || null,
+          tooling_cost: toolingCost || null,
+          setup_cost: setupCost || null,
           // Quality control fields
           qc_requirements: qcRequirements,
           qc_status: qcStatus,
           qc_notes: qcNotes,
           // Lead times fields
-          lead_time_days: leadTimeDays,
-          minimum_order_quantity: minimumOrderQuantity
+          lead_time_days: leadTimeDays || null,
+          minimum_order_quantity: minimumOrderQuantity || null
         })
       }
 
@@ -891,6 +900,7 @@ export default function ProductDetails() {
         try {
           console.log('💾 Auto-saving production data for product:', product.id)
           console.log('📝 Production data being saved:', {
+            production_details: productionDetails,
             supplier_comparison_notes: supplierComparisonNotes,
             sample_status: sampleStatus,
             production_status: productionStatus,
@@ -900,21 +910,23 @@ export default function ProductDetails() {
           const productionRecord = await productProductionService.getOrCreateProductProduction(product.id)
           if (productionRecord) {
             const updateData = {
+              // Production Details (main rich text field)
+              production_details: productionDetails,
               // Supplier & Pricing fields
               selected_suppliers: selectedSuppliers,
               supplier_comparison_notes: supplierComparisonNotes,
-              preferred_supplier_id: preferredSupplierId,
+              preferred_supplier_id: preferredSupplierId || null,
               // Product Links
               product_links: productLinks,
               // Sample Management fields
-              sample_request_date: sampleRequestDate,
-              sample_received_date: sampleReceivedDate,
+              sample_request_date: sampleRequestDate || null,
+              sample_received_date: sampleReceivedDate || null,
               sample_status: sampleStatus,
               sample_notes: sampleNotes,
-              sample_quality_rating: sampleQualityRating,
+              sample_quality_rating: sampleQualityRating || null,
               // Production Timeline fields
-              production_start_date: productionStartDate,
-              production_completion_date: productionCompletionDate,
+              production_start_date: productionStartDate || null,
+              production_completion_date: productionCompletionDate || null,
               production_milestones: productionMilestones,
               production_status: productionStatus,
               // Materials & Specifications fields
@@ -926,20 +938,21 @@ export default function ProductDetails() {
               quality_standards: qualityStandards,
               compliance_requirements: complianceRequirements,
               // Cost tracking fields
-              estimated_unit_cost: estimatedUnitCost,
-              actual_unit_cost: actualUnitCost,
-              tooling_cost: toolingCost,
-              setup_cost: setupCost,
+              estimated_unit_cost: estimatedUnitCost || null,
+              actual_unit_cost: actualUnitCost || null,
+              tooling_cost: toolingCost || null,
+              setup_cost: setupCost || null,
               // Quality control fields
               qc_requirements: qcRequirements,
               qc_status: qcStatus,
               qc_notes: qcNotes,
               // Lead times fields
-              lead_time_days: leadTimeDays,
-              minimum_order_quantity: minimumOrderQuantity
+              lead_time_days: leadTimeDays || null,
+              minimum_order_quantity: minimumOrderQuantity || null
             }
-            await productProductionService.updateProductProductionByProductId(product.id, updateData)
+            const result = await productProductionService.updateProductProductionByProductId(product.id, updateData)
             console.log('✅ Auto-saved production data successfully')
+            console.log('💾 Saved production_details:', result?.production_details)
           }
         } catch (error) {
           console.error('Error auto-saving production data:', error)
@@ -949,6 +962,8 @@ export default function ProductDetails() {
       return () => clearTimeout(timer)
     }
   }, [
+    // Production Details (main rich text field)
+    productionDetails,
     // Supplier & Pricing fields
     selectedSuppliers, supplierComparisonNotes, preferredSupplierId,
     // Product Links
@@ -1798,843 +1813,112 @@ export default function ProductDetails() {
                       <Palette className="h-5 w-5 text-pink-600" />
                     </div>
                     <div>
-                      <h3 className="text-lg font-semibold text-foreground">Design Management</h3>
-                      <p className="text-sm text-muted-foreground">Manage product design, prototypes, and visual specifications</p>
+                      <h3 className="text-lg font-semibold text-foreground">Design Details</h3>
+                      <p className="text-sm text-muted-foreground">All design information, files, and progress tracking</p>
                     </div>
                   </div>
 
-                  {/* Design Brief - Collapsible */}
-                  <div className="border rounded-none bg-background overflow-hidden">
-                    <div
-                      className={`flex items-center justify-between cursor-pointer p-3 bg-muted/10 hover:bg-muted/20 transition-colors ${
-                        showDesignBrief ? 'border-b border-border' : ''
-                      }`}
-                      onClick={() => setShowDesignBrief(!showDesignBrief)}
-                    >
-                      <Label className="text-sm font-medium text-foreground cursor-pointer">Design Brief</Label>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground">
-                          {showDesignBrief ? 'Hide details' : 'Vision, audience, style'}
-                        </span>
-                        <ChevronDown
-                          className={`h-4 w-4 text-muted-foreground transition-transform ${
-                            showDesignBrief ? 'rotate-180' : ''
-                          }`}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Collapsible Content */}
-                    {showDesignBrief && (
-                      <div className="space-y-4 p-4 bg-muted/5">
-                        <div>
-                          <Label className="text-xs font-medium text-muted-foreground mb-2 block">Product Vision</Label>
-                          <RichEditor
-                            value={productVision}
-                            onChange={setProductVision}
-                            placeholder="Describe the overall design vision and aesthetic goals..."
-                            className="min-h-[100px]"
-                            hideToolbar={true}
-                          />
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <Label className="text-xs font-medium text-muted-foreground mb-2 block">Target Audience</Label>
-                            <Input
-                              value={targetAudience}
-                              onChange={(e) => setTargetAudience(e.target.value)}
-                              placeholder="e.g., Young professionals, families..."
-                              className="rounded-none"
-                            />
-                          </div>
-                          <div>
-                            <Label className="text-xs font-medium text-muted-foreground mb-2 block">Design Style</Label>
-                            <Select value={designStyle} onValueChange={setDesignStyle}>
-                              <SelectTrigger className="rounded-none">
-                                <SelectValue placeholder="Select design style" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="minimal">Minimal</SelectItem>
-                                <SelectItem value="modern">Modern</SelectItem>
-                                <SelectItem value="vintage">Vintage</SelectItem>
-                                <SelectItem value="industrial">Industrial</SelectItem>
-                                <SelectItem value="luxury">Luxury</SelectItem>
-                                <SelectItem value="playful">Playful</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  <Separator className="my-6" />
-
-                  {/* Visual Identity - Collapsible */}
-                  <div className="border rounded-none bg-background overflow-hidden">
-                    <div
-                      className={`flex items-center justify-between cursor-pointer p-3 bg-muted/10 hover:bg-muted/20 transition-colors ${
-                        showVisualIdentity ? 'border-b border-border' : ''
-                      }`}
-                      onClick={() => setShowVisualIdentity(!showVisualIdentity)}
-                    >
-                      <Label className="text-sm font-medium text-foreground cursor-pointer">Visual Identity</Label>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground">
-                          {showVisualIdentity ? 'Hide details' : 'Colors, materials'}
-                        </span>
-                        <ChevronDown
-                          className={`h-4 w-4 text-muted-foreground transition-transform ${
-                            showVisualIdentity ? 'rotate-180' : ''
-                          }`}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Collapsible Content */}
-                    {showVisualIdentity && (
-                      <div className="space-y-4 p-4 bg-muted/5">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <Label className="text-xs font-medium text-muted-foreground mb-2 block">Primary Colors</Label>
-                            <Input
-                              value={primaryColors}
-                              onChange={(e) => setPrimaryColors(e.target.value)}
-                              placeholder="e.g., Navy Blue, White, Gold..."
-                              className="rounded-none"
-                            />
-                          </div>
-                          <div>
-                            <Label className="text-xs font-medium text-muted-foreground mb-2 block">Secondary Colors</Label>
-                            <Input
-                              value={secondaryColors}
-                              onChange={(e) => setSecondaryColors(e.target.value)}
-                              placeholder="e.g., Light Gray, Accent Blue..."
-                              className="rounded-none"
-                            />
-                          </div>
-                        </div>
-                        <div>
-                          <Label className="text-xs font-medium text-muted-foreground mb-2 block">Material Preferences</Label>
-                          <RichEditor
-                            value={materialPreferences}
-                            onChange={setMaterialPreferences}
-                            placeholder="Describe preferred materials, textures, and finishes..."
-                            className="min-h-[80px]"
-                            hideToolbar={true}
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  <Separator className="my-6" />
-
-                  {/* Design Assets - Collapsible */}
-                  <div className="border rounded-none bg-background overflow-hidden">
-                    <div
-                      className={`flex items-center justify-between cursor-pointer p-3 bg-muted/10 hover:bg-muted/20 transition-colors ${
-                        showDesignAssets ? 'border-b border-border' : ''
-                      }`}
-                      onClick={() => setShowDesignAssets(!showDesignAssets)}
-                    >
-                      <Label className="text-sm font-medium text-foreground cursor-pointer">Design Assets</Label>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground">
-                          {showDesignAssets ? 'Hide details' : 'Files, models, drawings'}
-                        </span>
-                        <ChevronDown
-                          className={`h-4 w-4 text-muted-foreground transition-transform ${
-                            showDesignAssets ? 'rotate-180' : ''
-                          }`}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Collapsible Content */}
-                    {showDesignAssets && (
-                      <div className="space-y-4 p-4 bg-muted/5">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <Label className="text-xs font-medium text-muted-foreground mb-2 block">Mood Board</Label>
-                            <Input
-                              value={moodBoardUrl}
-                              onChange={(e) => setMoodBoardUrl(e.target.value)}
-                              placeholder="https://... (Pinterest, Figma, etc.)"
-                              className="rounded-none"
-                            />
-                          </div>
-                          <div>
-                            <Label className="text-xs font-medium text-muted-foreground mb-2 block">Design Files</Label>
-                            <Input
-                              value={designFilesUrl}
-                              onChange={(e) => setDesignFilesUrl(e.target.value)}
-                              placeholder="https://... (Figma, Sketch, etc.)"
-                              className="rounded-none"
-                            />
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <Label className="text-xs font-medium text-muted-foreground mb-2 block">CAD Files</Label>
-                            <Input
-                              value={cadFiles}
-                              onChange={(e) => setCadFiles(e.target.value)}
-                              placeholder="https://... (3D files, renderings)"
-                              className="rounded-none"
-                            />
-                          </div>
-                          <div>
-                            <Label className="text-xs font-medium text-muted-foreground mb-2 block">Technical Drawings</Label>
-                            <Input
-                              value={technicalDrawings}
-                              onChange={(e) => setTechnicalDrawings(e.target.value)}
-                              placeholder="https://... (CAD files, blueprints)"
-                              className="rounded-none"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  <Separator className="my-6" />
-
-                  {/* Design Progress - Collapsible */}
-                  <div className="border rounded-none bg-background overflow-hidden">
-                    <div
-                      className={`flex items-center justify-between cursor-pointer p-3 bg-muted/10 hover:bg-muted/20 transition-colors ${
-                        showDesignProgress ? 'border-b border-border' : ''
-                      }`}
-                      onClick={() => setShowDesignProgress(!showDesignProgress)}
-                    >
-                      <Label className="text-sm font-medium text-foreground cursor-pointer">Design Progress</Label>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground">
-                          {showDesignProgress ? 'Hide details' : 'Status, timeline, designer'}
-                        </span>
-                        <ChevronDown
-                          className={`h-4 w-4 text-muted-foreground transition-transform ${
-                            showDesignProgress ? 'rotate-180' : ''
-                          }`}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Collapsible Content */}
-                    {showDesignProgress && (
-                      <div className="space-y-4 p-4 bg-muted/5">
-                        <div className="grid grid-cols-3 gap-4">
-                          <div>
-                            <Label className="text-xs font-medium text-muted-foreground mb-2 block">Design Status</Label>
-                            <Select value={designStatus} onValueChange={setDesignStatus}>
-                              <SelectTrigger className="rounded-none">
-                                <SelectValue placeholder="Select status" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="not_started">Not Started</SelectItem>
-                                <SelectItem value="concept">Concept Phase</SelectItem>
-                                <SelectItem value="sketching">Sketching</SelectItem>
-                                <SelectItem value="prototyping">Prototyping</SelectItem>
-                                <SelectItem value="refinement">Refinement</SelectItem>
-                                <SelectItem value="finalized">Finalized</SelectItem>
-                                <SelectItem value="approved">Approved</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div>
-                            <Label className="text-xs font-medium text-muted-foreground mb-2 block">Current Phase</Label>
-                            <Input
-                              value={currentPhase}
-                              onChange={(e) => setCurrentPhase(e.target.value)}
-                              placeholder="e.g., Wireframing, Mockups"
-                              className="rounded-none"
-                            />
-                          </div>
-                          <div>
-                            <Label className="text-xs font-medium text-muted-foreground mb-2 block">Completion %</Label>
-                            <Input
-                              type="number"
-                              value={completionPercentage}
-                              onChange={(e) => setCompletionPercentage(Number(e.target.value))}
-                              placeholder="0-100"
-                              min="0"
-                              max="100"
-                              className="rounded-none"
-                            />
-                          </div>
-                        </div>
-                        <div>
-                          <Label className="text-xs font-medium text-muted-foreground mb-2 block">Next Milestone</Label>
-                          <Input
-                            value={nextMilestone}
-                            onChange={(e) => setNextMilestone(e.target.value)}
-                            placeholder="e.g., Complete prototype, Final review"
-                            className="rounded-none"
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  <Separator className="my-6" />
-
-                  {/* Design Feedback - Collapsible */}
-                  <div className="border rounded-none bg-background overflow-hidden">
-                    <div
-                      className={`flex items-center justify-between cursor-pointer p-3 bg-muted/10 hover:bg-muted/20 transition-colors ${
-                        showDesignFeedback ? 'border-b border-border' : ''
-                      }`}
-                      onClick={() => setShowDesignFeedback(!showDesignFeedback)}
-                    >
-                      <Label className="text-sm font-medium text-foreground cursor-pointer">Design Feedback</Label>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground">
-                          {showDesignFeedback ? 'Hide details' : 'Feedback, revisions'}
-                        </span>
-                        <ChevronDown
-                          className={`h-4 w-4 text-muted-foreground transition-transform ${
-                            showDesignFeedback ? 'rotate-180' : ''
-                          }`}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Collapsible Content */}
-                    {showDesignFeedback && (
-                      <div className="space-y-4 p-4 bg-muted/5">
-                        <div>
-                          <Label className="text-xs font-medium text-muted-foreground mb-2 block">Feedback & Revisions</Label>
-                          <RichEditor
-                            value={designFeedback}
-                            onChange={setDesignFeedback}
-                            placeholder="Design feedback, revision requests, approval notes..."
-                            className="min-h-[120px]"
-                            hideToolbar={true}
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  <Separator className="my-6" />
-
-                  {/* Packing Design Section - Collapsible */}
-                  <div className="border rounded-none bg-background overflow-hidden">
-                    <div
-                      className={`flex items-center justify-between cursor-pointer p-3 bg-muted/10 hover:bg-muted/20 transition-colors ${
-                        showPackingDesign ? 'border-b border-border' : ''
-                      }`}
-                      onClick={() => setShowPackingDesign(!showPackingDesign)}
-                    >
-                      <Label className="text-sm font-medium text-foreground cursor-pointer">Packing Design</Label>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground">
-                          {showPackingDesign ? 'Hide details' : 'Packaging, vendors'}
-                        </span>
-                        <ChevronDown
-                          className={`h-4 w-4 text-muted-foreground transition-transform ${
-                            showPackingDesign ? 'rotate-180' : ''
-                          }`}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Collapsible Content */}
-                    {showPackingDesign && (
-                      <div className="space-y-4 p-4 bg-muted/5">
-
-                    {/* Packaging Concept Notes */}
+                  {/* Design Status */}
+                  <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <Label className="text-xs font-medium text-muted-foreground mb-2 block">Packaging Concept Notes</Label>
-                      <RichEditor
-                        value={packagingConcept}
-                        onChange={setPackagingConcept}
-                        placeholder="Describe dieline ideas, ribbon choices, insert concepts, seasonal editions..."
-                        className="min-h-[120px]"
-                        hideToolbar={true}
-                      />
+                      <Label className="text-xs font-medium text-muted-foreground mb-2 block">Design Status</Label>
+                      <Select value={designStatus} onValueChange={setDesignStatus}>
+                        <SelectTrigger className="rounded-none">
+                          <SelectValue placeholder="Select status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="not_started">Not Started</SelectItem>
+                          <SelectItem value="concept">Concept Phase</SelectItem>
+                          <SelectItem value="sketching">Sketching</SelectItem>
+                          <SelectItem value="prototyping">Prototyping</SelectItem>
+                          <SelectItem value="refinement">Refinement</SelectItem>
+                          <SelectItem value="finalized">Finalized</SelectItem>
+                          <SelectItem value="approved">Approved</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
-
-                    {/* File Upload for Packaging */}
                     <div>
-                      <Label className="text-xs font-medium text-muted-foreground mb-2 block">Packaging Files</Label>
-                      <div className="border-2 border-dashed border-border rounded-none p-4">
-                        <div className="flex flex-col items-center gap-2">
-                          <Upload className="h-6 w-6 text-muted-foreground" />
-                          <p className="text-sm text-muted-foreground">Upload PDFs, mock-ups, printer specs, unboxing videos</p>
-                          <input
-                            id="packaging-files"
-                            type="file"
-                            multiple
-                            accept=".pdf,image/*,video/*"
-                            onChange={handlePackagingFileUpload}
-                            className="hidden"
-                          />
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => document.getElementById('packaging-files')?.click()}
-                          >
-                            Choose Files
-                          </Button>
-                        </div>
-                      </div>
-
-                      {/* Packaging Files Preview */}
-                      {packagingFiles.length > 0 && (
-                        <div className="mt-3 space-y-2">
-                          <p className="text-xs font-medium text-muted-foreground">
-                            Uploaded Files ({packagingFiles.length}/15)
-                          </p>
-                          <div className="space-y-1">
-                            {packagingFiles.map((file, index) => (
-                              <div key={index} className="flex items-center justify-between p-2 bg-muted/20 rounded-none">
-                                <div className="flex items-center gap-2">
-                                  <span>{getFileTypeIcon(file)}</span>
-                                  <span className="text-xs font-medium truncate max-w-[200px]">{file.name}</span>
-                                  <span className="text-xs text-muted-foreground">({formatFileSize(file.size)})</span>
-                                </div>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-6 w-6 p-0 hover:text-destructive"
-                                  onClick={() => removePackagingFile(index)}
-                                >
-                                  <X className="h-3 w-3" />
-                                </Button>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+                      <Label className="text-xs font-medium text-muted-foreground mb-2 block">Design Style</Label>
+                      <Select value={designStyle} onValueChange={setDesignStyle}>
+                        <SelectTrigger className="rounded-none">
+                          <SelectValue placeholder="Select design style" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="minimal">Minimal</SelectItem>
+                          <SelectItem value="modern">Modern</SelectItem>
+                          <SelectItem value="vintage">Vintage</SelectItem>
+                          <SelectItem value="industrial">Industrial</SelectItem>
+                          <SelectItem value="luxury">Luxury</SelectItem>
+                          <SelectItem value="playful">Playful</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
+                  </div>
 
-                    {/* Print Vendor Links */}
-                    <div>
-                      <Label className="text-xs font-medium text-muted-foreground mb-2 block">Print Vendor Links</Label>
+                  {/* Main Design Details */}
+                  <div>
+                    <Label className="text-xs font-medium text-muted-foreground mb-2 block">Design Details</Label>
+                    <RichEditor
+                      value={productVision}
+                      onChange={setProductVision}
+                      placeholder="Document all design details including vision, target audience, colors, materials, assets (mood boards, CAD files, technical drawings), feedback, revisions, and any other design-related information..."
+                      className="min-h-[300px]"
+                      hideToolbar={false}
+                    />
+                  </div>
 
-                      {/* Add New Vendor Form */}
-                      <div className="space-y-3 p-3 border rounded-none bg-muted/10">
-                        <div className="grid grid-cols-3 gap-2">
-                          <Input
-                            placeholder="Vendor name"
-                            value={newVendorName}
-                            onChange={(e) => setNewVendorName(e.target.value)}
-                            className="h-8 rounded-none"
-                          />
-                          <Input
-                            placeholder="Website URL"
-                            value={newVendorUrl}
-                            onChange={(e) => setNewVendorUrl(e.target.value)}
-                            className="h-8 rounded-none"
-                          />
-                          <Input
-                            placeholder="Contact info"
-                            value={newVendorContact}
-                            onChange={(e) => setNewVendorContact(e.target.value)}
-                            className="h-8 rounded-none"
-                          />
-                        </div>
+                  {/* File Upload */}
+                  <div>
+                    <Label className="text-xs font-medium text-muted-foreground mb-2 block">Design Files</Label>
+                    <div className="border-2 border-dashed border-border rounded-none p-4">
+                      <div className="flex flex-col items-center gap-2">
+                        <Upload className="h-6 w-6 text-muted-foreground" />
+                        <p className="text-sm text-muted-foreground">Upload design files, mock-ups, CAD files, technical drawings</p>
+                        <input
+                          id="packaging-files"
+                          type="file"
+                          multiple
+                          accept=".pdf,image/*,video/*"
+                          onChange={handlePackagingFileUpload}
+                          className="hidden"
+                        />
                         <Button
                           type="button"
+                          variant="outline"
                           size="sm"
-                          onClick={addPrintVendor}
-                          disabled={!newVendorName.trim() || !newVendorUrl.trim()}
-                          className="h-7 text-xs"
+                          onClick={() => document.getElementById('packaging-files')?.click()}
                         >
-                          <Plus className="h-3 w-3 mr-1" />
-                          Add Vendor
+                          Choose Files
                         </Button>
                       </div>
+                    </div>
 
-                      {/* Vendor List */}
-                      {printVendorLinks.length > 0 && (
-                        <div className="mt-3 space-y-2">
-                          {printVendorLinks.map((vendor) => (
-                            <div key={vendor.id} className="flex items-center justify-between p-2 bg-muted/20 rounded-none">
-                              <div className="flex-1">
-                                <p className="text-sm font-medium">{vendor.name}</p>
-                                <div className="flex items-center gap-4 mt-1">
-                                  <a href={vendor.url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline">
-                                    {vendor.url}
-                                  </a>
-                                  {vendor.contact && (
-                                    <span className="text-xs text-muted-foreground">{vendor.contact}</span>
-                                  )}
-                                </div>
+                    {/* Files Preview */}
+                    {packagingFiles.length > 0 && (
+                      <div className="mt-3 space-y-2">
+                        <p className="text-xs font-medium text-muted-foreground">
+                          Uploaded Files ({packagingFiles.length}/15)
+                        </p>
+                        <div className="space-y-1">
+                          {packagingFiles.map((file, index) => (
+                            <div key={index} className="flex items-center justify-between p-2 bg-muted/20 rounded-none">
+                              <div className="flex items-center gap-2">
+                                <span>{getFileTypeIcon(file)}</span>
+                                <span className="text-xs font-medium truncate max-w-[200px]">{file.name}</span>
+                                <span className="text-xs text-muted-foreground">({formatFileSize(file.size)})</span>
                               </div>
                               <Button
                                 type="button"
                                 variant="ghost"
                                 size="sm"
                                 className="h-6 w-6 p-0 hover:text-destructive"
-                                onClick={() => removePrintVendor(vendor.id)}
+                                onClick={() => removePackagingFile(index)}
                               >
                                 <X className="h-3 w-3" />
                               </Button>
                             </div>
                           ))}
                         </div>
-                      )}
-                    </div>
-
-                    {/* Approval Status & Dates */}
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label className="text-xs font-medium text-muted-foreground mb-2 block">Approval Status</Label>
-                        <Select value={packagingApprovalStatus} onValueChange={setPackagingApprovalStatus}>
-                          <SelectTrigger className="rounded-none">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="pending">Pending</SelectItem>
-                            <SelectItem value="in-review">In Review</SelectItem>
-                            <SelectItem value="approved">Approved</SelectItem>
-                            <SelectItem value="rejected">Rejected</SelectItem>
-                            <SelectItem value="locked">Final - Locked</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label className="text-xs font-medium text-muted-foreground mb-2 block">Approval Date</Label>
-                        <Input
-                          type="date"
-                          value={packagingApprovalDate}
-                          onChange={(e) => setPackagingApprovalDate(e.target.value)}
-                          className="rounded-none"
-                        />
-                      </div>
-                    </div>
-                      </div>
-                    )}
-                  </div>
-
-                  <Separator className="my-6" />
-
-                  {/* Product Design Ideas Repository - Collapsible */}
-                  <div className="border rounded-none bg-background overflow-hidden">
-                    <div
-                      className={`flex items-center justify-between cursor-pointer p-3 bg-muted/10 hover:bg-muted/20 transition-colors ${
-                        showDesignIdeasRepository ? 'border-b border-border' : ''
-                      }`}
-                      onClick={() => setShowDesignIdeasRepository(!showDesignIdeasRepository)}
-                    >
-                      <Label className="text-sm font-medium text-foreground cursor-pointer">Design Ideas Repository</Label>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground">
-                          {showDesignIdeasRepository ? 'Hide details' : 'Concepts, gallery'}
-                        </span>
-                        <ChevronDown
-                          className={`h-4 w-4 text-muted-foreground transition-transform ${
-                            showDesignIdeasRepository ? 'rotate-180' : ''
-                          }`}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Collapsible Content */}
-                    {showDesignIdeasRepository && (
-                      <div className="space-y-4 p-4 bg-muted/5">
-                        {/* Add Idea Button */}
-                        <div className="flex justify-end">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setShowAddIdeaForm(true)}
-                            className="h-8 text-xs"
-                          >
-                            <Plus className="h-3 w-3 mr-1" />
-                            Add Idea
-                          </Button>
-                        </div>
-
-                    {/* Add New Idea Form */}
-                    {showAddIdeaForm && (
-                      <div className="p-4 border rounded-none bg-muted/10 space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <Label className="text-xs font-medium text-muted-foreground mb-1 block">Title *</Label>
-                            <Input
-                              value={newIdeaTitle}
-                              onChange={(e) => setNewIdeaTitle(e.target.value)}
-                              placeholder="Idea title..."
-                              className="h-8 rounded-none"
-                            />
-                          </div>
-                          <div>
-                            <Label className="text-xs font-medium text-muted-foreground mb-1 block">Description</Label>
-                            <Input
-                              value={newIdeaDescription}
-                              onChange={(e) => setNewIdeaDescription(e.target.value)}
-                              placeholder="Brief description..."
-                              className="h-8 rounded-none"
-                            />
-                          </div>
-                        </div>
-
-                        {/* Links */}
-                        <div>
-                          <Label className="text-xs font-medium text-muted-foreground mb-1 block">Links</Label>
-                          <div className="flex gap-2">
-                            <Input
-                              value={ideaLinkInput}
-                              onChange={(e) => setIdeaLinkInput(e.target.value)}
-                              placeholder="Pinterest, Behance, competitor pages..."
-                              className="h-8 rounded-none flex-1"
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                  e.preventDefault()
-                                  addIdeaLink()
-                                }
-                              }}
-                            />
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={addIdeaLink}
-                              className="h-8 px-3"
-                            >
-                              Add
-                            </Button>
-                          </div>
-                          {newIdeaLinks.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-2">
-                              {newIdeaLinks.map((link, index) => (
-                                <Badge key={index} variant="secondary" className="text-xs">
-                                  <a href={link} target="_blank" rel="noopener noreferrer" className="hover:underline">
-                                    {extractDomainFromUrl(link)}
-                                  </a>
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    className="ml-1 h-auto p-0 text-muted-foreground hover:text-foreground"
-                                    onClick={() => removeIdeaLink(index)}
-                                  >
-                                    <X className="h-2 w-2" />
-                                  </Button>
-                                </Badge>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Tags */}
-                        <div>
-                          <Label className="text-xs font-medium text-muted-foreground mb-1 block">Tags</Label>
-                          <div className="flex gap-2">
-                            <Input
-                              value={ideaTagInput}
-                              onChange={(e) => setIdeaTagInput(e.target.value)}
-                              placeholder="Minimal, Festive, Men's, Custom Engraving..."
-                              className="h-8 rounded-none flex-1"
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                  e.preventDefault()
-                                  addIdeaTag()
-                                }
-                              }}
-                            />
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={addIdeaTag}
-                              className="h-8 px-3"
-                            >
-                              Add
-                            </Button>
-                          </div>
-                          {newIdeaTags.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-2">
-                              {newIdeaTags.map((tag, index) => (
-                                <Badge key={index} variant="outline" className="text-xs">
-                                  <Tag className="h-2 w-2 mr-1" />
-                                  {tag}
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    className="ml-1 h-auto p-0 text-muted-foreground hover:text-foreground"
-                                    onClick={() => removeIdeaTag(index)}
-                                  >
-                                    <X className="h-2 w-2" />
-                                  </Button>
-                                </Badge>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-
-                        {/* File Upload */}
-                        <div>
-                          <Label className="text-xs font-medium text-muted-foreground mb-1 block">Files</Label>
-                          <input
-                            id="idea-files"
-                            type="file"
-                            multiple
-                            accept="image/*,.pdf"
-                            onChange={handleIdeaFileUpload}
-                            className="hidden"
-                          />
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => document.getElementById('idea-files')?.click()}
-                            className="h-8 text-xs"
-                          >
-                            <Upload className="h-3 w-3 mr-1" />
-                            Upload Files
-                          </Button>
-                          {newIdeaFiles.length > 0 && (
-                            <div className="mt-2 space-y-1">
-                              {newIdeaFiles.map((file, index) => (
-                                <div key={index} className="flex items-center justify-between p-1 bg-muted/30 rounded-none">
-                                  <span className="text-xs truncate max-w-[200px]">{file.name}</span>
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-5 w-5 p-0 hover:text-destructive"
-                                    onClick={() => removeIdeaFile(index)}
-                                  >
-                                    <X className="h-2 w-2" />
-                                  </Button>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Form Actions */}
-                        <div className="flex gap-2 pt-2">
-                          <Button
-                            type="button"
-                            size="sm"
-                            onClick={saveDesignIdea}
-                            disabled={!newIdeaTitle.trim()}
-                            className="h-8 text-xs"
-                          >
-                            Save Idea
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setShowAddIdeaForm(false)
-                              setNewIdeaTitle('')
-                              setNewIdeaDescription('')
-                              setNewIdeaLinks([])
-                              setNewIdeaFiles([])
-                              setNewIdeaTags([])
-                            }}
-                            className="h-8 text-xs"
-                          >
-                            Cancel
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Ideas Gallery */}
-                    {designIdeas.length > 0 ? (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {designIdeas.map((idea) => (
-                          <div key={idea.id} className="border rounded-none p-4 bg-muted/20">
-                            <div className="flex items-center justify-between mb-2">
-                              <h4 className="text-sm font-semibold">{idea.title}</h4>
-                              <div className="flex items-center gap-2">
-                                <Select
-                                  value={idea.status}
-                                  onValueChange={(status: 'new' | 'under-review' | 'approved' | 'archived') =>
-                                    updateIdeaStatus(idea.id, status)
-                                  }
-                                >
-                                  <SelectTrigger className="h-6 w-24 text-xs rounded-none">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="new">New</SelectItem>
-                                    <SelectItem value="under-review">Review</SelectItem>
-                                    <SelectItem value="approved">Approved</SelectItem>
-                                    <SelectItem value="archived">Archived</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-6 w-6 p-0 hover:text-destructive"
-                                  onClick={() => removeDesignIdea(idea.id)}
-                                >
-                                  <X className="h-3 w-3" />
-                                </Button>
-                              </div>
-                            </div>
-
-                            {idea.description && (
-                              <p className="text-xs text-muted-foreground mb-2">{idea.description}</p>
-                            )}
-
-                            <div className="flex items-center gap-2 mb-2">
-                              <Badge className={`text-xs ${getStatusColor(idea.status)}`}>
-                                {getStatusIcon(idea.status)}
-                                {idea.status.replace('-', ' ')}
-                              </Badge>
-                            </div>
-
-                            {idea.tags.length > 0 && (
-                              <div className="flex flex-wrap gap-1 mb-2">
-                                {idea.tags.map((tag, index) => (
-                                  <Badge key={index} variant="outline" className="text-xs">
-                                    <Tag className="h-2 w-2 mr-1" />
-                                    {tag}
-                                  </Badge>
-                                ))}
-                              </div>
-                            )}
-
-                            {idea.links.length > 0 && (
-                              <div className="space-y-1 mb-2">
-                                {idea.links.map((link, index) => (
-                                  <a
-                                    key={index}
-                                    href={link}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="block text-xs text-blue-600 hover:underline truncate"
-                                  >
-                                    {extractDomainFromUrl(link)}
-                                  </a>
-                                ))}
-                              </div>
-                            )}
-
-                            {idea.files.length > 0 && (
-                              <div className="text-xs text-muted-foreground">
-                                <FileText className="h-3 w-3 inline mr-1" />
-                                {idea.files.length} file{idea.files.length > 1 ? 's' : ''}
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-center py-8 border-2 border-dashed border-muted rounded-none">
-                        <div className="flex flex-col items-center gap-2">
-                          <Archive className="h-8 w-8 text-muted-foreground" />
-                          <p className="text-sm text-muted-foreground">No design ideas yet</p>
-                          <p className="text-xs text-muted-foreground">Click "Add Idea" to start building your design repository</p>
-                        </div>
-                      </div>
-                    )}
                       </div>
                     )}
                   </div>
@@ -2651,756 +1935,109 @@ export default function ProductDetails() {
                       <Factory className="h-5 w-5 text-orange-600" />
                     </div>
                     <div>
-                      <h3 className="text-lg font-semibold text-foreground">Production Management</h3>
-                      <p className="text-sm text-muted-foreground">Manage manufacturing, samples, and production timeline</p>
+                      <h3 className="text-lg font-semibold text-foreground">Production Details</h3>
+                      <p className="text-sm text-muted-foreground">All production information, suppliers, and timeline</p>
                     </div>
                   </div>
 
-                  {/* Supplier & Pricing and Links - Two Columns */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    {/* Supplier & Pricing - Collapsible */}
-                    <div className="border rounded-none bg-background overflow-hidden">
-                      <div
-                        className={`flex items-center justify-between cursor-pointer p-3 bg-muted/10 hover:bg-muted/20 transition-colors ${
-                          showSupplierPricing ? 'border-b border-border' : ''
-                        }`}
-                        onClick={() => setShowSupplierPricing(!showSupplierPricing)}
-                      >
-                        <Label className="text-sm font-medium text-foreground cursor-pointer">Supplier & Pricing</Label>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground">
-                            {showSupplierPricing ? 'Hide details' : 'Vendors, pricing, quality'}
-                          </span>
-                          <ChevronDown
-                            className={`h-4 w-4 text-muted-foreground transition-transform ${
-                              showSupplierPricing ? 'rotate-180' : ''
-                            }`}
-                          />
-                        </div>
-                      </div>
-
-                      {/* Collapsible Content */}
-                      {showSupplierPricing && (
-                        <div className="space-y-4 p-4 bg-muted/5">
-
-                      {/* Multiple Supplier Selection with Pricing & Quality */}
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                          <Label className="text-xs font-medium text-muted-foreground">Suppliers Comparison</Label>
-                          <Button
-                            variant="link"
-                            size="sm"
-                            className="h-auto p-0 text-xs text-primary hover:text-primary/80"
-                            onClick={() => window.open('/vendors', '_blank')}
-                          >
-                            View All Vendors
-                          </Button>
-                        </div>
-
-                        {/* Add Supplier Dropdown */}
-                        <Select
-                          open={supplierDropdownOpen}
-                          onOpenChange={setSupplierDropdownOpen}
-                          onValueChange={addSupplier}
-                        >
-                          <SelectTrigger className="rounded-none">
-                            <SelectValue placeholder="Add vendors to compare..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {vendorsLoading ? (
-                              <SelectItem value="loading" disabled>Loading vendors...</SelectItem>
-                            ) : !vendors || vendors.length === 0 ? (
-                              <SelectItem value="no-vendors" disabled>No vendors available</SelectItem>
-                            ) : (
-                              vendors
-                                .filter(vendor =>
-                                  vendor.status === 'active' &&
-                                  !selectedSuppliers.some(s => s.id === vendor.id)
-                                )
-                                .map((vendor) => (
-                                  <SelectItem key={vendor.id} value={vendor.id}>
-                                    <span className="font-medium">{vendor.name}</span>
-                                  </SelectItem>
-                                ))
-                            )}
-                          </SelectContent>
-                        </Select>
-
-                        {/* Selected Suppliers with Individual Pricing & Quality */}
-                        {selectedSuppliers.length > 0 ? (
-                          <div className="space-y-4">
-                            {selectedSuppliers.map((supplier, index) => (
-                              <div key={supplier.id} className="border rounded-none p-4 space-y-3 bg-muted/20">
-                                {/* Supplier Header */}
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-2">
-                                    <Badge variant="outline" className="text-xs">
-                                      #{index + 1}
-                                    </Badge>
-                                    <span className="font-medium text-sm">{supplier.name}</span>
-                                  </div>
-                                  <X
-                                    className="h-4 w-4 cursor-pointer hover:text-destructive"
-                                    onClick={() => removeSupplier(supplier.id)}
-                                  />
-                                </div>
-
-                                {/* Pricing Fields */}
-                                <div className="grid grid-cols-2 gap-3">
-                                  <div>
-                                    <Label className="text-xs font-medium text-muted-foreground mb-1 block">
-                                      Source Price (₹)
-                                    </Label>
-                                    <Input
-                                      type="number"
-                                      step="1"
-                                      value={supplier.sourcePrice}
-                                      onChange={(e) => updateSupplierField(supplier.id, 'sourcePrice', e.target.value)}
-                                      placeholder="500"
-                                      className="rounded-none h-8"
-                                    />
-                                  </div>
-                                  <div>
-                                    <Label className="text-xs font-medium text-muted-foreground mb-1 block">
-                                      Selling Price (₹)
-                                    </Label>
-                                    <Input
-                                      type="number"
-                                      step="1"
-                                      value={supplier.sellingPrice}
-                                      onChange={(e) => updateSupplierField(supplier.id, 'sellingPrice', e.target.value)}
-                                      placeholder="800"
-                                      className="rounded-none h-8"
-                                    />
-                                  </div>
-                                </div>
-
-                                {/* Quality & Notes */}
-                                <div className="grid grid-cols-2 gap-3">
-                                  <div>
-                                    <Label className="text-xs font-medium text-muted-foreground mb-1 block">
-                                      Quality Rating
-                                    </Label>
-                                    <Select
-                                      value={supplier.quality}
-                                      onValueChange={(value) => updateSupplierField(supplier.id, 'quality', value)}
-                                    >
-                                      <SelectTrigger className="rounded-none h-8">
-                                        <SelectValue />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        <SelectItem value="excellent">⭐⭐⭐⭐⭐ Excellent</SelectItem>
-                                        <SelectItem value="good">⭐⭐⭐⭐ Good</SelectItem>
-                                        <SelectItem value="average">⭐⭐⭐ Average</SelectItem>
-                                        <SelectItem value="poor">⭐⭐ Poor</SelectItem>
-                                      </SelectContent>
-                                    </Select>
-                                  </div>
-                                  <div>
-                                    <Label className="text-xs font-medium text-muted-foreground mb-1 block">
-                                      Notes
-                                    </Label>
-                                    <Input
-                                      value={supplier.notes}
-                                      onChange={(e) => updateSupplierField(supplier.id, 'notes', e.target.value)}
-                                      placeholder="Quality notes..."
-                                      className="rounded-none h-8"
-                                    />
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-
-                            <p className="text-xs text-muted-foreground text-center">
-                              {selectedSuppliers.length} supplier{selectedSuppliers.length > 1 ? 's' : ''} added for comparison
-                            </p>
-                          </div>
-                        ) : (
-                          <div className="text-center py-8 border-2 border-dashed border-muted rounded-none">
-                            <p className="text-sm text-muted-foreground">No suppliers selected</p>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              Add vendors from the dropdown above to compare pricing and quality
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Product Links - Collapsible */}
-                    <div className="border rounded-none bg-background overflow-hidden">
-                      <div
-                        className={`flex items-center justify-between cursor-pointer p-3 bg-muted/10 hover:bg-muted/20 transition-colors ${
-                          showProductLinks ? 'border-b border-border' : ''
-                        }`}
-                        onClick={() => setShowProductLinks(!showProductLinks)}
-                      >
-                        <Label className="text-sm font-medium text-foreground cursor-pointer">Product Links</Label>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground">
-                            {showProductLinks ? 'Hide details' : 'References, competitors'}
-                          </span>
-                          <ChevronDown
-                            className={`h-4 w-4 text-muted-foreground transition-transform ${
-                              showProductLinks ? 'rotate-180' : ''
-                            }`}
-                          />
-                        </div>
-                      </div>
-
-                      {/* Collapsible Content */}
-                      {showProductLinks && (
-                        <div className="space-y-4 p-4 bg-muted/5">
-
-                      {/* Add New Link Form */}
-                      <div className="space-y-3 border rounded-none p-4 bg-muted/10">
-                        <Label className="text-xs font-medium text-muted-foreground">Add New Link</Label>
-
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <Input
-                              value={newLinkTitle}
-                              onChange={(e) => setNewLinkTitle(e.target.value)}
-                              placeholder="Link title..."
-                              className="rounded-none h-8"
-                            />
-                          </div>
-                          <div>
-                            <Select
-                              value={newLinkType}
-                              onValueChange={(value) => setNewLinkType(value as 'reference' | 'competitor' | 'inspiration' | 'documentation' | 'other')}
-                            >
-                              <SelectTrigger className="rounded-none h-8">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="reference">📋 Reference</SelectItem>
-                                <SelectItem value="competitor">🏪 Competitor</SelectItem>
-                                <SelectItem value="inspiration">💡 Inspiration</SelectItem>
-                                <SelectItem value="documentation">📄 Documentation</SelectItem>
-                                <SelectItem value="other">🔗 Other</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-
-                        <div className="flex gap-3">
-                          <Input
-                            value={newLinkUrl}
-                            onChange={(e) => setNewLinkUrl(e.target.value)}
-                            placeholder="https://..."
-                            className="rounded-none h-8 flex-1"
-                          />
-                          <Button
-                            onClick={addProductLink}
-                            size="sm"
-                            className="h-8 px-3 rounded-none"
-                            disabled={!newLinkUrl.trim() || !newLinkTitle.trim()}
-                          >
-                            <Plus className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      </div>
-
-                      {/* Existing Links */}
-                      {productLinks.length > 0 ? (
-                        <div className="space-y-3">
-                          {productLinks.map((link) => (
-                            <div key={link.id} className="border rounded-lg p-3 bg-muted/20">
-                              <div className="flex items-center justify-between gap-3">
-                                <div className="flex items-center gap-2 flex-1 min-w-0">
-                                  <Badge variant="outline" className="text-xs flex-shrink-0">
-                                    {link.type === 'reference' && '📋'}
-                                    {link.type === 'competitor' && '🏪'}
-                                    {link.type === 'inspiration' && '💡'}
-                                    {link.type === 'documentation' && '📄'}
-                                    {link.type === 'other' && '🔗'}
-                                  </Badge>
-                                  <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-medium truncate">{link.title}</p>
-                                    <p className="text-xs text-muted-foreground truncate">{link.url}</p>
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-1 flex-shrink-0">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-6 w-6 p-0"
-                                    onClick={() => window.open(link.url, '_blank')}
-                                  >
-                                    <ExternalLink className="h-3 w-3" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-6 w-6 p-0 hover:text-destructive"
-                                    onClick={() => removeProductLink(link.id)}
-                                  >
-                                    <X className="h-3 w-3" />
-                                  </Button>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-
-                          <p className="text-xs text-muted-foreground text-center">
-                            {productLinks.length} link{productLinks.length > 1 ? 's' : ''} added
-                          </p>
-                        </div>
-                      ) : (
-                        <div className="text-center py-8 border-2 border-dashed border-muted rounded-none">
-                          <Link className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                          <p className="text-sm text-muted-foreground">No links added</p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Add reference links, competitor analysis, or documentation
-                          </p>
-                        </div>
-                      )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <Separator className="my-6" />
-
-                  {/* Sample Management & Production Timeline - Two Columns */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    {/* Sample Management - Collapsible */}
-                    <div className="border rounded-none bg-background overflow-hidden">
-                      <div
-                        className={`flex items-center justify-between cursor-pointer p-3 bg-muted/10 hover:bg-muted/20 transition-colors ${
-                          showSampleManagement ? 'border-b border-border' : ''
-                        }`}
-                        onClick={() => setShowSampleManagement(!showSampleManagement)}
-                      >
-                        <Label className="text-sm font-medium text-foreground cursor-pointer">Sample Management</Label>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground">
-                            {showSampleManagement ? 'Hide details' : 'Dates, status, notes'}
-                          </span>
-                          <ChevronDown
-                            className={`h-4 w-4 text-muted-foreground transition-transform ${
-                              showSampleManagement ? 'rotate-180' : ''
-                            }`}
-                          />
-                        </div>
-                      </div>
-
-                      {/* Collapsible Content */}
-                      {showSampleManagement && (
-                        <div className="space-y-4 p-4 bg-muted/5">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label className="text-xs font-medium text-muted-foreground mb-2 block">Sample Request Date</Label>
-                          <Input
-                            type="date"
-                            value={sampleRequestDate}
-                            onChange={(e) => setSampleRequestDate(e.target.value)}
-                            className="rounded-none"
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-xs font-medium text-muted-foreground mb-2 block">Sample Received Date</Label>
-                          <Input
-                            type="date"
-                            value={sampleReceivedDate}
-                            onChange={(e) => setSampleReceivedDate(e.target.value)}
-                            className="rounded-none"
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <Label className="text-xs font-medium text-muted-foreground mb-2 block">Sample Status</Label>
-                        <Select value={sampleStatus} onValueChange={setSampleStatus}>
-                          <SelectTrigger className="rounded-none">
-                            <SelectValue placeholder="Select status" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="pending">Pending</SelectItem>
-                            <SelectItem value="approved">Approved</SelectItem>
-                            <SelectItem value="rejected">Rejected</SelectItem>
-                            <SelectItem value="needs-revision">Needs Revision</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label className="text-xs font-medium text-muted-foreground mb-2 block">Sample Notes</Label>
-                        <RichEditor
-                          value={sampleNotes}
-                          onChange={setSampleNotes}
-                          placeholder="Notes about sample quality, feedback..."
-                          className="min-h-[80px]"
-                          hideToolbar={true}
-                        />
-                      </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Production Timeline - Collapsible */}
-                    <div className="border rounded-none bg-background overflow-hidden">
-                      <div
-                        className={`flex items-center justify-between cursor-pointer p-3 bg-muted/10 hover:bg-muted/20 transition-colors ${
-                          showProductionTimeline ? 'border-b border-border' : ''
-                        }`}
-                        onClick={() => setShowProductionTimeline(!showProductionTimeline)}
-                      >
-                        <Label className="text-sm font-medium text-foreground cursor-pointer">Production Timeline</Label>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground">
-                            {showProductionTimeline ? 'Hide details' : 'Start, completion, milestones'}
-                          </span>
-                          <ChevronDown
-                            className={`h-4 w-4 text-muted-foreground transition-transform ${
-                              showProductionTimeline ? 'rotate-180' : ''
-                            }`}
-                          />
-                        </div>
-                      </div>
-
-                      {/* Collapsible Content */}
-                      {showProductionTimeline && (
-                        <div className="space-y-4 p-4 bg-muted/5">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label className="text-xs font-medium text-muted-foreground mb-2 block">Production Start</Label>
-                          <Input
-                            type="date"
-                            value={productionStartDate}
-                            onChange={(e) => setProductionStartDate(e.target.value)}
-                            className="rounded-none"
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-xs font-medium text-muted-foreground mb-2 block">Expected Completion</Label>
-                          <Input
-                            type="date"
-                            value={productionCompletionDate}
-                            onChange={(e) => setProductionCompletionDate(e.target.value)}
-                            className="rounded-none"
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <Label className="text-xs font-medium text-muted-foreground mb-2 block">Production Milestones</Label>
-                        <RichEditor
-                          value={productionMilestones}
-                          onChange={setProductionMilestones}
-                          placeholder="Key milestones and deadlines..."
-                          className="min-h-[100px]"
-                          hideToolbar={true}
-                        />
-                      </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <Separator className="my-6" />
-
-                  {/* Materials & Specifications - Collapsible */}
-                  <div className="border rounded-none bg-background overflow-hidden">
-                    <div
-                      className={`flex items-center justify-between cursor-pointer p-3 bg-muted/10 hover:bg-muted/20 transition-colors ${
-                        showMaterialsSpecs ? 'border-b border-border' : ''
-                      }`}
-                      onClick={() => setShowMaterialsSpecs(!showMaterialsSpecs)}
-                    >
-                      <Label className="text-sm font-medium text-foreground cursor-pointer">Materials & Specifications</Label>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground">
-                          {showMaterialsSpecs ? 'Hide details' : 'Dimensions, materials'}
-                        </span>
-                        <ChevronDown
-                          className={`h-4 w-4 text-muted-foreground transition-transform ${
-                            showMaterialsSpecs ? 'rotate-180' : ''
-                          }`}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Collapsible Content */}
-                    {showMaterialsSpecs && (
-                      <div className="space-y-4 p-4 bg-muted/5">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label className="text-xs font-medium text-muted-foreground mb-2 block">Dimensions</Label>
-                        <Input
-                          value={dimensions}
-                          onChange={(e) => setDimensions(e.target.value)}
-                          placeholder="L x W x H"
-                          className="rounded-none"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs font-medium text-muted-foreground mb-2 block">Weight</Label>
-                        <Input
-                          value={weight}
-                          onChange={(e) => setWeight(e.target.value)}
-                          placeholder="kg"
-                          className="rounded-none"
-                        />
-                      </div>
+                  {/* Production Status & Sample Status */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-xs font-medium text-muted-foreground mb-2 block">Production Status</Label>
+                      <Select value={productionStatus} onValueChange={setProductionStatus}>
+                        <SelectTrigger className="rounded-none">
+                          <SelectValue placeholder="Select status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="not_started">Not Started</SelectItem>
+                          <SelectItem value="planning">Planning</SelectItem>
+                          <SelectItem value="in_production">In Production</SelectItem>
+                          <SelectItem value="quality_check">Quality Check</SelectItem>
+                          <SelectItem value="completed">Completed</SelectItem>
+                          <SelectItem value="on_hold">On Hold</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div>
-                      <Label className="text-xs font-medium text-muted-foreground mb-2 block">Materials</Label>
-                      <RichEditor
-                        value={materialsSpecification}
-                        onChange={setMaterialsSpecification}
-                        placeholder="Describe materials used..."
-                        className="min-h-[80px]"
-                        hideToolbar={true}
-                      />
+                      <Label className="text-xs font-medium text-muted-foreground mb-2 block">Sample Status</Label>
+                      <Select value={sampleStatus} onValueChange={setSampleStatus}>
+                        <SelectTrigger className="rounded-none">
+                          <SelectValue placeholder="Select status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="not_requested">Not Requested</SelectItem>
+                          <SelectItem value="requested">Requested</SelectItem>
+                          <SelectItem value="received">Received</SelectItem>
+                          <SelectItem value="approved">Approved</SelectItem>
+                          <SelectItem value="rejected">Rejected</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
-                      </div>
-                    )}
                   </div>
 
-                  <Separator className="my-6" />
+                  {/* Main Production Details */}
+                  <div>
+                    <Label className="text-xs font-medium text-muted-foreground mb-2 block">Production Details</Label>
+                    <RichEditor
+                      value={productionDetails}
+                      onChange={setProductionDetails}
+                      placeholder="Document all production details including suppliers, pricing, quality ratings, sample information, manufacturing process, timeline, milestones, and any other production-related information..."
+                      className="min-h-[300px]"
+                      hideToolbar={false}
+                    />
+                  </div>
 
-                  {/* Manufacturing Details - Collapsible */}
-                  <div className="border rounded-none bg-background overflow-hidden">
-                    <div
-                      className={`flex items-center justify-between cursor-pointer p-3 bg-muted/10 hover:bg-muted/20 transition-colors ${
-                        showManufacturingDetails ? 'border-b border-border' : ''
-                      }`}
-                      onClick={() => setShowManufacturingDetails(!showManufacturingDetails)}
-                    >
-                      <Label className="text-sm font-medium text-foreground cursor-pointer">Manufacturing Details</Label>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground">
-                          {showManufacturingDetails ? 'Hide details' : 'Methods, standards, compliance'}
-                        </span>
-                        <ChevronDown
-                          className={`h-4 w-4 text-muted-foreground transition-transform ${
-                            showManufacturingDetails ? 'rotate-180' : ''
-                          }`}
+                  {/* File Upload */}
+                  <div>
+                    <Label className="text-xs font-medium text-muted-foreground mb-2 block">Production Files</Label>
+                    <div className="border-2 border-dashed border-border rounded-none p-4">
+                      <div className="flex flex-col items-center gap-2">
+                        <Upload className="h-6 w-6 text-muted-foreground" />
+                        <p className="text-sm text-muted-foreground">Upload sample photos, quality reports, production specs</p>
+                        <input
+                          id="production-files"
+                          type="file"
+                          multiple
+                          accept=".pdf,image/*,video/*"
+                          onChange={handlePackagingFileUpload}
+                          className="hidden"
                         />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => document.getElementById('production-files')?.click()}
+                        >
+                          Choose Files
+                        </Button>
                       </div>
                     </div>
 
-                    {/* Collapsible Content */}
-                    {showManufacturingDetails && (
-                      <div className="space-y-4 p-4 bg-muted/5">
-                        <div>
-                          <Label className="text-xs font-medium text-muted-foreground mb-2 block">Manufacturing Method</Label>
-                          <Input
-                            value={manufacturingMethod}
-                            onChange={(e) => setManufacturingMethod(e.target.value)}
-                            placeholder="e.g., Injection molding, CNC machining..."
-                            className="rounded-none"
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-xs font-medium text-muted-foreground mb-2 block">Quality Standards</Label>
-                          <RichEditor
-                            value={qualityStandards}
-                            onChange={setQualityStandards}
-                            placeholder="ISO standards, quality requirements..."
-                            className="min-h-[80px]"
-                            hideToolbar={true}
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-xs font-medium text-muted-foreground mb-2 block">Compliance Requirements</Label>
-                          <RichEditor
-                            value={complianceRequirements}
-                            onChange={setComplianceRequirements}
-                            placeholder="Safety standards, regulatory compliance..."
-                            className="min-h-[80px]"
-                            hideToolbar={true}
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  <Separator className="my-6" />
-
-                  {/* Cost Tracking & Quality Control - Two Columns */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    {/* Cost Tracking - Collapsible */}
-                    <div className="border rounded-none bg-background overflow-hidden">
-                      <div
-                        className={`flex items-center justify-between cursor-pointer p-3 bg-muted/10 hover:bg-muted/20 transition-colors ${
-                          showCostTracking ? 'border-b border-border' : ''
-                        }`}
-                        onClick={() => setShowCostTracking(!showCostTracking)}
-                      >
-                        <Label className="text-sm font-medium text-foreground cursor-pointer">Cost Tracking</Label>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground">
-                            {showCostTracking ? 'Hide details' : 'Unit costs, tooling'}
-                          </span>
-                          <ChevronDown
-                            className={`h-4 w-4 text-muted-foreground transition-transform ${
-                              showCostTracking ? 'rotate-180' : ''
-                            }`}
-                          />
-                        </div>
-                      </div>
-
-                      {/* Collapsible Content */}
-                      {showCostTracking && (
-                        <div className="space-y-4 p-4 bg-muted/5">
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <Label className="text-xs font-medium text-muted-foreground mb-2 block">Estimated Unit Cost</Label>
-                              <Input
-                                type="number"
-                                value={estimatedUnitCost}
-                                onChange={(e) => setEstimatedUnitCost(Number(e.target.value))}
-                                placeholder="0.00"
-                                className="rounded-none"
-                              />
+                    {/* Files Preview */}
+                    {packagingFiles.length > 0 && (
+                      <div className="mt-3 space-y-2">
+                        <p className="text-xs font-medium text-muted-foreground">
+                          Uploaded Files ({packagingFiles.length}/15)
+                        </p>
+                        <div className="space-y-1">
+                          {packagingFiles.map((file, index) => (
+                            <div key={index} className="flex items-center justify-between p-2 bg-muted/20 rounded-none">
+                              <div className="flex items-center gap-2">
+                                <span>{getFileTypeIcon(file)}</span>
+                                <span className="text-xs font-medium truncate max-w-[200px]">{file.name}</span>
+                                <span className="text-xs text-muted-foreground">({formatFileSize(file.size)})</span>
+                              </div>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0 hover:text-destructive"
+                                onClick={() => removePackagingFile(index)}
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
                             </div>
-                            <div>
-                              <Label className="text-xs font-medium text-muted-foreground mb-2 block">Actual Unit Cost</Label>
-                              <Input
-                                type="number"
-                                value={actualUnitCost}
-                                onChange={(e) => setActualUnitCost(Number(e.target.value))}
-                                placeholder="0.00"
-                                className="rounded-none"
-                              />
-                            </div>
-                            <div>
-                              <Label className="text-xs font-medium text-muted-foreground mb-2 block">Tooling Cost</Label>
-                              <Input
-                                type="number"
-                                value={toolingCost}
-                                onChange={(e) => setToolingCost(Number(e.target.value))}
-                                placeholder="0.00"
-                                className="rounded-none"
-                              />
-                            </div>
-                            <div>
-                              <Label className="text-xs font-medium text-muted-foreground mb-2 block">Setup Cost</Label>
-                              <Input
-                                type="number"
-                                value={setupCost}
-                                onChange={(e) => setSetupCost(Number(e.target.value))}
-                                placeholder="0.00"
-                                className="rounded-none"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Quality Control - Collapsible */}
-                    <div className="border rounded-none bg-background overflow-hidden">
-                      <div
-                        className={`flex items-center justify-between cursor-pointer p-3 bg-muted/10 hover:bg-muted/20 transition-colors ${
-                          showQualityControl ? 'border-b border-border' : ''
-                        }`}
-                        onClick={() => setShowQualityControl(!showQualityControl)}
-                      >
-                        <Label className="text-sm font-medium text-foreground cursor-pointer">Quality Control</Label>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground">
-                            {showQualityControl ? 'Hide details' : 'QC requirements, status'}
-                          </span>
-                          <ChevronDown
-                            className={`h-4 w-4 text-muted-foreground transition-transform ${
-                              showQualityControl ? 'rotate-180' : ''
-                            }`}
-                          />
-                        </div>
-                      </div>
-
-                      {/* Collapsible Content */}
-                      {showQualityControl && (
-                        <div className="space-y-4 p-4 bg-muted/5">
-                          <div>
-                            <Label className="text-xs font-medium text-muted-foreground mb-2 block">QC Requirements</Label>
-                            <RichEditor
-                              value={qcRequirements}
-                              onChange={setQcRequirements}
-                              placeholder="Quality control procedures and requirements..."
-                              className="min-h-[80px]"
-                              hideToolbar={true}
-                            />
-                          </div>
-                          <div>
-                            <Label className="text-xs font-medium text-muted-foreground mb-2 block">QC Status</Label>
-                            <Select value={qcStatus} onValueChange={setQcStatus}>
-                              <SelectTrigger className="rounded-none">
-                                <SelectValue placeholder="Select QC status" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="pending">Pending</SelectItem>
-                                <SelectItem value="in-progress">In Progress</SelectItem>
-                                <SelectItem value="passed">Passed</SelectItem>
-                                <SelectItem value="failed">Failed</SelectItem>
-                                <SelectItem value="needs-review">Needs Review</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div>
-                            <Label className="text-xs font-medium text-muted-foreground mb-2 block">QC Notes</Label>
-                            <RichEditor
-                              value={qcNotes}
-                              onChange={setQcNotes}
-                              placeholder="Quality control notes and observations..."
-                              className="min-h-[80px]"
-                              hideToolbar={true}
-                            />
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <Separator className="my-6" />
-
-                  {/* Lead Times - Collapsible */}
-                  <div className="border rounded-none bg-background overflow-hidden">
-                    <div
-                      className={`flex items-center justify-between cursor-pointer p-3 bg-muted/10 hover:bg-muted/20 transition-colors ${
-                        showLeadTimes ? 'border-b border-border' : ''
-                      }`}
-                      onClick={() => setShowLeadTimes(!showLeadTimes)}
-                    >
-                      <Label className="text-sm font-medium text-foreground cursor-pointer">Lead Times</Label>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground">
-                          {showLeadTimes ? 'Hide details' : 'Production time, MOQ'}
-                        </span>
-                        <ChevronDown
-                          className={`h-4 w-4 text-muted-foreground transition-transform ${
-                            showLeadTimes ? 'rotate-180' : ''
-                          }`}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Collapsible Content */}
-                    {showLeadTimes && (
-                      <div className="space-y-4 p-4 bg-muted/5">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <Label className="text-xs font-medium text-muted-foreground mb-2 block">Lead Time (Days)</Label>
-                            <Input
-                              type="number"
-                              value={leadTimeDays}
-                              onChange={(e) => setLeadTimeDays(Number(e.target.value))}
-                              placeholder="0"
-                              className="rounded-none"
-                            />
-                          </div>
-                          <div>
-                            <Label className="text-xs font-medium text-muted-foreground mb-2 block">Minimum Order Quantity</Label>
-                            <Input
-                              type="number"
-                              value={minimumOrderQuantity}
-                              onChange={(e) => setMinimumOrderQuantity(Number(e.target.value))}
-                              placeholder="0"
-                              className="rounded-none"
-                            />
-                          </div>
+                          ))}
                         </div>
                       </div>
                     )}

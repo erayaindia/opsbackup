@@ -19,6 +19,8 @@ export interface ProductLink {
 export interface ProductProduction {
   id: string
   product_id: string
+  // Production Details (main rich text field)
+  production_details?: string
   // Supplier & Pricing fields
   selected_suppliers?: Supplier[]
   supplier_comparison_notes?: string
@@ -65,6 +67,7 @@ export interface ProductProduction {
 
 export interface CreateProductProductionData {
   product_id: string
+  production_details?: string
   selected_suppliers?: Supplier[]
   supplier_comparison_notes?: string
   preferred_supplier_id?: string
