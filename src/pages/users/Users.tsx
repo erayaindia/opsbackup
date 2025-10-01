@@ -27,6 +27,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -127,21 +133,55 @@ export const Users: React.FC = () => {
     status: 'active',
     joined_at: '',
     employee_id: '',
-    notes: ''
+    notes: '',
+    salary: '',
+    date_of_birth: '',
+    gender: '',
+    current_address: '',
+    permanent_address: '',
+    bank_name: '',
+    account_number: '',
+    ifsc_code: '',
+    upi_id: '',
+    emergency_contact_name: '',
+    emergency_contact_phone: '',
+    emergency_contact_relationship: ''
   });
 
   // Fetch users with employee details from both tables
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      console.log('Fetching users with employee details...');
+      console.log('🔄 Fetching users with employee details...');
 
       const usersWithDetails = await employeeDetailsService.fetchUsersWithEmployeeDetails();
 
-      console.log('Users fetched:', usersWithDetails?.length || 0);
+      console.log('✅ Users fetched:', usersWithDetails?.length || 0);
+
+      // Log how many users have employee_details
+      const withDetails = usersWithDetails?.filter(u => u.employee_details).length || 0;
+
+      console.log(`📊 Users with employee_details: ${withDetails}/${usersWithDetails?.length || 0}`);
+
+      if (usersWithDetails && usersWithDetails.length > 0) {
+        console.log('Sample user data:', usersWithDetails[0]);
+
+        // Log users who HAVE employee_details
+        const usersWithEmployeeData = usersWithDetails.filter(u => u.employee_details);
+        if (usersWithEmployeeData.length > 0) {
+          console.log('✅ Users WITH employee_details:', usersWithEmployeeData.map(u => ({
+            name: u.full_name,
+            id: u.id,
+            has_details: !!u.employee_details
+          })));
+        } else {
+          console.log('⚠️ NO users have employee_details in the database');
+        }
+      }
+
       setUsers(usersWithDetails || []);
     } catch (error) {
-      console.error('Error fetching users with employee details:', error);
+      console.error('❌ Error fetching users with employee details:', error);
       toast.error('Failed to load users: ' + (error instanceof Error ? error.message : 'Unknown error'));
     } finally {
       setLoading(false);
@@ -164,10 +204,29 @@ export const Users: React.FC = () => {
     }
   };
 
+  // Status priority for sorting (active first, then others, suspended last)
+  const getStatusPriority = (status: string) => {
+    switch (status) {
+      case 'active': return 1;
+      case 'on_leave': return 2;
+      case 'inactive': return 3;
+      case 'suspended': return 4;
+      default: return 5;
+    }
+  };
+
   // Sorting logic
   const sortedUsers = useMemo(() => {
     return [...users].sort((a, b) => {
-      // Always prioritize by role first
+      // First: Sort by status (active first, suspended last)
+      const aStatusPriority = getStatusPriority(a.status);
+      const bStatusPriority = getStatusPriority(b.status);
+
+      if (aStatusPriority !== bStatusPriority) {
+        return aStatusPriority - bStatusPriority;
+      }
+
+      // Second: Prioritize by role
       const aRolePriority = getRolePriority(a.role);
       const bRolePriority = getRolePriority(b.role);
 
@@ -175,7 +234,7 @@ export const Users: React.FC = () => {
         return aRolePriority - bRolePriority;
       }
 
-      // If roles are the same priority, then sort by the selected field
+      // Third: Sort by the selected field
       if (sortField) {
         let aValue = a[sortField];
         let bValue = b[sortField];
@@ -340,22 +399,71 @@ export const Users: React.FC = () => {
 
   // Open edit user modal and populate form
   const handleEditUser = (user: User) => {
+    console.log('Editing user:', user);
+    console.log('User full_name:', user.full_name);
+    console.log('User email:', user.email);
+    console.log('User role:', user.role);
+
     setSelectedUser(user);
-    setEditUserForm({
-      full_name: user.full_name,
-      company_email: user.company_email,
-      personal_email: user.personal_email || '',
-      phone: user.phone || '',
-      role: user.role,
+
+    // Parse bank details if it's a JSON string
+    const bankDetails = user.employee_details?.bank_details
+      ? (typeof user.employee_details.bank_details === 'string'
+          ? JSON.parse(user.employee_details.bank_details)
+          : user.employee_details.bank_details)
+      : {};
+
+    // Parse emergency contact if it's a JSON string
+    const emergencyContact = user.employee_details?.emergency_contact
+      ? (typeof user.employee_details.emergency_contact === 'string'
+          ? JSON.parse(user.employee_details.emergency_contact)
+          : user.employee_details.emergency_contact)
+      : {};
+
+    // Parse current address if it's a JSON string
+    const currentAddr = user.employee_details?.current_address
+      ? (typeof user.employee_details.current_address === 'string'
+          ? JSON.parse(user.employee_details.current_address)
+          : user.employee_details.current_address)
+      : {};
+
+    // Parse permanent address if it's a JSON string
+    const permanentAddr = user.employee_details?.permanent_address
+      ? (typeof user.employee_details.permanent_address === 'string'
+          ? JSON.parse(user.employee_details.permanent_address)
+          : user.employee_details.permanent_address)
+      : {};
+
+    const formData = {
+      full_name: user.full_name || '',
+      company_email: user.company_email || '',
+      personal_email: user.email || user.personal_email || user.employee_details?.personal_email || '',
+      phone: user.phone || user.employee_details?.phone_number || '',
+      role: user.role || '',
       department: user.department || '',
-      designation: user.designation || '',
-      work_location: user.work_location || '',
-      employment_type: user.employment_type || '',
-      status: user.status,
-      joined_at: user.joined_at || '',
-      employee_id: user.employee_id || '',
-      notes: user.notes || ''
-    });
+      designation: user.designation || user.employee_details?.designation || '',
+      work_location: user.work_location || user.employee_details?.work_location || '',
+      employment_type: user.employment_type || user.employee_details?.employment_type || '',
+      status: user.status || 'active',
+      joined_at: user.joined_at || user.employee_details?.joining_date || '',
+      employee_id: user.employee_id || user.employee_details?.employee_id || '',
+      notes: user.notes || user.employee_details?.notes || '',
+      salary: user.employee_details?.salary?.toString() || '',
+      date_of_birth: user.employee_details?.date_of_birth || '',
+      gender: user.employee_details?.gender || '',
+      current_address: currentAddr.street ? `${currentAddr.street}, ${currentAddr.city}, ${currentAddr.state} ${currentAddr.pincode}` : '',
+      permanent_address: permanentAddr.street ? `${permanentAddr.street}, ${permanentAddr.city}, ${permanentAddr.state} ${permanentAddr.pincode}` : '',
+      bank_name: bankDetails.bank_name || '',
+      account_number: bankDetails.account_number || '',
+      ifsc_code: bankDetails.ifsc_code || '',
+      upi_id: bankDetails.upi_id || '',
+      emergency_contact_name: emergencyContact.name || '',
+      emergency_contact_phone: emergencyContact.phone || '',
+      emergency_contact_relationship: emergencyContact.relationship || ''
+    };
+
+    console.log('Form data:', formData);
+    setEditUserForm(formData);
     setShowEditUserModal(true);
   };
 
@@ -364,9 +472,13 @@ export const Users: React.FC = () => {
     if (!selectedUser) return;
 
     try {
+      console.log('🔄 Starting user update...');
+      console.log('Selected user ID:', selectedUser.id);
+      console.log('Form data:', editUserForm);
+
       const updateData = {
         full_name: editUserForm.full_name,
-        company_email: editUserForm.company_email,
+        company_email: editUserForm.company_email || null,
         personal_email: editUserForm.personal_email || null,
         phone: editUserForm.phone || null,
         role: editUserForm.role,
@@ -380,15 +492,103 @@ export const Users: React.FC = () => {
         notes: editUserForm.notes || null
       };
 
-      const { error } = await supabase
+      console.log('📝 Updating app_users with:', updateData);
+      const { data: userData, error } = await supabase
         .from('app_users')
         .update(updateData)
-        .eq('id', selectedUser.id);
+        .eq('id', selectedUser.id)
+        .select();
 
       if (error) {
-        console.error('Error updating user:', error);
+        console.error('❌ Error updating user:', error);
         toast.error('Failed to update user: ' + error.message);
         return;
+      }
+      console.log('✅ User updated successfully:', userData);
+
+      // Update all fields in employees_details table (only if record exists)
+      if (selectedUser.employee_details) {
+        console.log('💼 Updating employee details...');
+
+        const employeeDetailsUpdate: any = {};
+
+        // Add salary if provided
+        if (editUserForm.salary) {
+          const salaryValue = parseFloat(editUserForm.salary);
+          if (!isNaN(salaryValue)) {
+            employeeDetailsUpdate.salary = salaryValue;
+          }
+        }
+
+        // Add personal details
+        if (editUserForm.date_of_birth) employeeDetailsUpdate.date_of_birth = editUserForm.date_of_birth;
+        if (editUserForm.gender) employeeDetailsUpdate.gender = editUserForm.gender;
+        if (editUserForm.phone) employeeDetailsUpdate.phone_number = editUserForm.phone;
+        if (editUserForm.personal_email) employeeDetailsUpdate.personal_email = editUserForm.personal_email;
+        if (editUserForm.designation) employeeDetailsUpdate.designation = editUserForm.designation;
+        if (editUserForm.work_location) employeeDetailsUpdate.work_location = editUserForm.work_location;
+        if (editUserForm.employment_type) employeeDetailsUpdate.employment_type = editUserForm.employment_type;
+        if (editUserForm.joined_at) employeeDetailsUpdate.joining_date = editUserForm.joined_at;
+
+        // Update bank details as JSON
+        if (editUserForm.bank_name || editUserForm.account_number || editUserForm.ifsc_code || editUserForm.upi_id) {
+          employeeDetailsUpdate.bank_details = JSON.stringify({
+            bank_name: editUserForm.bank_name || '',
+            account_number: editUserForm.account_number || '',
+            ifsc_code: editUserForm.ifsc_code || '',
+            upi_id: editUserForm.upi_id || ''
+          });
+        }
+
+        // Update emergency contact as JSON
+        if (editUserForm.emergency_contact_name || editUserForm.emergency_contact_phone || editUserForm.emergency_contact_relationship) {
+          employeeDetailsUpdate.emergency_contact = JSON.stringify({
+            name: editUserForm.emergency_contact_name || '',
+            phone: editUserForm.emergency_contact_phone || '',
+            relationship: editUserForm.emergency_contact_relationship || ''
+          });
+        }
+
+        // Update current address as JSON (simplified - you may want to parse it better)
+        if (editUserForm.current_address) {
+          employeeDetailsUpdate.current_address = JSON.stringify({
+            street: editUserForm.current_address,
+            city: '',
+            state: '',
+            pincode: ''
+          });
+        }
+
+        // Update permanent address as JSON
+        if (editUserForm.permanent_address) {
+          employeeDetailsUpdate.permanent_address = JSON.stringify({
+            street: editUserForm.permanent_address,
+            city: '',
+            state: '',
+            pincode: ''
+          });
+        }
+
+        if (editUserForm.notes) employeeDetailsUpdate.notes = editUserForm.notes;
+
+        // Only update if there are fields to update
+        if (Object.keys(employeeDetailsUpdate).length > 0) {
+          const { data: empData, error: empError } = await supabase
+            .from('employees_details')
+            .update(employeeDetailsUpdate)
+            .eq('app_user_id', selectedUser.id)
+            .select();
+
+          if (empError) {
+            console.error('❌ Error updating employee details:', empError);
+            toast.error('User updated but failed to save employee details: ' + empError.message);
+            return;
+          }
+          console.log('✅ Employee details updated successfully:', empData);
+        }
+      } else if (Object.values(editUserForm).some(val => val !== '' && val !== 'active')) {
+        console.log('⚠️ No employee_details record exists for this user');
+        toast.warning('Some fields not saved - employee details record does not exist.');
       }
 
       toast.success('User updated successfully');
@@ -407,22 +607,43 @@ export const Users: React.FC = () => {
         status: 'active',
         joined_at: '',
         employee_id: '',
-        notes: ''
+        notes: '',
+        salary: '',
+        date_of_birth: '',
+        gender: '',
+        current_address: '',
+        permanent_address: '',
+        bank_name: '',
+        account_number: '',
+        ifsc_code: '',
+        upi_id: '',
+        emergency_contact_name: '',
+        emergency_contact_phone: '',
+        emergency_contact_relationship: ''
       });
       fetchUsers();
     } catch (error) {
-      console.error('Error updating user:', error);
+      console.error('❌ Error updating user:', error);
       toast.error('Failed to update user');
     }
   };
 
   // Handle view user details
   const handleViewUser = (user: User) => {
-    console.log('Viewing user:', user);
-    console.log('Has employee_application:', !!user.employee_application);
-    if (user.employee_application) {
-      console.log('Application data:', user.employee_application);
+    console.log('=== Viewing User Details ===');
+    console.log('User ID:', user.id);
+    console.log('Full Name:', user.full_name);
+    console.log('Has employee_details:', !!user.employee_details);
+
+    if (user.employee_details) {
+      console.log('Employee Details:', user.employee_details);
+    } else {
+      console.log('⚠️ No employee_details found for this user');
     }
+
+    console.log('Full user object:', user);
+    console.log('========================');
+
     setSelectedUser(user);
     setShowViewUserModal(true);
   };
@@ -668,9 +889,10 @@ export const Users: React.FC = () => {
                     </TableHeader>
                     <TableBody>
                       {sortedUsers.map((user) => (
-                        <TableRow 
-                          key={user.id} 
-                          className="hover:bg-muted/50 transition-colors border-b border-border/30"
+                        <TableRow
+                          key={user.id}
+                          className="hover:bg-muted/50 transition-colors border-b border-border/30 cursor-pointer"
+                          onClick={() => handleViewUser(user)}
                         >
                           <TableCell className="py-4 px-6 border-r border-border/30">
                             <div className="flex items-center space-x-4">
@@ -760,20 +982,18 @@ export const Users: React.FC = () => {
                             </div>
                           </TableCell>
                           <TableCell className="py-4 px-6 border-r border-border/30">
-                            <div className="space-y-1">
-                              {user.employee_details?.salary ? (
-                                <>
-                                  <span className="text-foreground font-medium">₹{user.employee_details.salary.toLocaleString()}</span>
-                                  <div className="text-xs text-muted-foreground">
-                                    Per month
-                                  </div>
-                                </>
-                              ) : (
-                                <span className="text-muted-foreground">—</span>
-                              )}
-                            </div>
+                            {user.employee_details?.salary ? (
+                              <div className="space-y-1">
+                                <span className="text-foreground font-semibold">₹{user.employee_details.salary.toLocaleString()}</span>
+                                <div className="text-xs text-muted-foreground">
+                                  Per month
+                                </div>
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
                           </TableCell>
-                          <TableCell className="py-4 px-6">
+                          <TableCell className="py-4 px-6" onClick={(e) => e.stopPropagation()}>
                             <div className="flex items-center justify-center">
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
@@ -1046,6 +1266,16 @@ export const Users: React.FC = () => {
               Update all user information and permissions.
             </DialogDescription>
           </DialogHeader>
+
+          <Tabs defaultValue="basic" className="w-full">
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="basic">Basic Info</TabsTrigger>
+              <TabsTrigger value="personal">Personal Details</TabsTrigger>
+              <TabsTrigger value="bank">Bank & Emergency</TabsTrigger>
+              <TabsTrigger value="documents">Documents & Notes</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="basic" className="mt-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="edit_full_name">Full Name *</Label>
@@ -1187,24 +1417,157 @@ export const Users: React.FC = () => {
                 onChange={(e) => setEditUserForm(prev => ({ ...prev, joined_at: e.target.value }))}
               />
             </div>
-            <div className="md:col-span-2">
-              <Label htmlFor="edit_notes">Notes</Label>
-              <Textarea
-                id="edit_notes"
-                value={editUserForm.notes}
-                onChange={(e) => setEditUserForm(prev => ({ ...prev, notes: e.target.value }))}
-                placeholder="Additional notes..."
-                className="h-20"
+            <div>
+              <Label htmlFor="edit_salary">Salary (₹)</Label>
+              <Input
+                id="edit_salary"
+                type="number"
+                value={editUserForm.salary}
+                onChange={(e) => setEditUserForm(prev => ({ ...prev, salary: e.target.value }))}
+                placeholder="Enter monthly salary"
               />
             </div>
           </div>
-          <DialogFooter>
+            </TabsContent>
+
+            <TabsContent value="personal" className="mt-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="edit_dob">Date of Birth</Label>
+                  <Input
+                    id="edit_dob"
+                    type="date"
+                    value={editUserForm.date_of_birth || ''}
+                    onChange={(e) => setEditUserForm(prev => ({ ...prev, date_of_birth: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit_gender">Gender</Label>
+                  <Select value={editUserForm.gender || ''} onValueChange={(value) => setEditUserForm(prev => ({ ...prev, gender: value }))}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select gender" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Male">Male</SelectItem>
+                      <SelectItem value="Female">Female</SelectItem>
+                      <SelectItem value="Other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="md:col-span-2">
+                  <Label>Current Address</Label>
+                  <Textarea
+                    value={editUserForm.current_address || ''}
+                    onChange={(e) => setEditUserForm(prev => ({ ...prev, current_address: e.target.value }))}
+                    placeholder="Enter current address"
+                    className="h-20"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <Label>Permanent Address</Label>
+                  <Textarea
+                    value={editUserForm.permanent_address || ''}
+                    onChange={(e) => setEditUserForm(prev => ({ ...prev, permanent_address: e.target.value }))}
+                    placeholder="Enter permanent address"
+                    className="h-20"
+                  />
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="bank" className="mt-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="md:col-span-2">
+                  <h4 className="text-sm font-semibold mb-3">Bank Details</h4>
+                </div>
+                <div>
+                  <Label>Bank Name</Label>
+                  <Input
+                    value={editUserForm.bank_name || ''}
+                    onChange={(e) => setEditUserForm(prev => ({ ...prev, bank_name: e.target.value }))}
+                    placeholder="Enter bank name"
+                  />
+                </div>
+                <div>
+                  <Label>Account Number</Label>
+                  <Input
+                    value={editUserForm.account_number || ''}
+                    onChange={(e) => setEditUserForm(prev => ({ ...prev, account_number: e.target.value }))}
+                    placeholder="Enter account number"
+                  />
+                </div>
+                <div>
+                  <Label>IFSC Code</Label>
+                  <Input
+                    value={editUserForm.ifsc_code || ''}
+                    onChange={(e) => setEditUserForm(prev => ({ ...prev, ifsc_code: e.target.value }))}
+                    placeholder="Enter IFSC code"
+                  />
+                </div>
+                <div>
+                  <Label>UPI ID</Label>
+                  <Input
+                    value={editUserForm.upi_id || ''}
+                    onChange={(e) => setEditUserForm(prev => ({ ...prev, upi_id: e.target.value }))}
+                    placeholder="Enter UPI ID"
+                  />
+                </div>
+
+                <div className="md:col-span-2 mt-4">
+                  <h4 className="text-sm font-semibold mb-3">Emergency Contact</h4>
+                </div>
+                <div>
+                  <Label>Contact Name</Label>
+                  <Input
+                    value={editUserForm.emergency_contact_name || ''}
+                    onChange={(e) => setEditUserForm(prev => ({ ...prev, emergency_contact_name: e.target.value }))}
+                    placeholder="Enter contact name"
+                  />
+                </div>
+                <div>
+                  <Label>Contact Phone</Label>
+                  <Input
+                    value={editUserForm.emergency_contact_phone || ''}
+                    onChange={(e) => setEditUserForm(prev => ({ ...prev, emergency_contact_phone: e.target.value }))}
+                    placeholder="Enter contact phone"
+                  />
+                </div>
+                <div>
+                  <Label>Relationship</Label>
+                  <Input
+                    value={editUserForm.emergency_contact_relationship || ''}
+                    onChange={(e) => setEditUserForm(prev => ({ ...prev, emergency_contact_relationship: e.target.value }))}
+                    placeholder="Enter relationship"
+                  />
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="documents" className="mt-4">
+              <div className="grid grid-cols-1 gap-4">
+                <div>
+                  <Label htmlFor="edit_notes">Notes</Label>
+                  <Textarea
+                    id="edit_notes"
+                    value={editUserForm.notes}
+                    onChange={(e) => setEditUserForm(prev => ({ ...prev, notes: e.target.value }))}
+                    placeholder="Additional notes..."
+                    className="h-32"
+                  />
+                </div>
+                <div className="p-4 bg-muted/30 rounded-lg">
+                  <p className="text-sm text-muted-foreground">Document management will be available in a future update.</p>
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
+
+          <DialogFooter className="mt-4">
             <Button variant="outline" onClick={() => setShowEditUserModal(false)}>
               Cancel
             </Button>
             <Button
               onClick={handleUpdateUser}
-              disabled={!editUserForm.full_name || !editUserForm.company_email || !editUserForm.role}
             >
               Update User
             </Button>
@@ -1222,7 +1585,7 @@ export const Users: React.FC = () => {
             </DialogDescription>
           </DialogHeader>
           {selectedUser && (
-            <div className="space-y-6">
+            <>
               {/* User Header */}
               <div className="flex items-center space-x-4 p-4 bg-muted/50 rounded-lg">
                 <Avatar className="h-16 w-16">
@@ -1232,7 +1595,7 @@ export const Users: React.FC = () => {
                 </Avatar>
                 <div>
                   <h3 className="text-xl font-semibold">{selectedUser.full_name}</h3>
-                  <p className="text-muted-foreground">{selectedUser.company_email}</p>
+                  <p className="text-muted-foreground">{selectedUser.company_email || selectedUser.personal_email}</p>
                   <div className="flex items-center gap-2 mt-1">
                     <Badge className={`${getRoleColor(selectedUser.role)} border font-medium`}>
                       {selectedUser.role.charAt(0).toUpperCase() + selectedUser.role.slice(1)}
@@ -1244,317 +1607,257 @@ export const Users: React.FC = () => {
                 </div>
               </div>
 
-              {/* Basic User Details */}
+              <Tabs defaultValue="basic" className="w-full">
+                <TabsList className="grid w-full grid-cols-4">
+                  <TabsTrigger value="basic">Basic Info</TabsTrigger>
+                  <TabsTrigger value="personal">Personal Details</TabsTrigger>
+                  <TabsTrigger value="bank">Bank & Emergency</TabsTrigger>
+                  <TabsTrigger value="employment">Employment Details</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="basic" className="mt-4">
               <div className="space-y-4">
                 <h4 className="text-lg font-semibold text-foreground border-b pb-2">Basic Information</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label className="text-sm font-medium text-muted-foreground">Employee ID</Label>
-                    <p className="text-sm">{selectedUser.employee_id || 'Not provided'}</p>
+                    <p className="text-sm font-medium">{selectedUser.employee_id || 'Not provided'}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-muted-foreground">Company Email</Label>
+                    <p className="text-sm font-medium">{selectedUser.company_email}</p>
                   </div>
                   <div className="space-y-2">
                     <Label className="text-sm font-medium text-muted-foreground">Personal Email</Label>
-                    <p className="text-sm">{selectedUser.personal_email || 'Not provided'}</p>
+                    <p className="text-sm font-medium">{selectedUser.personal_email || 'Not provided'}</p>
                   </div>
                   <div className="space-y-2">
                     <Label className="text-sm font-medium text-muted-foreground">Phone</Label>
-                    <p className="text-sm">{selectedUser.phone || 'Not provided'}</p>
+                    <p className="text-sm font-medium">{selectedUser.phone || 'Not provided'}</p>
                   </div>
                   <div className="space-y-2">
                     <Label className="text-sm font-medium text-muted-foreground">Department</Label>
-                    <p className="text-sm">{selectedUser.department || 'Not assigned'}</p>
+                    <p className="text-sm font-medium">{selectedUser.department || 'Not assigned'}</p>
                   </div>
                   <div className="space-y-2">
                     <Label className="text-sm font-medium text-muted-foreground">Designation</Label>
-                    <p className="text-sm">{selectedUser.designation || 'Not specified'}</p>
+                    <p className="text-sm font-medium">{selectedUser.designation || 'Not specified'}</p>
                   </div>
                   <div className="space-y-2">
                     <Label className="text-sm font-medium text-muted-foreground">Work Location</Label>
-                    <p className="text-sm">{selectedUser.work_location || 'Not specified'}</p>
+                    <p className="text-sm font-medium">{selectedUser.work_location || 'Not specified'}</p>
                   </div>
                   <div className="space-y-2">
                     <Label className="text-sm font-medium text-muted-foreground">Employment Type</Label>
-                    <p className="text-sm">{selectedUser.employment_type || 'Not specified'}</p>
+                    <p className="text-sm font-medium">{selectedUser.employment_type || 'Not specified'}</p>
                   </div>
                   <div className="space-y-2">
                     <Label className="text-sm font-medium text-muted-foreground">Joining Date</Label>
-                    <p className="text-sm">{selectedUser.joined_at ? new Date(selectedUser.joined_at).toLocaleDateString() : 'Not provided'}</p>
+                    <p className="text-sm font-medium">{selectedUser.joined_at ? new Date(selectedUser.joined_at).toLocaleDateString() : 'Not provided'}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-muted-foreground">Account Status</Label>
+                    <Badge className={`${getStatusColor(selectedUser.status)} border font-medium`}>
+                      {selectedUser.status.charAt(0).toUpperCase() + selectedUser.status.slice(1).replace('_', ' ')}
+                    </Badge>
                   </div>
                   <div className="space-y-2">
                     <Label className="text-sm font-medium text-muted-foreground">Created At</Label>
-                    <p className="text-sm">{new Date(selectedUser.created_at).toLocaleDateString()}</p>
+                    <p className="text-sm text-muted-foreground">{new Date(selectedUser.created_at).toLocaleDateString()} at {new Date(selectedUser.created_at).toLocaleTimeString()}</p>
                   </div>
                   <div className="space-y-2">
                     <Label className="text-sm font-medium text-muted-foreground">Last Updated</Label>
-                    <p className="text-sm">{new Date(selectedUser.updated_at).toLocaleDateString()}</p>
+                    <p className="text-sm text-muted-foreground">{new Date(selectedUser.updated_at).toLocaleDateString()} at {new Date(selectedUser.updated_at).toLocaleTimeString()}</p>
                   </div>
                 </div>
               </div>
+                </TabsContent>
 
-              {/* Employee Details Section */}
-              {selectedUser.employee_details && (
-                <div className="space-y-4">
-                  <h4 className="text-lg font-semibold text-foreground border-b pb-2">Employee Details</h4>
+                <TabsContent value="personal" className="mt-4">
+              <div className="space-y-4">
+                {selectedUser.employee_details ? (
+                  <div className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label className="text-sm font-medium text-muted-foreground">Employee ID</Label>
-                      <p className="text-sm">{selectedUser.employee_details.employee_id}</p>
+                      <Label className="text-sm font-medium text-muted-foreground">Date of Birth</Label>
+                      <p className="text-sm font-medium">{selectedUser.employee_details.date_of_birth ? new Date(selectedUser.employee_details.date_of_birth).toLocaleDateString() : 'Not provided'}</p>
                     </div>
                     <div className="space-y-2">
+                      <Label className="text-sm font-medium text-muted-foreground">Gender</Label>
+                      <p className="text-sm font-medium">{selectedUser.employee_details.gender || 'Not provided'}</p>
+                    </div>
+                    <div className="md:col-span-2 space-y-2">
+                      <Label className="text-sm font-medium text-muted-foreground">Phone Number</Label>
+                      <p className="text-sm font-medium">{selectedUser.employee_details.phone_number || 'Not provided'}</p>
+                    </div>
+                    <div className="md:col-span-2 space-y-2">
+                      <Label className="text-sm font-medium text-muted-foreground">Current Address</Label>
+                      <p className="text-sm">{selectedUser.employee_details.current_address ?
+                        (typeof selectedUser.employee_details.current_address === 'string'
+                          ? JSON.parse(selectedUser.employee_details.current_address).street
+                          : selectedUser.employee_details.current_address.street)
+                        : 'Not provided'}</p>
+                    </div>
+                    <div className="md:col-span-2 space-y-2">
+                      <Label className="text-sm font-medium text-muted-foreground">Permanent Address</Label>
+                      <p className="text-sm">{selectedUser.employee_details.permanent_address ?
+                        (typeof selectedUser.employee_details.permanent_address === 'string'
+                          ? JSON.parse(selectedUser.employee_details.permanent_address).street
+                          : selectedUser.employee_details.permanent_address.street)
+                        : 'Not provided'}</p>
+                    </div>
+                  </div>
+                  </div>
+                ) : (
+                  <div className="p-6 bg-muted/30 rounded-lg border-2 border-dashed border-muted-foreground/20 text-center">
+                    <p className="text-sm text-muted-foreground">No personal details available</p>
+                  </div>
+                )}
+              </div>
+                </TabsContent>
+
+                <TabsContent value="bank" className="mt-4">
+              <div className="space-y-4">
+                {selectedUser.employee_details ? (
+                  <div className="space-y-6">
+                    {/* Bank Details */}
+                    <div>
+                      <h5 className="text-md font-medium text-foreground mb-3">Bank Details</h5>
+                      {selectedUser.employee_details.bank_details ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {(() => {
+                            const bankDetails = typeof selectedUser.employee_details.bank_details === 'string'
+                              ? JSON.parse(selectedUser.employee_details.bank_details)
+                              : selectedUser.employee_details.bank_details;
+                            return (
+                              <>
+                                <div className="space-y-2">
+                                  <Label className="text-sm font-medium text-muted-foreground">Bank Name</Label>
+                                  <p className="text-sm">{bankDetails.bank_name || 'Not provided'}</p>
+                                </div>
+                                <div className="space-y-2">
+                                  <Label className="text-sm font-medium text-muted-foreground">Account Number</Label>
+                                  <p className="text-sm">{bankDetails.account_number || 'Not provided'}</p>
+                                </div>
+                                <div className="space-y-2">
+                                  <Label className="text-sm font-medium text-muted-foreground">IFSC Code</Label>
+                                  <p className="text-sm">{bankDetails.ifsc_code || 'Not provided'}</p>
+                                </div>
+                                <div className="space-y-2">
+                                  <Label className="text-sm font-medium text-muted-foreground">UPI ID</Label>
+                                  <p className="text-sm">{bankDetails.upi_id || 'Not provided'}</p>
+                                </div>
+                                <div className="space-y-2">
+                                  <Label className="text-sm font-medium text-muted-foreground">Account Holder Name</Label>
+                                  <p className="text-sm">{bankDetails.account_holder_name || 'Not provided'}</p>
+                                </div>
+                                <div className="space-y-2">
+                                  <Label className="text-sm font-medium text-muted-foreground">Branch Name</Label>
+                                  <p className="text-sm">{bankDetails.branch_name || 'Not provided'}</p>
+                                </div>
+                              </>
+                            );
+                          })()}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">No bank details available</p>
+                      )}
+                    </div>
+
+                    {/* Emergency Contact */}
+                    <div>
+                      <h5 className="text-md font-medium text-foreground mb-3">Emergency Contact</h5>
+                      {selectedUser.employee_details.emergency_contact ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {(() => {
+                            const emergencyContact = typeof selectedUser.employee_details.emergency_contact === 'string'
+                              ? JSON.parse(selectedUser.employee_details.emergency_contact)
+                              : selectedUser.employee_details.emergency_contact;
+                            return (
+                              <>
+                                <div className="space-y-2">
+                                  <Label className="text-sm font-medium text-muted-foreground">Name</Label>
+                                  <p className="text-sm">{emergencyContact.name || 'Not provided'}</p>
+                                </div>
+                                <div className="space-y-2">
+                                  <Label className="text-sm font-medium text-muted-foreground">Phone</Label>
+                                  <p className="text-sm">{emergencyContact.phone || 'Not provided'}</p>
+                                </div>
+                                <div className="space-y-2">
+                                  <Label className="text-sm font-medium text-muted-foreground">Relationship</Label>
+                                  <p className="text-sm">{emergencyContact.relationship || 'Not provided'}</p>
+                                </div>
+                              </>
+                            );
+                          })()}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">No emergency contact available</p>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-6 bg-muted/30 rounded-lg border-2 border-dashed border-muted-foreground/20 text-center">
+                    <p className="text-sm text-muted-foreground">No bank details available</p>
+                  </div>
+                )}
+              </div>
+                </TabsContent>
+
+                <TabsContent value="employment" className="mt-4">
+              <div className="space-y-4">
+                {selectedUser.employee_details ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
                       <Label className="text-sm font-medium text-muted-foreground">Position</Label>
-                      <p className="text-sm">{selectedUser.employee_details.position}</p>
+                      <p className="text-sm font-medium">{selectedUser.employee_details.designation || selectedUser.employee_details.position || 'Not provided'}</p>
                     </div>
                     <div className="space-y-2">
                       <Label className="text-sm font-medium text-muted-foreground">Salary</Label>
-                      <p className="text-sm font-semibold text-green-600">₹{selectedUser.employee_details.salary.toLocaleString()}</p>
+                      <p className="text-sm font-semibold text-green-600">
+                        {selectedUser.employee_details.salary
+                          ? `₹${selectedUser.employee_details.salary.toLocaleString()}`
+                          : 'Not set'}
+                      </p>
                     </div>
                     <div className="space-y-2">
                       <Label className="text-sm font-medium text-muted-foreground">Employment Type</Label>
-                      <p className="text-sm">{selectedUser.employee_details.employment_type}</p>
+                      <p className="text-sm font-medium">{selectedUser.employee_details.employment_type || 'Not provided'}</p>
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-sm font-medium text-muted-foreground">Start Date</Label>
-                      <p className="text-sm">{new Date(selectedUser.employee_details.start_date).toLocaleDateString()}</p>
+                      <Label className="text-sm font-medium text-muted-foreground">Work Location</Label>
+                      <p className="text-sm font-medium">{selectedUser.employee_details.work_location || 'Not provided'}</p>
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-sm font-medium text-muted-foreground">Manager</Label>
-                      <p className="text-sm">{selectedUser.employee_details.manager}</p>
+                      <Label className="text-sm font-medium text-muted-foreground">Joining Date</Label>
+                      <p className="text-sm font-medium">{selectedUser.employee_details.joining_date ? new Date(selectedUser.employee_details.joining_date).toLocaleDateString() : 'Not provided'}</p>
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-sm font-medium text-muted-foreground">Personal Email</Label>
-                      <p className="text-sm">{selectedUser.employee_details.personal_email}</p>
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium text-muted-foreground">Personal Phone</Label>
-                      <p className="text-sm">{selectedUser.employee_details.personal_phone}</p>
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium text-muted-foreground">Date of Birth</Label>
-                      <p className="text-sm">{new Date(selectedUser.employee_details.date_of_birth).toLocaleDateString()}</p>
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium text-muted-foreground">Nationality</Label>
-                      <p className="text-sm">{selectedUser.employee_details.nationality}</p>
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium text-muted-foreground">National ID</Label>
-                      <p className="text-sm">{selectedUser.employee_details.national_id}</p>
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium text-muted-foreground">Bank Name</Label>
-                      <p className="text-sm">{selectedUser.employee_details.bank_name}</p>
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium text-muted-foreground">Account Number</Label>
-                      <p className="text-sm">{selectedUser.employee_details.account_number}</p>
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium text-muted-foreground">IBAN</Label>
-                      <p className="text-sm">{selectedUser.employee_details.iban}</p>
+                      <Label className="text-sm font-medium text-muted-foreground">Status</Label>
+                      <Badge className={`${getStatusColor(selectedUser.status)} border font-medium`}>
+                        {selectedUser.status.charAt(0).toUpperCase() + selectedUser.status.slice(1).replace('_', ' ')}
+                      </Badge>
                     </div>
                     <div className="md:col-span-2 space-y-2">
-                      <Label className="text-sm font-medium text-muted-foreground">Address</Label>
-                      <p className="text-sm">{selectedUser.employee_details.address}</p>
-                    </div>
-                  </div>
-
-                  {/* Emergency Contact */}
-                  <div className="space-y-2">
-                    <h5 className="text-md font-medium text-foreground">Emergency Contact</h5>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label className="text-sm font-medium text-muted-foreground">Name</Label>
-                        <p className="text-sm">{selectedUser.employee_details.emergency_contact_name}</p>
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-sm font-medium text-muted-foreground">Phone</Label>
-                        <p className="text-sm">{selectedUser.employee_details.emergency_contact_phone}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Visa/Work Permit Information */}
-                  {(selectedUser.employee_details.visa_status || selectedUser.employee_details.work_permit_number) && (
-                    <div className="space-y-2">
-                      <h5 className="text-md font-medium text-foreground">Visa & Work Permit</h5>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {selectedUser.employee_details.visa_status && (
-                          <div className="space-y-2">
-                            <Label className="text-sm font-medium text-muted-foreground">Visa Status</Label>
-                            <p className="text-sm">{selectedUser.employee_details.visa_status}</p>
-                          </div>
-                        )}
-                        {selectedUser.employee_details.visa_expiry && (
-                          <div className="space-y-2">
-                            <Label className="text-sm font-medium text-muted-foreground">Visa Expiry</Label>
-                            <p className="text-sm">{new Date(selectedUser.employee_details.visa_expiry).toLocaleDateString()}</p>
-                          </div>
-                        )}
-                        {selectedUser.employee_details.work_permit_number && (
-                          <div className="space-y-2">
-                            <Label className="text-sm font-medium text-muted-foreground">Work Permit Number</Label>
-                            <p className="text-sm">{selectedUser.employee_details.work_permit_number}</p>
-                          </div>
-                        )}
-                        {selectedUser.employee_details.work_permit_expiry && (
-                          <div className="space-y-2">
-                            <Label className="text-sm font-medium text-muted-foreground">Work Permit Expiry</Label>
-                            <p className="text-sm">{new Date(selectedUser.employee_details.work_permit_expiry).toLocaleDateString()}</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Application Details Section */}
-              {selectedUser.employee_application && (
-                <div className="space-y-4">
-                  <h4 className="text-lg font-semibold text-foreground border-b pb-2">Application Details</h4>
-
-                  {/* Gender */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium text-muted-foreground">Gender</Label>
-                      <p className="text-sm">{selectedUser.employee_application.gender}</p>
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium text-muted-foreground">Application Status</Label>
-                      <Badge>{selectedUser.employee_application.status}</Badge>
-                    </div>
-                  </div>
-
-                  {/* Addresses */}
-                  {selectedUser.employee_application.current_address && (
-                    <div className="space-y-2">
-                      <h5 className="text-md font-medium text-foreground">Current Address</h5>
-                      <div className="p-3 bg-muted/30 rounded-md">
-                        <p className="text-sm">
-                          {typeof selectedUser.employee_application.current_address === 'string'
-                            ? JSON.parse(selectedUser.employee_application.current_address).street
-                            : selectedUser.employee_application.current_address.street}
-                        </p>
-                        <p className="text-sm">
-                          {typeof selectedUser.employee_application.current_address === 'string'
-                            ? `${JSON.parse(selectedUser.employee_application.current_address).city}, ${JSON.parse(selectedUser.employee_application.current_address).state} ${JSON.parse(selectedUser.employee_application.current_address).pincode || ''}`
-                            : `${selectedUser.employee_application.current_address.city}, ${selectedUser.employee_application.current_address.state} ${selectedUser.employee_application.current_address.pincode || ''}`}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
-                  {selectedUser.employee_application.permanent_address && !selectedUser.employee_application.same_as_current && (
-                    <div className="space-y-2">
-                      <h5 className="text-md font-medium text-foreground">Permanent Address</h5>
-                      <div className="p-3 bg-muted/30 rounded-md">
-                        <p className="text-sm">
-                          {typeof selectedUser.employee_application.permanent_address === 'string'
-                            ? JSON.parse(selectedUser.employee_application.permanent_address).street
-                            : selectedUser.employee_application.permanent_address.street}
-                        </p>
-                        <p className="text-sm">
-                          {typeof selectedUser.employee_application.permanent_address === 'string'
-                            ? `${JSON.parse(selectedUser.employee_application.permanent_address).city}, ${JSON.parse(selectedUser.employee_application.permanent_address).state} ${JSON.parse(selectedUser.employee_application.permanent_address).pincode || ''}`
-                            : `${selectedUser.employee_application.permanent_address.city}, ${selectedUser.employee_application.permanent_address.state} ${selectedUser.employee_application.permanent_address.pincode || ''}`}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Bank Details */}
-                  {selectedUser.employee_application.bank_details && (
-                    <div className="space-y-2">
-                      <h5 className="text-md font-medium text-foreground">Bank Details</h5>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label className="text-sm font-medium text-muted-foreground">Bank Name</Label>
-                          <p className="text-sm">
-                            {typeof selectedUser.employee_application.bank_details === 'string'
-                              ? JSON.parse(selectedUser.employee_application.bank_details).bank_name
-                              : selectedUser.employee_application.bank_details.bank_name}
-                          </p>
+                      <Label className="text-sm font-medium text-muted-foreground">Notes</Label>
+                      {selectedUser.employee_details.notes || selectedUser.notes ? (
+                        <div className="p-3 bg-muted/50 rounded-md">
+                          <p className="text-sm whitespace-pre-wrap">{selectedUser.employee_details.notes || selectedUser.notes}</p>
                         </div>
-                        <div className="space-y-2">
-                          <Label className="text-sm font-medium text-muted-foreground">Account Number</Label>
-                          <p className="text-sm">
-                            {typeof selectedUser.employee_application.bank_details === 'string'
-                              ? JSON.parse(selectedUser.employee_application.bank_details).account_number
-                              : selectedUser.employee_application.bank_details.account_number}
-                          </p>
-                        </div>
-                        <div className="space-y-2">
-                          <Label className="text-sm font-medium text-muted-foreground">IFSC Code</Label>
-                          <p className="text-sm">
-                            {typeof selectedUser.employee_application.bank_details === 'string'
-                              ? JSON.parse(selectedUser.employee_application.bank_details).ifsc_code
-                              : selectedUser.employee_application.bank_details.ifsc_code}
-                          </p>
-                        </div>
-                        <div className="space-y-2">
-                          <Label className="text-sm font-medium text-muted-foreground">UPI ID</Label>
-                          <p className="text-sm">
-                            {typeof selectedUser.employee_application.bank_details === 'string'
-                              ? JSON.parse(selectedUser.employee_application.bank_details).upi_id
-                              : selectedUser.employee_application.bank_details.upi_id}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Documents */}
-                  {selectedUser.employee_application.documents && (
-                    <div className="space-y-2">
-                      <h5 className="text-md font-medium text-foreground">Documents</h5>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                        {(typeof selectedUser.employee_application.documents === 'string'
-                          ? JSON.parse(selectedUser.employee_application.documents)
-                          : selectedUser.employee_application.documents
-                        ).map((doc: any, index: number) => (
-                          <a
-                            key={index}
-                            href={doc.signed_url || `${doc.path}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-2 p-2 bg-muted/30 rounded-md hover:bg-muted/50 transition-colors"
-                          >
-                            <FileText className="h-4 w-4" />
-                            <span className="text-sm">{doc.type || doc.filename}</span>
-                          </a>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* NDA and Data Privacy */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium text-muted-foreground">NDA Accepted</Label>
-                      <Badge variant={selectedUser.employee_application.nda_accepted ? "default" : "secondary"}>
-                        {selectedUser.employee_application.nda_accepted ? "Yes" : "No"}
-                      </Badge>
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium text-muted-foreground">Data Privacy Accepted</Label>
-                      <Badge variant={selectedUser.employee_application.data_privacy_accepted ? "default" : "secondary"}>
-                        {selectedUser.employee_application.data_privacy_accepted ? "Yes" : "No"}
-                      </Badge>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">No notes</p>
+                      )}
                     </div>
                   </div>
-                </div>
-              )}
-
-              {/* Notes Section */}
-              {selectedUser.notes && (
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-muted-foreground">Notes</Label>
-                  <div className="p-3 bg-muted/50 rounded-md">
-                    <p className="text-sm whitespace-pre-wrap">{selectedUser.notes}</p>
+                ) : (
+                  <div className="p-6 bg-muted/30 rounded-lg border-2 border-dashed border-muted-foreground/20 text-center">
+                    <p className="text-sm text-muted-foreground">No employment details available</p>
                   </div>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+                </TabsContent>
+              </Tabs>
+            </>
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowViewUserModal(false)}>
