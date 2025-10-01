@@ -2055,122 +2055,77 @@ export default function ProductDetails() {
                       <Camera className="h-5 w-5 text-blue-600" />
                     </div>
                     <div>
-                      <h3 className="text-lg font-semibold text-foreground">Content Creation</h3>
-                      <p className="text-sm text-muted-foreground">Manage creative assets, scripts, and content production</p>
+                      <h3 className="text-lg font-semibold text-foreground">Content Details</h3>
+                      <p className="text-sm text-muted-foreground">All content information, scripts, and assets</p>
                     </div>
                   </div>
 
-                  {/* Creative Brief */}
-                  <div className="space-y-4">
-                    <Label className="text-sm font-medium text-foreground">Creative Brief</Label>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label className="text-xs font-medium text-muted-foreground mb-2 block">Moodboard Link</Label>
-                        <Input
-                          placeholder="https://..."
-                          className="rounded-none"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs font-medium text-muted-foreground mb-2 block">Brief Document</Label>
-                        <Input
-                          placeholder="https://..."
-                          className="rounded-none"
-                        />
-                      </div>
-                    </div>
+                  {/* Main Content Details */}
+                  <div>
+                    <Label className="text-xs font-medium text-muted-foreground mb-2 block">Content Details</Label>
+                    <RichEditor
+                      value={heroVideoScript}
+                      onChange={setHeroVideoScript}
+                      placeholder="Document all content details including scripts (hero video, lifestyle, unboxing, 15s, 30s), creative briefs, moodboards, team assignments, photographer/videographer info, and any other content-related information..."
+                      className="min-h-[300px]"
+                      hideToolbar={false}
+                    />
                   </div>
 
-                  <Separator className="my-6" />
-
-                  {/* Video Scripts */}
-                  <div className="space-y-4">
-                    <Label className="text-sm font-medium text-foreground">Video Scripts</Label>
-                    <div>
-                      <Label className="text-xs font-medium text-muted-foreground mb-2 block">Hero Video Script</Label>
-                      <RichEditor
-                        value={heroVideoScript}
-                        onChange={setHeroVideoScript}
-                        placeholder="Main hero video script..."
-                        className="min-h-[100px]"
-                        hideToolbar={true}
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-xs font-medium text-muted-foreground mb-2 block">Lifestyle Script</Label>
-                      <RichEditor
-                        value={lifestyleScript}
-                        onChange={setLifestyleScript}
-                        placeholder="Lifestyle video script..."
-                        className="min-h-[100px]"
-                        hideToolbar={true}
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-xs font-medium text-muted-foreground mb-2 block">Unboxing Script</Label>
-                      <RichEditor
-                        value={unboxingScript}
-                        onChange={setUnboxingScript}
-                        placeholder="Unboxing video script..."
-                        className="min-h-[100px]"
-                        hideToolbar={true}
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label className="text-xs font-medium text-muted-foreground mb-2 block">15s Script</Label>
-                        <RichEditor
-                          value={script15s}
-                          onChange={setScript15s}
-                          placeholder="Short 15 second script..."
-                          className="min-h-[80px]"
-                          hideToolbar={true}
+                  {/* File Upload */}
+                  <div>
+                    <Label className="text-xs font-medium text-muted-foreground mb-2 block">Content Files</Label>
+                    <div className="border-2 border-dashed border-border rounded-none p-4">
+                      <div className="flex flex-col items-center gap-2">
+                        <Upload className="h-6 w-6 text-muted-foreground" />
+                        <p className="text-sm text-muted-foreground">Upload videos, photos, scripts, creative briefs</p>
+                        <input
+                          id="content-files"
+                          type="file"
+                          multiple
+                          accept=".pdf,image/*,video/*"
+                          onChange={handlePackagingFileUpload}
+                          className="hidden"
                         />
-                      </div>
-                      <div>
-                        <Label className="text-xs font-medium text-muted-foreground mb-2 block">30s Script</Label>
-                        <RichEditor
-                          value={script30s}
-                          onChange={setScript30s}
-                          placeholder="30 second script..."
-                          className="min-h-[80px]"
-                          hideToolbar={true}
-                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => document.getElementById('content-files')?.click()}
+                        >
+                          Choose Files
+                        </Button>
                       </div>
                     </div>
-                  </div>
 
-                  <Separator className="my-6" />
-
-                  {/* Team Assignment */}
-                  <div className="space-y-4">
-                    <Label className="text-sm font-medium text-foreground">Team Assignment</Label>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label className="text-xs font-medium text-muted-foreground mb-2 block">Agency</Label>
-                        <Select>
-                          <SelectTrigger className="rounded-none">
-                            <SelectValue placeholder="Select agency" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="agency1">Creative Agency A</SelectItem>
-                            <SelectItem value="agency2">Creative Agency B</SelectItem>
-                          </SelectContent>
-                        </Select>
+                    {/* Files Preview */}
+                    {packagingFiles.length > 0 && (
+                      <div className="mt-3 space-y-2">
+                        <p className="text-xs font-medium text-muted-foreground">
+                          Uploaded Files ({packagingFiles.length}/15)
+                        </p>
+                        <div className="space-y-1">
+                          {packagingFiles.map((file, index) => (
+                            <div key={index} className="flex items-center justify-between p-2 bg-muted/20 rounded-none">
+                              <div className="flex items-center gap-2">
+                                <span>{getFileTypeIcon(file)}</span>
+                                <span className="text-xs font-medium truncate max-w-[200px]">{file.name}</span>
+                                <span className="text-xs text-muted-foreground">({formatFileSize(file.size)})</span>
+                              </div>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0 hover:text-destructive"
+                                onClick={() => removePackagingFile(index)}
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                      <div>
-                        <Label className="text-xs font-medium text-muted-foreground mb-2 block">Influencer</Label>
-                        <Select>
-                          <SelectTrigger className="rounded-none">
-                            <SelectValue placeholder="Select influencer" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="influencer1">Influencer 1</SelectItem>
-                            <SelectItem value="influencer2">Influencer 2</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
+                    )}
                   </div>
                 </div>
               </div>
