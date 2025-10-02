@@ -45,7 +45,10 @@
       "Bash(VITE_PORT=8081 npm run dev)",
       "Bash(head:*)",
       "Bash(git pull:*)",
-      "Bash(timeout 10s npm run build)"
+      "Bash(timeout 10s npm run build)",
+      "Bash(tasklist)",
+      "Bash(dir:*)",
+      "Bash(del \"C:\\Users\\ASUS\\Downloads\\eraya-ops-hub-main (6)\\eraya-ops-hub-main\\supabase\\migrations\\20251002_add_payroll_fields_to_employees.sql\")"
     ],
     "deny": [],
     "ask": []

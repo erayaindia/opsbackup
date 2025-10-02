@@ -14,6 +14,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   FileText, Search, Filter, Download, Upload, RefreshCw, Plus, Edit, Eye,
   MoreHorizontal, Check, X, Copy, ArrowUpDown, ArrowUp, ArrowDown,
@@ -26,6 +27,7 @@ import { useInvoices, Bill } from "@/hooks/useInvoices";
 import AddBillModal from "@/components/finance/AddBillModal";
 import BillDetailsModal from "@/components/finance/BillDetailsModal";
 import FileViewerModal from "@/components/finance/FileViewerModal";
+import { supabase } from "@/integrations/supabase/client";
 
 // Bill interface is imported from useInvoices hook
 // Mock data removed - now using real Supabase data
@@ -65,6 +67,9 @@ export default function Invoice() {
   // Verification confirmation modal states
   const [showVerificationModal, setShowVerificationModal] = useState(false);
   const [pendingVerification, setPendingVerification] = useState<{ billId: string; newStatus: boolean; billNumber: string } | null>(null);
+
+  // Row selection state for bulk operations
+  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
 
 
   // Handle sorting
@@ -171,6 +176,7 @@ export default function Invoice() {
   // Reset to first page when filters change
   useEffect(() => {
     setCurrentPage(1);
+    setSelectedRows(new Set()); // Clear selection when filters change
   }, [searchTerm, selectedTypes, selectedStatuses, selectedVendors, startDate, endDate]);
 
   // Utility functions - defined first to avoid hoisting issues
@@ -337,6 +343,207 @@ export default function Invoice() {
     setPendingVerification(null);
   };
 
+  // Handle row selection
+  const handleRowSelect = (billId: string, checked: boolean) => {
+    setSelectedRows(prev => {
+      const newSet = new Set(prev);
+      if (checked) {
+        newSet.add(billId);
+      } else {
+        newSet.delete(billId);
+      }
+      return newSet;
+    });
+  };
+
+  // Handle select all rows on current page
+  const handleSelectAllRows = (checked: boolean) => {
+    if (checked) {
+      const allIds = new Set(paginatedData.map(bill => bill.id));
+      setSelectedRows(allIds);
+    } else {
+      setSelectedRows(new Set());
+    }
+  };
+
+  // Check if all rows on current page are selected
+  const isAllRowsSelected = paginatedData.length > 0 && paginatedData.every(bill => selectedRows.has(bill.id));
+
+  // Helper function to get signed URL from Supabase storage
+  const getSignedUrl = async (fileUrl: string): Promise<string> => {
+    try {
+      // Extract the file path from the URL
+      let filePath = fileUrl;
+
+      if (fileUrl.startsWith('http')) {
+        // It's a full URL, extract the path
+        if (fileUrl.includes('/storage/v1/object/public/invoice-documents/')) {
+          // Extract path from public URL
+          const parts = fileUrl.split('/storage/v1/object/public/invoice-documents/');
+          if (parts.length > 1) {
+            filePath = parts[1];
+          } else {
+            console.warn('Could not extract file path from URL:', fileUrl);
+            return fileUrl;
+          }
+        } else if (fileUrl.includes('/storage/v1/object/sign/invoice-documents/')) {
+          // It's already a signed URL, use it directly
+          return fileUrl;
+        } else {
+          // Try to use the URL directly
+          return fileUrl;
+        }
+      }
+
+      // Generate signed URL for secure access
+      const { data, error } = await supabase.storage
+        .from('invoice-documents')
+        .createSignedUrl(filePath, 3600); // 1 hour expiry
+
+      if (error) {
+        console.error('Error creating signed URL:', error);
+        return fileUrl; // Fallback to original URL
+      }
+
+      return data?.signedUrl || fileUrl;
+    } catch (error) {
+      console.error('Error in getSignedUrl:', error);
+      return fileUrl; // Fallback to original URL
+    }
+  };
+
+  // Bulk download invoices with folder selection
+  const handleBulkDownload = async () => {
+    const selectedBills = bills.filter(bill => selectedRows.has(bill.id) && bill.file_url);
+
+    if (selectedBills.length === 0) {
+      alert('No invoices with files selected for download');
+      return;
+    }
+
+    try {
+      // Check if File System Access API is supported (Chrome, Edge)
+      if ('showDirectoryPicker' in window) {
+        // Modern browsers with directory picker support
+        const directoryHandle = await (window as any).showDirectoryPicker({
+          mode: 'readwrite',
+          startIn: 'downloads'
+        });
+
+        let successCount = 0;
+        let failCount = 0;
+
+        // Download each file to the selected directory
+        for (const bill of selectedBills) {
+          try {
+            const fileName = bill.file_name || `invoice_${bill.bill_number}.${bill.file_type || 'pdf'}`;
+            const signedUrl = await getSignedUrl(bill.file_url!);
+
+            const response = await fetch(signedUrl, {
+              method: 'GET',
+              mode: 'cors',
+              cache: 'no-cache',
+            });
+
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const arrayBuffer = await response.arrayBuffer();
+            const mimeType = response.headers.get('content-type') || 'application/pdf';
+            const blob = new Blob([arrayBuffer], { type: mimeType });
+
+            // Create file in the selected directory
+            const fileHandle = await directoryHandle.getFileHandle(fileName, { create: true });
+            const writable = await fileHandle.createWritable();
+            await writable.write(blob);
+            await writable.close();
+
+            successCount++;
+          } catch (error) {
+            console.error(`Error downloading invoice ${bill.bill_number}:`, error);
+            failCount++;
+          }
+        }
+
+        // Show summary message
+        if (successCount > 0 && failCount === 0) {
+          alert(`Successfully downloaded ${successCount} invoice(s) to the selected folder`);
+        } else if (successCount > 0 && failCount > 0) {
+          alert(`Downloaded ${successCount} invoice(s). ${failCount} failed.`);
+        } else {
+          alert('Failed to download invoices. Please try again.');
+        }
+
+        setSelectedRows(new Set());
+      } else {
+        // Fallback for browsers without directory picker (Safari, Firefox)
+        // Download files one by one using traditional method
+        let successCount = 0;
+        let failCount = 0;
+
+        for (const bill of selectedBills) {
+          try {
+            const fileName = bill.file_name || `invoice_${bill.bill_number}.${bill.file_type || 'pdf'}`;
+            const signedUrl = await getSignedUrl(bill.file_url!);
+
+            const response = await fetch(signedUrl, {
+              method: 'GET',
+              mode: 'cors',
+              cache: 'no-cache',
+            });
+
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const arrayBuffer = await response.arrayBuffer();
+            const mimeType = response.headers.get('content-type') || 'application/pdf';
+            const blob = new Blob([arrayBuffer], { type: mimeType });
+
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = fileName;
+            link.style.display = 'none';
+
+            document.body.appendChild(link);
+            link.click();
+
+            setTimeout(() => {
+              document.body.removeChild(link);
+              window.URL.revokeObjectURL(url);
+            }, 100);
+
+            successCount++;
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          } catch (error) {
+            console.error(`Error downloading invoice ${bill.bill_number}:`, error);
+            failCount++;
+          }
+        }
+
+        if (successCount > 0 && failCount === 0) {
+          alert(`Successfully downloaded ${successCount} invoice(s)`);
+        } else if (successCount > 0 && failCount > 0) {
+          alert(`Downloaded ${successCount} invoice(s). ${failCount} failed.`);
+        } else {
+          alert('Failed to download invoices. Please try again.');
+        }
+
+        setSelectedRows(new Set());
+      }
+    } catch (error: any) {
+      // User cancelled the directory picker or other error
+      if (error.name === 'AbortError') {
+        console.log('User cancelled folder selection');
+      } else {
+        console.error('Error in bulk download:', error);
+        alert('An error occurred during bulk download. Please try again.');
+      }
+    }
+  };
+
   return (
     <TooltipProvider>
       <div className="p-6">
@@ -367,6 +574,17 @@ export default function Invoice() {
                 <RefreshCw className="h-4 w-4" />
               )}
             </Button>
+
+            {selectedRows.size > 0 && (
+              <Button
+                onClick={handleBulkDownload}
+                variant="outline"
+                className="rounded-none"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Bulk Download ({selectedRows.size})
+              </Button>
+            )}
 
             <Button
               onClick={exportToCSV}
@@ -620,6 +838,13 @@ export default function Invoice() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="border-r border-border/50 text-center w-[50px]">
+                        <Checkbox
+                          checked={isAllRowsSelected}
+                          onCheckedChange={handleSelectAllRows}
+                          aria-label="Select all"
+                        />
+                      </TableHead>
                       <TableHead
                         className="cursor-pointer hover:bg-muted/50 border-r border-border/50 text-left select-none"
                         onClick={(e) => handleSort('bill_number', e)}
@@ -704,6 +929,13 @@ export default function Invoice() {
                         className="cursor-pointer hover:bg-muted/50"
                         onClick={() => handleShowBillDetails(bill)}
                       >
+                        <TableCell className="border-r border-border/50 text-center" onClick={(e) => e.stopPropagation()}>
+                          <Checkbox
+                            checked={selectedRows.has(bill.id)}
+                            onCheckedChange={(checked) => handleRowSelect(bill.id, checked as boolean)}
+                            aria-label={`Select invoice ${bill.bill_number}`}
+                          />
+                        </TableCell>
                         <TableCell className="border-r border-border/50 text-left">
                           <div className="font-medium text-blue-600 cursor-pointer hover:underline">
                             {bill.bill_number}

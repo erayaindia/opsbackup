@@ -31,31 +31,6 @@ export interface EmployeeDetails {
   updated_at: string;
 }
 
-export interface EmployeeApplication {
-  id: string;
-  app_user_id: string | null;
-  status: string;
-  full_name: string;
-  personal_email: string;
-  phone_number: string;
-  date_of_birth: string;
-  gender: string;
-  designation: string;
-  work_location: string;
-  employment_type: string;
-  joining_date: string;
-  current_address: any;
-  permanent_address: any;
-  same_as_current: boolean;
-  emergency_contact: any;
-  bank_details: any;
-  documents: any;
-  nda_accepted: boolean;
-  data_privacy_accepted: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
 export interface UserWithEmployeeDetails {
   id: string;
   full_name: string;
@@ -65,7 +40,6 @@ export interface UserWithEmployeeDetails {
   joined_at: string;
   created_at: string;
   employee_details?: EmployeeDetails;
-  employee_application?: EmployeeApplication;
 }
 
 export interface CreateEmployeeDetailsData {
@@ -117,7 +91,7 @@ export const employeeDetailsService = {
         return [];
       }
 
-      // Fetch employee details for all users
+      // Fetch employee details for all users (employees_details contains all employee info including onboarding data)
       const userIds = users.map(user => user.id);
       const { data: employeeDetails, error: detailsError } = await supabase
         .from('employees_details')
@@ -129,22 +103,27 @@ export const employeeDetailsService = {
         // Don't throw error here, just log it and continue without details
       }
 
-      // Fetch employee applications for all users
-      const { data: employeeApplications, error: applicationsError } = await supabase
-        .from('employee_applications')
-        .select('*')
-        .in('app_user_id', userIds);
-
-      if (applicationsError) {
-        console.error('Error fetching employee applications:', applicationsError);
-        // Don't throw error here, just log it and continue without applications
+      console.log('🔍 Fetched employee_details records:', employeeDetails?.length || 0);
+      if (employeeDetails && employeeDetails.length > 0) {
+        console.log('📋 Sample employee_details:', employeeDetails[0]);
+        console.log('🔗 app_user_ids in employee_details:', employeeDetails.map(d => d.app_user_id));
       }
 
-      // Combine users with their employee details and applications
+      // Also check for records with NULL app_user_id
+      const { data: orphanedRecords } = await supabase
+        .from('employees_details')
+        .select('*')
+        .is('app_user_id', null);
+
+      if (orphanedRecords && orphanedRecords.length > 0) {
+        console.log('⚠️ Found employee_details with NULL app_user_id:', orphanedRecords.length);
+        console.log('📋 Orphaned records:', orphanedRecords);
+      }
+
+      // Combine users with their employee details
       const usersWithDetails: UserWithEmployeeDetails[] = users.map(user => ({
         ...user,
-        employee_details: employeeDetails?.find(detail => detail.app_user_id === user.id) || undefined,
-        employee_application: employeeApplications?.find(app => app.app_user_id === user.id) || undefined
+        employee_details: employeeDetails?.find(detail => detail.app_user_id === user.id) || undefined
       }));
 
       return usersWithDetails;

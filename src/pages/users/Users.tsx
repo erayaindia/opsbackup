@@ -62,7 +62,9 @@ import {
   TrendingUp,
   Eye,
   UserCog,
-  FileText
+  Download,
+  FileText,
+  Upload
 } from "lucide-react";
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -96,12 +98,18 @@ export const Users: React.FC = () => {
   const [sortField, setSortField] = useState<SortField>('full_name');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [showAddUserModal, setShowAddUserModal] = useState(false);
+  const [showDocumentModal, setShowDocumentModal] = useState(false);
+  const [selectedDocument, setSelectedDocument] = useState<any>(null);
+  const [documentPreviewUrl, setDocumentPreviewUrl] = useState<string | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showEditRoleDialog, setShowEditRoleDialog] = useState(false);
   const [showEditUserModal, setShowEditUserModal] = useState(false);
   const [showViewUserModal, setShowViewUserModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [newRole, setNewRole] = useState('');
+  const [uploadingProfilePicture, setUploadingProfilePicture] = useState(false);
+  const [profilePictureFile, setProfilePictureFile] = useState<File | null>(null);
+  const [profilePicturePreview, setProfilePicturePreview] = useState<string | null>(null);
 
   // Form states
   const [newUserForm, setNewUserForm] = useState({
@@ -467,6 +475,70 @@ export const Users: React.FC = () => {
     setShowEditUserModal(true);
   };
 
+  // Handle profile picture file selection
+  const handleProfilePictureChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        toast.error('Please select an image file');
+        return;
+      }
+
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('Image size should be less than 5MB');
+        return;
+      }
+
+      setProfilePictureFile(file);
+
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setProfilePicturePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Upload profile picture to storage
+  const uploadProfilePicture = async (userId: string, employeeId: string): Promise<string | null> => {
+    if (!profilePictureFile) return null;
+
+    try {
+      setUploadingProfilePicture(true);
+
+      const fileExt = profilePictureFile.name.split('.').pop();
+      const fileName = `${employeeId || userId}.${fileExt}`;
+      const filePath = `profile-pictures/${fileName}`;
+
+      console.log('📤 Uploading profile picture:', filePath);
+
+      const { error: uploadError } = await supabase.storage
+        .from('employee-documents')
+        .upload(filePath, profilePictureFile, {
+          upsert: true,
+          contentType: profilePictureFile.type
+        });
+
+      if (uploadError) {
+        console.error('Error uploading profile picture:', uploadError);
+        toast.error('Failed to upload profile picture');
+        return null;
+      }
+
+      console.log('✅ Profile picture uploaded successfully');
+      return filePath;
+    } catch (error) {
+      console.error('Error in uploadProfilePicture:', error);
+      toast.error('Failed to upload profile picture');
+      return null;
+    } finally {
+      setUploadingProfilePicture(false);
+    }
+  };
+
   // Handle comprehensive user update
   const handleUpdateUser = async () => {
     if (!selectedUser) return;
@@ -506,11 +578,22 @@ export const Users: React.FC = () => {
       }
       console.log('✅ User updated successfully:', userData);
 
+      // Upload profile picture if selected
+      let profilePictureUrl = null;
+      if (profilePictureFile) {
+        profilePictureUrl = await uploadProfilePicture(selectedUser.id, editUserForm.employee_id);
+      }
+
       // Update all fields in employees_details table (only if record exists)
       if (selectedUser.employee_details) {
         console.log('💼 Updating employee details...');
 
         const employeeDetailsUpdate: any = {};
+
+        // Add profile picture URL if uploaded
+        if (profilePictureUrl) {
+          employeeDetailsUpdate.profile_picture_url = profilePictureUrl;
+        }
 
         // Add salary if provided
         if (editUserForm.salary) {
@@ -594,6 +677,12 @@ export const Users: React.FC = () => {
       toast.success('User updated successfully');
       setShowEditUserModal(false);
       setSelectedUser(null);
+
+      // Reset profile picture states
+      setProfilePictureFile(null);
+      setProfilePicturePreview(null);
+      setUploadingProfilePicture(false);
+
       setEditUserForm({
         full_name: '',
         company_email: '',
@@ -897,9 +986,17 @@ export const Users: React.FC = () => {
                           <TableCell className="py-4 px-6 border-r border-border/30">
                             <div className="flex items-center space-x-4">
                               <Avatar className="h-10 w-10">
-                                <AvatarFallback className="bg-primary/10 text-primary">
-                                  {getUserInitials(user.full_name)}
-                                </AvatarFallback>
+                                {user.employee_details?.profile_picture_url ? (
+                                  <img
+                                    src={supabase.storage.from('employee-documents').getPublicUrl(user.employee_details.profile_picture_url).data.publicUrl}
+                                    alt={user.full_name}
+                                    className="h-full w-full object-cover rounded-full"
+                                  />
+                                ) : (
+                                  <AvatarFallback className="bg-primary/10 text-primary">
+                                    {getUserInitials(user.full_name)}
+                                  </AvatarFallback>
+                                )}
                               </Avatar>
                               <div className="space-y-1">
                                 <p className="font-medium text-foreground">{user.full_name}</p>
@@ -1258,7 +1355,15 @@ export const Users: React.FC = () => {
       </Dialog>
 
       {/* Edit User Modal */}
-      <Dialog open={showEditUserModal} onOpenChange={setShowEditUserModal}>
+      <Dialog open={showEditUserModal} onOpenChange={(open) => {
+        setShowEditUserModal(open);
+        if (!open) {
+          // Reset profile picture states when modal closes
+          setProfilePictureFile(null);
+          setProfilePicturePreview(null);
+          setUploadingProfilePicture(false);
+        }
+      }}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit User Details</DialogTitle>
@@ -1276,6 +1381,61 @@ export const Users: React.FC = () => {
             </TabsList>
 
             <TabsContent value="basic" className="mt-4">
+          {/* Profile Picture Upload Section */}
+          <div className="mb-6 p-4 border rounded-lg bg-muted/30">
+            <Label className="text-sm font-medium mb-2 block">Profile Picture</Label>
+            <div className="flex items-center gap-4">
+              {/* Current or Preview Image */}
+              <div className="relative">
+                {profilePicturePreview || selectedUser?.employee_details?.profile_picture_url ? (
+                  <img
+                    src={profilePicturePreview || (selectedUser?.employee_details?.profile_picture_url
+                      ? supabase.storage.from('employee-documents').getPublicUrl(selectedUser.employee_details.profile_picture_url).data.publicUrl
+                      : '')}
+                    alt="Profile"
+                    className="w-24 h-24 rounded-full object-cover border-2 border-primary"
+                  />
+                ) : (
+                  <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center border-2 border-dashed border-primary/30">
+                    <UserCog className="h-10 w-10 text-primary/50" />
+                  </div>
+                )}
+              </div>
+
+              {/* Upload Button */}
+              <div className="flex-1">
+                <Input
+                  id="profile_picture_upload"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleProfilePictureChange}
+                  className="hidden"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => document.getElementById('profile_picture_upload')?.click()}
+                  disabled={uploadingProfilePicture}
+                >
+                  {uploadingProfilePicture ? (
+                    <>
+                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="mr-2 h-4 w-4" />
+                      {profilePicturePreview ? 'Change Picture' : 'Upload Picture'}
+                    </>
+                  )}
+                </Button>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Max size: 5MB. Formats: JPG, PNG, GIF
+                </p>
+              </div>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="edit_full_name">Full Name *</Label>
@@ -1589,9 +1749,17 @@ export const Users: React.FC = () => {
               {/* User Header */}
               <div className="flex items-center space-x-4 p-4 bg-muted/50 rounded-lg">
                 <Avatar className="h-16 w-16">
-                  <AvatarFallback className="bg-primary/10 text-primary text-lg">
-                    {getUserInitials(selectedUser.full_name)}
-                  </AvatarFallback>
+                  {selectedUser.employee_details?.profile_picture_url ? (
+                    <img
+                      src={supabase.storage.from('employee-documents').getPublicUrl(selectedUser.employee_details.profile_picture_url).data.publicUrl}
+                      alt={selectedUser.full_name}
+                      className="h-full w-full object-cover rounded-full"
+                    />
+                  ) : (
+                    <AvatarFallback className="bg-primary/10 text-primary text-lg">
+                      {getUserInitials(selectedUser.full_name)}
+                    </AvatarFallback>
+                  )}
                 </Avatar>
                 <div>
                   <h3 className="text-xl font-semibold">{selectedUser.full_name}</h3>
@@ -1608,11 +1776,12 @@ export const Users: React.FC = () => {
               </div>
 
               <Tabs defaultValue="basic" className="w-full">
-                <TabsList className="grid w-full grid-cols-4">
+                <TabsList className="grid w-full grid-cols-5">
                   <TabsTrigger value="basic">Basic Info</TabsTrigger>
                   <TabsTrigger value="personal">Personal Details</TabsTrigger>
                   <TabsTrigger value="bank">Bank & Emergency</TabsTrigger>
-                  <TabsTrigger value="employment">Employment Details</TabsTrigger>
+                  <TabsTrigger value="employment">Employment</TabsTrigger>
+                  <TabsTrigger value="documents">Documents</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="basic" className="mt-4">
@@ -1856,6 +2025,238 @@ export const Users: React.FC = () => {
                 )}
               </div>
                 </TabsContent>
+
+                <TabsContent value="documents" className="mt-4">
+                  <div className="space-y-4">
+                    {selectedUser.employee_details && selectedUser.employee_details.documents ? (
+                      <div className="space-y-4">
+                        <h5 className="text-md font-medium text-foreground">Uploaded Documents</h5>
+                        {(() => {
+                          const documents = typeof selectedUser.employee_details.documents === 'string'
+                            ? JSON.parse(selectedUser.employee_details.documents)
+                            : selectedUser.employee_details.documents;
+
+                          if (!Array.isArray(documents) || documents.length === 0) {
+                            return (
+                              <div className="p-6 bg-muted/30 rounded-lg border-2 border-dashed border-muted-foreground/20 text-center">
+                                <p className="text-sm text-muted-foreground">No documents uploaded</p>
+                              </div>
+                            );
+                          }
+
+                          // Function to get multiple signed URLs in parallel (faster!)
+                          const getBatchSignedUrls = async (paths: string[]) => {
+                            const urlMap = new Map<string, string>();
+
+                            const promises = paths.map(async (path) => {
+                              try {
+                                const { data, error } = await supabase.storage
+                                  .from('employee-documents')
+                                  .createSignedUrl(path, 3600);
+
+                                if (!error && data?.signedUrl) {
+                                  urlMap.set(path, data.signedUrl);
+                                }
+                              } catch (error) {
+                                console.error('Error creating signed URL for', path, error);
+                              }
+                            });
+
+                            await Promise.all(promises);
+                            return urlMap;
+                          };
+
+                          const getSignedUrl = async (path: string) => {
+                            try {
+                              const { data, error } = await supabase.storage
+                                .from('employee-documents')
+                                .createSignedUrl(path, 3600);
+
+                              if (error) {
+                                console.error('Error creating signed URL:', error);
+                                return null;
+                              }
+
+                              return data.signedUrl;
+                            } catch (error) {
+                              console.error('Error getting signed URL:', error);
+                              return null;
+                            }
+                          };
+
+                          const handleViewDocument = async (doc: any) => {
+                            if (doc.path) {
+                              // Try public URL first for instant loading
+                              const { data: publicData } = supabase.storage
+                                .from('employee-documents')
+                                .getPublicUrl(doc.path);
+
+                              if (publicData?.publicUrl) {
+                                // Use public URL instantly
+                                setSelectedDocument(doc);
+                                setDocumentPreviewUrl(publicData.publicUrl);
+                                setShowDocumentModal(true);
+                              } else {
+                                // Fallback to signed URL if public URL not available
+                                const url = await getSignedUrl(doc.path);
+                                if (url) {
+                                  setSelectedDocument(doc);
+                                  setDocumentPreviewUrl(url);
+                                  setShowDocumentModal(true);
+                                }
+                              }
+                            } else {
+                              toast.error('Document path not found');
+                            }
+                          };
+
+                          const handleDownloadDocument = async (doc: any) => {
+                            if (doc.path) {
+                              // Try public URL first for instant download
+                              const { data: publicData } = supabase.storage
+                                .from('employee-documents')
+                                .getPublicUrl(doc.path);
+
+                              const url = publicData?.publicUrl || await getSignedUrl(doc.path);
+                              if (url) {
+                                const link = document.createElement('a');
+                                link.href = url;
+                                link.download = doc.filename || 'document';
+                                link.click();
+                              }
+                            } else {
+                              toast.error('Document path not found');
+                            }
+                          };
+
+                          // Create a separate component for document card - now receives previewUrl as prop
+                          const DocumentCard = ({ doc, previewUrl, onView }: { doc: any; previewUrl: string | null; onView: (doc: any) => void }) => {
+                            return (
+                              <div className="border rounded-lg overflow-hidden bg-card hover:shadow-lg transition-all cursor-pointer group">
+                                {/* Document Preview */}
+                                <div
+                                  className="aspect-[3/4] bg-muted relative overflow-hidden"
+                                  onClick={() => {
+                                    if (previewUrl) {
+                                      window.open(previewUrl, '_blank');
+                                    }
+                                  }}
+                                >
+                                  {previewUrl ? (
+                                    doc.mime_type?.startsWith('image/') ? (
+                                      <img
+                                        src={previewUrl}
+                                        alt={doc.filename}
+                                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                                      />
+                                    ) : (
+                                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20">
+                                        <FileText className="h-16 w-16 text-blue-600 dark:text-blue-400" />
+                                      </div>
+                                    )
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center">
+                                      <RefreshCw className="h-8 w-8 text-muted-foreground animate-spin" />
+                                    </div>
+                                  )}
+                                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center pointer-events-none">
+                                    <Eye className="h-8 w-8 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-lg" />
+                                  </div>
+                                </div>
+
+                                {/* Document Info */}
+                                <div className="p-3 space-y-1">
+                                  <p className="font-medium text-xs text-foreground truncate">{doc.type || 'Document'}</p>
+                                  <p className="text-xs text-muted-foreground truncate">{doc.filename || 'Unknown'}</p>
+                                  {doc.size && (
+                                    <p className="text-xs text-muted-foreground">
+                                      {(doc.size / 1024 / 1024).toFixed(2)} MB
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          };
+
+                          // Try public URLs first for instant loading, fallback to signed URLs
+                          const DocumentGrid = () => {
+                            const [previewUrls, setPreviewUrls] = React.useState<Map<string, string>>(() => {
+                              // Instantly generate public URLs (no API call needed!)
+                              const urlMap = new Map<string, string>();
+                              documents.forEach((doc: any) => {
+                                if (doc.path) {
+                                  const { data } = supabase.storage
+                                    .from('employee-documents')
+                                    .getPublicUrl(doc.path);
+                                  if (data?.publicUrl) {
+                                    urlMap.set(doc.path, data.publicUrl);
+                                  }
+                                }
+                              });
+                              return urlMap;
+                            });
+
+                            const [fallbackChecked, setFallbackChecked] = React.useState(false);
+
+                            React.useEffect(() => {
+                              // If public URLs don't work (bucket is private), fallback to signed URLs
+                              if (!fallbackChecked) {
+                                const checkAndFallback = async () => {
+                                  const firstDoc = documents[0];
+                                  if (firstDoc?.path) {
+                                    const publicUrl = previewUrls.get(firstDoc.path);
+                                    if (publicUrl) {
+                                      // Test if public URL works
+                                      try {
+                                        const response = await fetch(publicUrl, { method: 'HEAD' });
+                                        if (!response.ok) {
+                                          // Public URLs don't work, use signed URLs
+                                          documents.forEach(async (doc: any) => {
+                                            if (doc.path) {
+                                              const { data } = await supabase.storage
+                                                .from('employee-documents')
+                                                .createSignedUrl(doc.path, 3600);
+                                              if (data?.signedUrl) {
+                                                setPreviewUrls(prev => new Map(prev).set(doc.path, data.signedUrl));
+                                              }
+                                            }
+                                          });
+                                        }
+                                      } catch (error) {
+                                        console.error('Error checking public URL:', error);
+                                      }
+                                    }
+                                  }
+                                  setFallbackChecked(true);
+                                };
+                                checkAndFallback();
+                              }
+                            }, [fallbackChecked]);
+
+                            return (
+                              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                                {documents.map((doc: any, index: number) => (
+                                  <DocumentCard
+                                    key={index}
+                                    doc={doc}
+                                    previewUrl={previewUrls.get(doc.path) || null}
+                                    onView={handleViewDocument}
+                                  />
+                                ))}
+                              </div>
+                            );
+                          };
+
+                          return <DocumentGrid />;
+                        })()}
+                      </div>
+                    ) : (
+                      <div className="p-6 bg-muted/30 rounded-lg border-2 border-dashed border-muted-foreground/20 text-center">
+                        <p className="text-sm text-muted-foreground">No documents available</p>
+                      </div>
+                    )}
+                  </div>
+                </TabsContent>
               </Tabs>
             </>
           )}
@@ -1869,6 +2270,105 @@ export const Users: React.FC = () => {
             }}>
               <Edit className="mr-2 h-4 w-4" />
               Edit User
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Document Viewer Modal */}
+      <Dialog open={showDocumentModal} onOpenChange={setShowDocumentModal}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
+          <DialogHeader>
+            <DialogTitle>{selectedDocument?.type || 'Document'}</DialogTitle>
+            <DialogDescription>
+              {selectedDocument?.filename || 'Document preview'}
+            </DialogDescription>
+          </DialogHeader>
+
+          {documentPreviewUrl && selectedDocument && (
+            <div className="space-y-4">
+              {/* Document Preview */}
+              <div className="max-h-[60vh] overflow-auto bg-muted/30 rounded-lg flex items-center justify-center p-4">
+                {selectedDocument.mime_type?.startsWith('image/') ? (
+                  <img
+                    src={documentPreviewUrl}
+                    alt={selectedDocument.filename}
+                    className="max-w-full max-h-full object-contain rounded"
+                  />
+                ) : selectedDocument.mime_type === 'application/pdf' ? (
+                  <iframe
+                    src={documentPreviewUrl}
+                    className="w-full h-[60vh] rounded"
+                    title={selectedDocument.filename}
+                  />
+                ) : (
+                  <div className="text-center space-y-4 p-8">
+                    <FileText className="h-24 w-24 text-muted-foreground mx-auto" />
+                    <p className="text-sm text-muted-foreground">
+                      Preview not available for this file type
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {selectedDocument.mime_type}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Document Info */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-muted/30 rounded-lg">
+                <div>
+                  <Label className="text-xs text-muted-foreground">Type</Label>
+                  <p className="text-sm font-medium">{selectedDocument.type}</p>
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">File Name</Label>
+                  <p className="text-sm font-medium truncate">{selectedDocument.filename}</p>
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Size</Label>
+                  <p className="text-sm font-medium">
+                    {selectedDocument.size
+                      ? `${(selectedDocument.size / 1024 / 1024).toFixed(2)} MB`
+                      : 'Unknown'}
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Uploaded</Label>
+                  <p className="text-sm font-medium">
+                    {selectedDocument.uploaded_at
+                      ? new Date(selectedDocument.uploaded_at).toLocaleDateString()
+                      : 'Unknown'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDocumentModal(false)}>
+              Close
+            </Button>
+            <Button
+              onClick={async () => {
+                if (selectedDocument?.path) {
+                  const { data, error } = await supabase.storage
+                    .from('employee-documents')
+                    .createSignedUrl(selectedDocument.path, 3600);
+
+                  if (!error && data?.signedUrl) {
+                    const link = document.createElement('a');
+                    link.href = data.signedUrl;
+                    link.download = selectedDocument.filename || 'document';
+                    link.click();
+                    toast.success('Download started');
+                  } else {
+                    toast.error('Failed to download document');
+                  }
+                }
+              }}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Download
             </Button>
           </DialogFooter>
         </DialogContent>

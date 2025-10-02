@@ -137,7 +137,7 @@ const customerSupportItems = [
 const teamHubItems = [
   { title: "Attendance", url: "/attendance", icon: CalendarIcon },
   { title: "Chat", url: "/chat", icon: MessageSquareIcon },
-  { title: "Holidays", url: "/team-hub/holidays", icon: Calendar },
+  { title: "Holiday Calendar", url: "/holiday-calendar", icon: Calendar },
 ];
 
 // Marketing & Growth Section

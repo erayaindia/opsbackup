@@ -1,263 +1,485 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { RefreshCw, DollarSign, Plus } from "lucide-react";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { RefreshCw, Calendar, Plus, AlertCircle, Users, FileText, CheckCircle, Trash2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { supabase } from "@/integrations/supabase/client";
-import { format } from "date-fns";
+import { format, startOfMonth, endOfMonth } from "date-fns";
+import { Badge } from "@/components/ui/badge";
 
-interface PayrollRecord {
+interface PayrollPeriod {
   id: string;
-  employee_id: string;
-  app_user_id?: string;
-  pay_period_start: string;
-  pay_period_end: string;
-  run_date: string;
-  status: 'pending' | 'processed' | 'paid';
-  base_salary: number;
-  gross_pay: number;
-  deductions_total: number;
-  net_pay: number;
-  payment_method?: 'bank_transfer' | 'upi' | 'cash';
-  payment_date?: string;
-  transaction_ref?: string;
+  period_name: string;
+  period_month: number;
+  period_year: number;
+  period_start_date: string;
+  period_end_date: string;
+  working_days: number;
+  status: string;
   created_at: string;
-  updated_at: string;
-  notes?: string;
-}
-
-interface ActiveEmployee {
-  id: string;
-  full_name: string;
-  company_email: string;
-  department: string;
-  role: string;
-  employee_id?: string;
-  salary?: number;
 }
 
 export default function Payroll() {
-  const [payrollRecords, setPayrollRecords] = useState<PayrollRecord[]>([]);
-  const [activeEmployees, setActiveEmployees] = useState<ActiveEmployee[]>([]);
+  const navigate = useNavigate();
+  const [periods, setPeriods] = useState<PayrollPeriod[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [employeeSearchTerm, setEmployeeSearchTerm] = useState('');
-  const [showAddDialog, setShowAddDialog] = useState(false);
-  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [selectedMonth, setSelectedMonth] = useState("");
+  const [selectedYear, setSelectedYear] = useState("");
+  const [workingDays, setWorkingDays] = useState<number | null>(null);
+  const [holidays, setHolidays] = useState<any[]>([]);
+  const [creating, setCreating] = useState(false);
+  const [generatingFor, setGeneratingFor] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [periodToDelete, setPeriodToDelete] = useState<PayrollPeriod | null>(null);
 
-  // Form state
-  const [formData, setFormData] = useState({
-    employee_id: '',
-    pay_period_start: '',
-    pay_period_end: '',
-    base_salary: '',
-    gross_pay: '',
-    deductions_total: '',
-    net_pay: '',
-    payment_method: '',
-    notes: ''
-  });
-
-  // Fetch active employees from database
-  const fetchActiveEmployees = async () => {
+  // Fetch payroll periods
+  const fetchPeriods = async () => {
     try {
-      // Fetch active users from app_users
-      const { data: users, error: usersError } = await supabase
+      setLoading(true);
+
+      const { data, error } = await supabase
+        .from('payroll_periods')
+        .select('*')
+        .order('period_year', { ascending: false })
+        .order('period_month', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching periods:', error);
+        toast.error('Failed to fetch payroll periods');
+        return;
+      }
+
+      setPeriods(data || []);
+    } catch (err) {
+      console.error('Error:', err);
+      toast.error('Failed to load payroll periods');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Calculate working days for selected month/year
+  const calculateWorkingDays = async () => {
+    if (!selectedMonth || !selectedYear) return;
+
+    const month = parseInt(selectedMonth);
+    const year = parseInt(selectedYear);
+    const startDate = startOfMonth(new Date(year, month - 1));
+    const endDate = endOfMonth(new Date(year, month - 1));
+
+    try {
+      // Call the database function to calculate working days
+      const { data, error } = await supabase.rpc('calculate_working_days', {
+        start_date: format(startDate, 'yyyy-MM-dd'),
+        end_date: format(endDate, 'yyyy-MM-dd')
+      });
+
+      if (error) {
+        console.error('Error calculating working days:', error);
+        toast.error('Failed to calculate working days');
+        return;
+      }
+
+      setWorkingDays(data);
+
+      // Also fetch holidays for display
+      const { data: holidaysData, error: holidaysError } = await supabase
+        .from('calendar_holidays')
+        .select('*')
+        .gte('holiday_date', format(startDate, 'yyyy-MM-dd'))
+        .lte('holiday_date', format(endDate, 'yyyy-MM-dd'))
+        .order('holiday_date');
+
+      if (!holidaysError && holidaysData) {
+        setHolidays(holidaysData);
+      }
+    } catch (err) {
+      console.error('Error:', err);
+    }
+  };
+
+  // Generate payroll records for a period
+  const handleGenerateRecords = async (period: PayrollPeriod) => {
+    setGeneratingFor(period.id);
+
+    try {
+      // Step 1: Fetch all active employees with their details
+      // First get active users
+      const { data: activeUsers, error: usersError } = await supabase
         .from('app_users')
-        .select('id, full_name, company_email, department, role, status')
-        .eq('status', 'active')
-        .order('full_name', { ascending: true });
+        .select('*')
+        .eq('status', 'active');
 
       if (usersError) {
         console.error('Error fetching active users:', usersError);
+        toast.error('Failed to fetch active users');
         return;
       }
 
-      if (!users || users.length === 0) {
-        setActiveEmployees([]);
+      if (!activeUsers || activeUsers.length === 0) {
+        toast.warning('No active users found');
         return;
       }
 
-      // Fetch employee details for salary information
-      const userIds = users.map(u => u.id);
+      // Get employee details for these users
+      const userIds = activeUsers.map(u => u.id);
       const { data: employeeDetails, error: detailsError } = await supabase
         .from('employees_details')
-        .select('app_user_id, employee_id, salary')
+        .select('*')
         .in('app_user_id', userIds);
 
       if (detailsError) {
         console.error('Error fetching employee details:', detailsError);
       }
 
-      // Combine users with their employee details
-      const enrichedEmployees: ActiveEmployee[] = users.map(user => {
-        const details = employeeDetails?.find(d => d.app_user_id === user.id);
+      // Create a map for quick lookup
+      const detailsMap = new Map();
+      employeeDetails?.forEach(detail => {
+        detailsMap.set(detail.app_user_id, detail);
+      });
+
+      // Transform and combine the data
+      const employees = activeUsers.map(user => {
+        const details = detailsMap.get(user.id);
         return {
-          id: user.id,
-          full_name: user.full_name,
-          company_email: user.company_email,
+          app_user_id: user.id,
+          employee_id: details?.employee_id || user.id,
+          employee_name: user.full_name,
+          designation: details?.position || user.role,
           department: user.department,
-          role: user.role,
-          employee_id: details?.employee_id,
-          salary: details?.salary
+          salary_type: details?.salary_type || 'monthly',
+          monthly_salary: details?.monthly_salary || details?.salary || 0,
+          daily_rate: details?.daily_rate || 0,
+          hourly_rate: details?.hourly_rate || 0
         };
       });
 
-      setActiveEmployees(enrichedEmployees);
-    } catch (err) {
-      console.error('Error fetching active employees:', err);
+      let employeesError = null;
+
+      if (employeesError) {
+        console.error('Error fetching employees:', employeesError);
+        toast.error('Failed to fetch employee data');
+        return;
+      }
+
+      if (!employees || employees.length === 0) {
+        toast.warning('No active employees found');
+        return;
+      }
+
+      // Step 2: Fetch attendance data for the period
+      const { data: attendanceData, error: attendanceError } = await supabase
+        .from('attendance_records')
+        .select('*')
+        .gte('check_in_time', period.period_start_date)
+        .lte('check_in_time', period.period_end_date);
+
+      if (attendanceError) {
+        console.error('Error fetching attendance:', attendanceError);
+        toast.error('Failed to fetch attendance data');
+        return;
+      }
+
+      // Fetch holidays for this period to properly calculate working days
+      const { data: holidaysInPeriod } = await supabase
+        .from('calendar_holidays')
+        .select('holiday_date')
+        .gte('holiday_date', period.period_start_date)
+        .lte('holiday_date', period.period_end_date);
+
+      const holidayDates = new Set(holidaysInPeriod?.map(h => h.holiday_date) || []);
+
+      // Step 3: Process each employee
+      const recordsToInsert = [];
+
+      for (const employee of employees) {
+        // Calculate attendance stats for this employee
+        const employeeAttendance = attendanceData?.filter(a => a.employee_id === employee.employee_id) || [];
+
+        // Count actual present days from attendance records
+        const markedPresentDays = employeeAttendance.filter(a => a.status === 'present').length;
+        const markedAbsentDays = employeeAttendance.filter(a => a.status === 'absent').length;
+        const markedLeaveDays = employeeAttendance.filter(a => a.status === 'leave' || a.status === 'on_leave').length;
+
+        // Get all working days in the period (excluding holidays)
+        const totalWorkingDays = period.working_days;
+
+        // Calculate present days - ONLY count actual attendance records
+        // If no attendance records exist, present days should be 0
+        const presentDays = markedPresentDays;
+
+        // Calculate absent days - all working days minus present days
+        const absentDays = totalWorkingDays - presentDays - markedLeaveDays;
+
+        console.log(`Employee: ${employee.employee_name}`);
+        console.log(`  - Total Working Days: ${totalWorkingDays}`);
+        console.log(`  - Attendance Records Found: ${employeeAttendance.length}`);
+        console.log(`  - Present Days: ${presentDays}`);
+        console.log(`  - Absent Days: ${absentDays}`);
+        console.log(`  - Leave Days: ${markedLeaveDays}`);
+
+        // Calculate overtime hours
+        const overtimeHours = employeeAttendance.reduce((total, record) => {
+          if (record.overtime_hours) return total + parseFloat(record.overtime_hours);
+          return total;
+        }, 0);
+
+        // Calculate base salary based on salary type
+        let basePay = 0;
+        let overtimePay = 0;
+        const monthlySalary = parseFloat(employee.monthly_salary || '0');
+        const dailyRate = parseFloat(employee.daily_rate || '0');
+        const hourlyRate = parseFloat(employee.hourly_rate || '0');
+
+        if (employee.salary_type === 'monthly' && monthlySalary > 0) {
+          // Monthly salary calculation with proration
+          basePay = (monthlySalary / period.working_days) * presentDays;
+
+          // Calculate overtime rate (1.5x of hourly rate derived from monthly)
+          const derivedHourlyRate = monthlySalary / (period.working_days * 8);
+          overtimePay = overtimeHours * derivedHourlyRate * 1.5;
+
+        } else if (employee.salary_type === 'daily' && dailyRate > 0) {
+          basePay = dailyRate * presentDays;
+          overtimePay = overtimeHours * (dailyRate / 8) * 1.5;
+
+        } else if (employee.salary_type === 'hourly' && hourlyRate > 0) {
+          const regularHours = presentDays * 8;
+          basePay = hourlyRate * regularHours;
+          overtimePay = overtimeHours * hourlyRate * 1.5;
+        }
+
+        // Round to 2 decimal places
+        basePay = Math.round(basePay * 100) / 100;
+        overtimePay = Math.round(overtimePay * 100) / 100;
+
+        // Prepare the record matching the actual schema
+        const grossPay = basePay + overtimePay;
+
+        recordsToInsert.push({
+          payroll_period_id: period.id,
+          app_user_id: employee.app_user_id,
+          employee_id: employee.employee_id,
+          employee_name: employee.employee_name,
+          employee_role: employee.designation,
+          employee_type: employee.salary_type || 'monthly',
+
+          // Attendance
+          days_present: presentDays,
+          days_paid_leave: 0,
+          days_unpaid_leave: absentDays,
+          days_late: 0,
+          overtime_hours: overtimeHours,
+
+          // Salary calculations
+          base_salary_rate: monthlySalary || dailyRate || hourlyRate || 0,
+          calculated_base_pay: basePay,
+
+          // Earnings
+          overtime_pay: overtimePay,
+          attendance_bonus: 0,
+          incentives: 0,
+          reimbursements: 0,
+          other_earnings: 0,
+          total_earnings: grossPay,
+
+          // Deductions
+          late_penalty: 0,
+          unpaid_leave_deduction: 0,
+          advance_recovery: 0,
+          damage_penalty: 0,
+          pf_deduction: 0,
+          esi_deduction: 0,
+          tds_deduction: 0,
+          other_deductions: 0,
+          total_deductions: 0,
+
+          // Final amounts
+          gross_pay: grossPay,
+          net_pay: grossPay, // No deductions yet
+
+          // Payment info
+          status: 'draft',
+          payment_method: null,
+          payment_date: null,
+          payment_reference: null,
+
+          notes: null
+        });
+      }
+
+      // Step 4: Insert records (upsert to handle regeneration)
+      const { error: insertError } = await supabase
+        .from('payroll_records')
+        .upsert(recordsToInsert, {
+          onConflict: 'payroll_period_id,app_user_id'
+        });
+
+      if (insertError) {
+        console.error('Error inserting payroll records:', insertError);
+        toast.error('Failed to generate payroll records');
+        return;
+      }
+
+      // Step 5: Update period status to 'in_review' (since 'generated' is not in the schema)
+      const { error: updateError } = await supabase
+        .from('payroll_periods')
+        .update({ status: 'in_review' })
+        .eq('id', period.id);
+
+      if (updateError) {
+        console.error('Error updating period status:', updateError);
+      }
+
+      toast.success(`Generated payroll records for ${recordsToInsert.length} employees (${period.working_days} working days)`);
+      console.log(`Payroll generation complete: ${recordsToInsert.length} records created for period with ${period.working_days} working days`);
+      fetchPeriods(); // Refresh the periods list
+
+    } catch (error) {
+      console.error('Error generating payroll:', error);
+      toast.error('Failed to generate payroll records');
+    } finally {
+      setGeneratingFor(null);
     }
   };
 
-  // Fetch payroll records from database
-  const fetchPayrollRecords = async () => {
+  // Delete payroll period
+  const handleDeletePeriod = async () => {
+    if (!periodToDelete) return;
+
+    setDeletingId(periodToDelete.id);
+
     try {
-      setLoading(true);
-      setError(null);
-
-      const { data, error: fetchError } = await supabase
+      // First, check if there are any payroll records for this period
+      const { data: records, error: checkError } = await supabase
         .from('payroll_records')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .select('id')
+        .eq('payroll_period_id', periodToDelete.id)
+        .limit(1);
 
-      if (fetchError) {
-        console.error('Error fetching payroll records:', fetchError);
-        setError(fetchError.message);
+      if (checkError) {
+        console.error('Error checking records:', checkError);
+        toast.error('Failed to check for existing records');
+        return;
+      }
+
+      if (records && records.length > 0) {
+        // Delete related payroll records first
+        const { error: recordsError } = await supabase
+          .from('payroll_records')
+          .delete()
+          .eq('payroll_period_id', periodToDelete.id);
+
+        if (recordsError) {
+          console.error('Error deleting payroll records:', recordsError);
+          toast.error('Failed to delete payroll records');
+          return;
+        }
+      }
+
+      // Now delete the payroll period
+      const { error: deleteError } = await supabase
+        .from('payroll_periods')
+        .delete()
+        .eq('id', periodToDelete.id);
+
+      if (deleteError) {
+        console.error('Error deleting period:', deleteError);
+        toast.error('Failed to delete payroll period');
+        return;
+      }
+
+      toast.success('Payroll period deleted successfully');
+      setShowDeleteDialog(false);
+      setPeriodToDelete(null);
+      fetchPeriods(); // Refresh the list
+    } catch (err) {
+      console.error('Error:', err);
+      toast.error('Failed to delete payroll period');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  // Create new period
+  const handleCreatePeriod = async () => {
+    if (!selectedMonth || !selectedYear) {
+      toast.error('Please select month and year');
+      return;
+    }
+
+    setCreating(true);
+    const month = parseInt(selectedMonth);
+    const year = parseInt(selectedYear);
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const periodName = `${monthNames[month - 1]} ${year}`;
+    const startDate = startOfMonth(new Date(year, month - 1));
+    const endDate = endOfMonth(new Date(year, month - 1));
+
+    try {
+      // Check for duplicate period
+      const { data: existing } = await supabase
+        .from('payroll_periods')
+        .select('id')
+        .eq('period_month', month)
+        .eq('period_year', year)
+        .single();
+
+      if (existing) {
+        toast.error('Period already exists for this month and year');
+        setCreating(false);
+        return;
+      }
+
+      // Create the period
+      const { error } = await supabase
+        .from('payroll_periods')
+        .insert({
+          period_name: periodName,
+          period_month: month,
+          period_year: year,
+          period_start_date: format(startDate, 'yyyy-MM-dd'),
+          period_end_date: format(endDate, 'yyyy-MM-dd'),
+          working_days: workingDays || 22, // Default to 22 if calculation fails
+          status: 'draft'
+        });
+
+      if (error) {
+        console.error('Error creating period:', error);
+        toast.error('Failed to create payroll period');
       } else {
-        setPayrollRecords(data || []);
+        toast.success('Payroll period created successfully');
+        setShowCreateDialog(false);
+        setSelectedMonth("");
+        setSelectedYear("");
+        setWorkingDays(null);
+        setHolidays([]);
+        fetchPeriods();
       }
     } catch (err) {
       console.error('Error:', err);
-      setError('Failed to fetch payroll records');
+      toast.error('Failed to create period');
     } finally {
-      setLoading(false);
+      setCreating(false);
     }
   };
 
   useEffect(() => {
-    fetchPayrollRecords();
-    fetchActiveEmployees();
+    fetchPeriods();
   }, []);
 
-  // Filter records based on search
-  const filteredRecords = payrollRecords.filter(record =>
-    record.employee_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    record.transaction_ref?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  // Filter active employees based on search
-  const filteredEmployees = activeEmployees.filter(emp =>
-    emp.full_name.toLowerCase().includes(employeeSearchTerm.toLowerCase()) ||
-    emp.employee_id?.toLowerCase().includes(employeeSearchTerm.toLowerCase()) ||
-    emp.company_email.toLowerCase().includes(employeeSearchTerm.toLowerCase()) ||
-    emp.department.toLowerCase().includes(employeeSearchTerm.toLowerCase())
-  );
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR'
-    }).format(amount);
-  };
-
-  const formatDate = (dateString: string) => {
-    return format(new Date(dateString), 'dd MMM yyyy');
-  };
-
-  const getStatusBadgeVariant = (status: string) => {
-    switch (status) {
-      case 'paid': return 'default';
-      case 'processed': return 'secondary';
-      case 'pending': return 'outline';
-      default: return 'outline';
+  useEffect(() => {
+    if (selectedMonth && selectedYear) {
+      calculateWorkingDays();
     }
-  };
-
-  const getPaymentMethodBadgeVariant = (method: string) => {
-    switch (method) {
-      case 'bank_transfer': return 'default';
-      case 'upi': return 'secondary';
-      case 'cash': return 'outline';
-      default: return 'outline';
-    }
-  };
-
-  // Handle employee selection
-  const handleEmployeeSelect = (employeeId: string) => {
-    setSelectedEmployeeId(employeeId);
-    const employee = activeEmployees.find(e => e.id === employeeId);
-
-    if (employee) {
-      // Auto-populate employee_id and salary if available
-      const employeeIdValue = employee.employee_id || employee.id;
-      const baseSalary = employee.salary || 0;
-
-      setFormData({
-        ...formData,
-        employee_id: employeeIdValue,
-        base_salary: baseSalary.toString(),
-        gross_pay: baseSalary.toString(),
-        net_pay: baseSalary.toString()
-      });
-    }
-  };
-
-  const handleAddPayrollRecord = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const { data, error: insertError } = await supabase
-        .from('payroll_records')
-        .insert([{
-          employee_id: formData.employee_id,
-          app_user_id: selectedEmployeeId, // Link to real user
-          pay_period_start: formData.pay_period_start,
-          pay_period_end: formData.pay_period_end,
-          base_salary: parseFloat(formData.base_salary),
-          gross_pay: parseFloat(formData.gross_pay),
-          deductions_total: parseFloat(formData.deductions_total) || 0,
-          net_pay: parseFloat(formData.net_pay),
-          payment_method: formData.payment_method || null,
-          notes: formData.notes || null,
-          status: 'pending'
-        }])
-        .select();
-
-      if (insertError) {
-        console.error('Error inserting payroll record:', insertError);
-        setError(insertError.message);
-      } else {
-        // Reset form and close dialog
-        setFormData({
-          employee_id: '',
-          pay_period_start: '',
-          pay_period_end: '',
-          base_salary: '',
-          gross_pay: '',
-          deductions_total: '',
-          net_pay: '',
-          payment_method: '',
-          notes: ''
-        });
-        setSelectedEmployeeId('');
-        setShowAddDialog(false);
-        // Refresh the list
-        fetchPayrollRecords();
-      }
-    } catch (err) {
-      console.error('Error:', err);
-      setError('Failed to add payroll record');
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [selectedMonth, selectedYear]);
 
   return (
     <div className="p-6">
@@ -266,7 +488,7 @@ export default function Payroll() {
         <div>
           <h1 className="text-3xl font-bold">Payroll Management</h1>
           <p className="text-muted-foreground">
-            Manage employee payroll records and payments
+            Manage monthly payroll periods and employee salaries
           </p>
         </div>
 
@@ -274,9 +496,8 @@ export default function Payroll() {
           <Button
             variant="outline"
             size="sm"
-            onClick={fetchPayrollRecords}
+            onClick={fetchPeriods}
             disabled={loading}
-            className="rounded-none"
           >
             {loading ? (
               <RefreshCw className="h-4 w-4 animate-spin" />
@@ -285,428 +506,363 @@ export default function Payroll() {
             )}
           </Button>
 
-          <Button
-            onClick={() => setShowAddDialog(true)}
-            className="rounded-none"
-          >
+          <Button onClick={() => setShowCreateDialog(true)}>
             <Plus className="h-4 w-4 mr-2" />
-            Add Payroll Record
+            Create Period
           </Button>
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <Card className="rounded-none">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Records</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{payrollRecords.length}</div>
-          </CardContent>
-        </Card>
-
-        <Card className="rounded-none">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Pending</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">
-              {payrollRecords.filter(r => r.status === 'pending').length}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="rounded-none">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Processed</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">
-              {payrollRecords.filter(r => r.status === 'processed').length}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="rounded-none">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Paid</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              {payrollRecords.filter(r => r.status === 'paid').length}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Error Display */}
-      {error && (
-        <Card className="mb-6 rounded-none border-red-200 bg-red-50">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 text-red-700">
-              <span>{error}</span>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Search */}
-      <Card className="mb-6 rounded-none">
-        <CardContent className="p-4">
-          <div className="flex gap-4">
-            <div className="flex-1">
-              <Input
-                placeholder="Search by employee ID or transaction reference..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="px-4 rounded-none h-10 w-full"
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Payroll Records Table */}
-      <Card className="rounded-none">
+      {/* Payroll Periods Table */}
+      <Card>
         <CardHeader>
-          <CardTitle>Payroll Records ({filteredRecords.length})</CardTitle>
+          <CardTitle>Payroll Periods</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Monthly payroll cycles for employee salary processing
+          </p>
         </CardHeader>
         <CardContent className="p-0">
           {loading ? (
-            <div className="text-center py-8">
+            <div className="text-center py-12">
               <RefreshCw className="h-8 w-8 mx-auto text-muted-foreground animate-spin mb-4" />
-              <p className="text-muted-foreground">Loading payroll records...</p>
+              <p className="text-muted-foreground">Loading payroll periods...</p>
             </div>
-          ) : filteredRecords.length === 0 ? (
-            <div className="text-center py-8">
-              <DollarSign className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No payroll records found</h3>
-              <p className="text-muted-foreground">
-                {payrollRecords.length === 0
-                  ? "No payroll records in the system."
-                  : "No records match your search criteria."
-                }
+          ) : periods.length === 0 ? (
+            <div className="text-center py-12">
+              <Calendar className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold mb-2">No payroll periods yet</h3>
+              <p className="text-muted-foreground mb-4">
+                Create your first payroll period to start managing employee salaries
               </p>
+              <Button onClick={() => setShowCreateDialog(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Create First Period
+              </Button>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="border-r border-border/50 text-left">Employee ID</TableHead>
-                    <TableHead className="border-r border-border/50 text-center">Pay Period</TableHead>
-                    <TableHead className="border-r border-border/50 text-center">Status</TableHead>
-                    <TableHead className="border-r border-border/50 text-center">Base Salary</TableHead>
-                    <TableHead className="border-r border-border/50 text-center">Gross Pay</TableHead>
-                    <TableHead className="border-r border-border/50 text-center">Deductions</TableHead>
-                    <TableHead className="border-r border-border/50 text-center">Net Pay</TableHead>
-                    <TableHead className="border-r border-border/50 text-center">Payment Method</TableHead>
-                    <TableHead className="text-center">Payment Date</TableHead>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Period Name</TableHead>
+                  <TableHead>Month</TableHead>
+                  <TableHead>Year</TableHead>
+                  <TableHead>Start Date</TableHead>
+                  <TableHead>End Date</TableHead>
+                  <TableHead className="text-center">Working Days</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-center">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {periods.map((period) => (
+                  <TableRow key={period.id} className="hover:bg-muted/50">
+                    <TableCell className="font-medium">{period.period_name}</TableCell>
+                    <TableCell>{period.period_month}</TableCell>
+                    <TableCell>{period.period_year}</TableCell>
+                    <TableCell>{period.period_start_date}</TableCell>
+                    <TableCell>{period.period_end_date}</TableCell>
+                    <TableCell className="text-center">{period.working_days}</TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          period.status === 'approved' ? 'default' :
+                          period.status === 'in_review' ? 'secondary' :
+                          period.status === 'paid' ? 'default' :
+                          period.status === 'locked' ? 'default' :
+                          'outline'
+                        }
+                        className={
+                          period.status === 'approved' ? 'bg-green-500 hover:bg-green-600' :
+                          period.status === 'paid' ? 'bg-blue-500 hover:bg-blue-600' :
+                          period.status === 'locked' ? 'bg-gray-500 hover:bg-gray-600' :
+                          ''
+                        }
+                      >
+                        {period.status === 'draft' && '📝 Draft'}
+                        {period.status === 'in_review' && '⚙️ In Review'}
+                        {period.status === 'approved' && '✅ Approved'}
+                        {period.status === 'paid' && '💰 Paid'}
+                        {period.status === 'locked' && '🔒 Locked'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <div className="flex gap-2 justify-center">
+                        {period.status === 'draft' && (
+                          <Button
+                            size="sm"
+                            onClick={() => handleGenerateRecords(period)}
+                            disabled={generatingFor === period.id}
+                          >
+                            {generatingFor === period.id ? (
+                              <>
+                                <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                                Generating...
+                              </>
+                            ) : (
+                              <>
+                                <Users className="h-3 w-3 mr-1" />
+                                Generate
+                              </>
+                            )}
+                          </Button>
+                        )}
+                        {(period.status === 'in_review' || period.status === 'approved') && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => navigate(`/payroll/${period.id}/records`)}
+                          >
+                            <FileText className="h-3 w-3 mr-1" />
+                            View Records
+                          </Button>
+                        )}
+                        {period.status === 'paid' && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => toast.info('Payslips coming soon')}
+                          >
+                            <FileText className="h-3 w-3 mr-1" />
+                            Payslips
+                          </Button>
+                        )}
+                        {(period.status === 'draft' || period.status === 'in_review') && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-red-600 hover:text-red-700"
+                            onClick={() => {
+                              setPeriodToDelete(period);
+                              setShowDeleteDialog(true);
+                            }}
+                            disabled={deletingId === period.id}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredRecords.map((record) => (
-                    <TableRow key={record.id} className="hover:bg-muted/50">
-                      <TableCell className="border-r border-border/50 text-left font-mono">
-                        {record.employee_id}
-                      </TableCell>
-                      <TableCell className="border-r border-border/50 text-center">
-                        <div className="text-sm">
-                          <div>{formatDate(record.pay_period_start)}</div>
-                          <div className="text-muted-foreground text-xs">
-                            to {formatDate(record.pay_period_end)}
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="border-r border-border/50 text-center">
-                        <div className="flex justify-center">
-                          <Badge variant={getStatusBadgeVariant(record.status)} className="rounded-none">
-                            {record.status.charAt(0).toUpperCase() + record.status.slice(1)}
-                          </Badge>
-                        </div>
-                      </TableCell>
-                      <TableCell className="border-r border-border/50 text-center">
-                        {formatCurrency(record.base_salary)}
-                      </TableCell>
-                      <TableCell className="border-r border-border/50 text-center">
-                        {formatCurrency(record.gross_pay)}
-                      </TableCell>
-                      <TableCell className="border-r border-border/50 text-center">
-                        {formatCurrency(record.deductions_total)}
-                      </TableCell>
-                      <TableCell className="border-r border-border/50 text-center">
-                        <span className="font-medium">{formatCurrency(record.net_pay)}</span>
-                      </TableCell>
-                      <TableCell className="border-r border-border/50 text-center">
-                        {record.payment_method ? (
-                          <Badge variant={getPaymentMethodBadgeVariant(record.payment_method)} className="rounded-none">
-                            {record.payment_method.replace('_', ' ').toUpperCase()}
-                          </Badge>
-                        ) : (
-                          <span className="text-muted-foreground text-sm">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        {record.payment_date ? (
-                          <span className="text-sm">{formatDate(record.payment_date)}</span>
-                        ) : (
-                          <span className="text-muted-foreground text-sm">-</span>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                ))}
+              </TableBody>
+            </Table>
           )}
         </CardContent>
       </Card>
 
-      {/* Add Payroll Record Dialog */}
-      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-        <DialogContent className="rounded-none max-w-2xl">
+      {/* Create Period Dialog */}
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Add Payroll Record</DialogTitle>
-            <DialogDescription>
-              Create a new payroll record for an employee
-            </DialogDescription>
+            <DialogTitle>Create Payroll Period</DialogTitle>
           </DialogHeader>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2 col-span-2">
-              <Label htmlFor="employee">Select Employee *</Label>
-              <Select
-                value={selectedEmployeeId}
-                onValueChange={handleEmployeeSelect}
-              >
-                <SelectTrigger className="rounded-none">
-                  <SelectValue placeholder="Select an active employee" />
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="month">Month</Label>
+              <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                <SelectTrigger id="month">
+                  <SelectValue placeholder="Select month" />
                 </SelectTrigger>
-                <SelectContent className="rounded-none max-h-60">
-                  {activeEmployees.map((employee) => (
-                    <SelectItem key={employee.id} value={employee.id}>
-                      {employee.full_name} - {employee.employee_id || employee.id} ({employee.department})
-                    </SelectItem>
-                  ))}
+                <SelectContent>
+                  <SelectItem value="1">January</SelectItem>
+                  <SelectItem value="2">February</SelectItem>
+                  <SelectItem value="3">March</SelectItem>
+                  <SelectItem value="4">April</SelectItem>
+                  <SelectItem value="5">May</SelectItem>
+                  <SelectItem value="6">June</SelectItem>
+                  <SelectItem value="7">July</SelectItem>
+                  <SelectItem value="8">August</SelectItem>
+                  <SelectItem value="9">September</SelectItem>
+                  <SelectItem value="10">October</SelectItem>
+                  <SelectItem value="11">November</SelectItem>
+                  <SelectItem value="12">December</SelectItem>
                 </SelectContent>
               </Select>
-              {selectedEmployeeId && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Employee ID: {formData.employee_id}
+            </div>
+
+            <div>
+              <Label htmlFor="year">Year</Label>
+              <Select value={selectedYear} onValueChange={setSelectedYear}>
+                <SelectTrigger id="year">
+                  <SelectValue placeholder="Select year" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="2024">2024</SelectItem>
+                  <SelectItem value="2025">2025</SelectItem>
+                  <SelectItem value="2026">2026</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {selectedMonth && selectedYear && (
+              <div className="p-3 bg-muted rounded-lg space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Period:</span>
+                  <span className="font-medium">
+                    {new Date(parseInt(selectedYear), parseInt(selectedMonth) - 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Working Days:</span>
+                  <span className="font-medium">
+                    {workingDays !== null ? workingDays : 'Calculating...'}
+                  </span>
+                </div>
+                {holidays.length > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Holidays:</span>
+                    <span className="font-medium text-orange-600">
+                      {holidays.length} day{holidays.length > 1 ? 's' : ''}
+                    </span>
+                  </div>
+                )}
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Start Date:</span>
+                  <span className="font-medium">
+                    {format(startOfMonth(new Date(parseInt(selectedYear), parseInt(selectedMonth) - 1)), 'dd MMM yyyy')}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">End Date:</span>
+                  <span className="font-medium">
+                    {format(endOfMonth(new Date(parseInt(selectedYear), parseInt(selectedMonth) - 1)), 'dd MMM yyyy')}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {workingDays === null && selectedMonth && selectedYear && (
+              <div className="p-3 bg-orange-50 dark:bg-orange-950 rounded-lg flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 text-orange-600 dark:text-orange-400 mt-0.5" />
+                <div className="text-sm">
+                  <p className="text-orange-900 dark:text-orange-100 font-medium">Working days calculation pending</p>
+                  <p className="text-orange-700 dark:text-orange-300">Using default value of 22 days if calculation fails</p>
+                </div>
+              </div>
+            )}
+
+            {holidays.length > 0 && (
+              <div className="p-3 bg-blue-50 dark:bg-blue-950 rounded-lg">
+                <p className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-2">
+                  Holidays in this period:
                 </p>
+                <div className="space-y-1">
+                  {holidays.map((holiday: any) => (
+                    <div key={holiday.id} className="flex justify-between text-xs">
+                      <span className="text-blue-700 dark:text-blue-300">
+                        {format(new Date(holiday.holiday_date), 'dd MMM')} - {holiday.holiday_name}
+                      </span>
+                      <Badge variant="outline" className="text-xs h-5">
+                        {holiday.holiday_type}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowCreateDialog(false);
+                setSelectedMonth("");
+                setSelectedYear("");
+                setWorkingDays(null);
+                setHolidays([]);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreatePeriod}
+              disabled={!selectedMonth || !selectedYear || creating}
+            >
+              {creating ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                'Create Period'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete Payroll Period</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="p-4 bg-red-50 dark:bg-red-950 rounded-lg">
+              <p className="text-sm text-red-900 dark:text-red-100">
+                Are you sure you want to delete this payroll period?
+              </p>
+              {periodToDelete && (
+                <div className="mt-3 space-y-1">
+                  <p className="text-sm font-medium text-red-800 dark:text-red-200">
+                    {periodToDelete.period_name}
+                  </p>
+                  <p className="text-xs text-red-700 dark:text-red-300">
+                    Period: {periodToDelete.period_start_date} to {periodToDelete.period_end_date}
+                  </p>
+                  <p className="text-xs text-red-700 dark:text-red-300">
+                    Status: {periodToDelete.status}
+                  </p>
+                </div>
               )}
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="payment_method">Payment Method</Label>
-              <Select
-                value={formData.payment_method}
-                onValueChange={(value) => setFormData({ ...formData, payment_method: value })}
-              >
-                <SelectTrigger className="rounded-none">
-                  <SelectValue placeholder="Select method" />
-                </SelectTrigger>
-                <SelectContent className="rounded-none">
-                  <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
-                  <SelectItem value="upi">UPI</SelectItem>
-                  <SelectItem value="cash">Cash</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>&nbsp;</Label>
-              <div className="text-sm text-muted-foreground">
-                {selectedEmployeeId && activeEmployees.find(e => e.id === selectedEmployeeId)?.salary && (
-                  <p>Salary auto-populated from employee record</p>
-                )}
+            <div className="p-3 bg-orange-50 dark:bg-orange-950 rounded-lg flex items-start gap-2">
+              <AlertCircle className="h-4 w-4 text-orange-600 dark:text-orange-400 mt-0.5" />
+              <div className="text-sm">
+                <p className="text-orange-900 dark:text-orange-100 font-medium">Warning</p>
+                <p className="text-orange-700 dark:text-orange-300">
+                  This action will also delete all payroll records associated with this period.
+                  This action cannot be undone.
+                </p>
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="pay_period_start">Pay Period Start *</Label>
-              <Input
-                id="pay_period_start"
-                type="date"
-                value={formData.pay_period_start}
-                onChange={(e) => setFormData({ ...formData, pay_period_start: e.target.value })}
-                className="rounded-none"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="pay_period_end">Pay Period End *</Label>
-              <Input
-                id="pay_period_end"
-                type="date"
-                value={formData.pay_period_end}
-                onChange={(e) => setFormData({ ...formData, pay_period_end: e.target.value })}
-                className="rounded-none"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="base_salary">Base Salary *</Label>
-              <Input
-                id="base_salary"
-                type="number"
-                step="0.01"
-                value={formData.base_salary}
-                onChange={(e) => setFormData({ ...formData, base_salary: e.target.value })}
-                placeholder="0.00"
-                className="rounded-none"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="gross_pay">Gross Pay *</Label>
-              <Input
-                id="gross_pay"
-                type="number"
-                step="0.01"
-                value={formData.gross_pay}
-                onChange={(e) => setFormData({ ...formData, gross_pay: e.target.value })}
-                placeholder="0.00"
-                className="rounded-none"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="deductions_total">Deductions</Label>
-              <Input
-                id="deductions_total"
-                type="number"
-                step="0.01"
-                value={formData.deductions_total}
-                onChange={(e) => setFormData({ ...formData, deductions_total: e.target.value })}
-                placeholder="0.00"
-                className="rounded-none"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="net_pay">Net Pay *</Label>
-              <Input
-                id="net_pay"
-                type="number"
-                step="0.01"
-                value={formData.net_pay}
-                onChange={(e) => setFormData({ ...formData, net_pay: e.target.value })}
-                placeholder="0.00"
-                className="rounded-none"
-              />
-            </div>
-
-            <div className="space-y-2 col-span-2">
-              <Label htmlFor="notes">Notes</Label>
-              <Input
-                id="notes"
-                value={formData.notes}
-                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                placeholder="Optional notes"
-                className="rounded-none"
-              />
             </div>
           </div>
 
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setShowAddDialog(false)}
-              className="rounded-none"
+              onClick={() => {
+                setShowDeleteDialog(false);
+                setPeriodToDelete(null);
+              }}
+              disabled={deletingId === periodToDelete?.id}
             >
               Cancel
             </Button>
             <Button
-              onClick={handleAddPayrollRecord}
-              disabled={!formData.employee_id || !formData.pay_period_start || !formData.pay_period_end || !formData.base_salary || !formData.gross_pay || !formData.net_pay}
-              className="rounded-none"
+              variant="destructive"
+              onClick={handleDeletePeriod}
+              disabled={deletingId === periodToDelete?.id}
             >
-              Add Record
+              {deletingId === periodToDelete?.id ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete Period
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Active Employees Reference Table */}
-      <div className="mt-8">
-        <Card className="rounded-none">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Active Employees ({filteredEmployees.length})</CardTitle>
-              <Input
-                placeholder="Search employees..."
-                value={employeeSearchTerm}
-                onChange={(e) => setEmployeeSearchTerm(e.target.value)}
-                className="px-4 rounded-none h-10 w-full max-w-sm"
-              />
-            </div>
-            <p className="text-sm text-muted-foreground">
-              List of all active employees who can have payroll records
-            </p>
-          </CardHeader>
-          <CardContent className="p-0">
-            {loading ? (
-              <div className="text-center py-8">
-                <RefreshCw className="h-8 w-8 mx-auto text-muted-foreground animate-spin mb-4" />
-                <p className="text-muted-foreground">Loading employees...</p>
-              </div>
-            ) : filteredEmployees.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-muted-foreground">No active employees found</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="border-r border-border/50 text-left">Full Name</TableHead>
-                      <TableHead className="border-r border-border/50 text-left">Employee ID</TableHead>
-                      <TableHead className="border-r border-border/50 text-left">Email</TableHead>
-                      <TableHead className="border-r border-border/50 text-center">Department</TableHead>
-                      <TableHead className="border-r border-border/50 text-center">Role</TableHead>
-                      <TableHead className="text-center">Salary</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredEmployees.map((employee) => (
-                      <TableRow key={employee.id} className="hover:bg-muted/50">
-                        <TableCell className="border-r border-border/50 text-left font-medium">
-                          {employee.full_name}
-                        </TableCell>
-                        <TableCell className="border-r border-border/50 text-left font-mono">
-                          {employee.employee_id || '-'}
-                        </TableCell>
-                        <TableCell className="border-r border-border/50 text-left text-sm">
-                          {employee.company_email}
-                        </TableCell>
-                        <TableCell className="border-r border-border/50 text-center">
-                          <Badge variant="outline" className="rounded-none">
-                            {employee.department}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="border-r border-border/50 text-center">
-                          <Badge variant="secondary" className="rounded-none">
-                            {employee.role}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          {employee.salary ? (
-                            <span className="font-medium">{formatCurrency(employee.salary)}</span>
-                          ) : (
-                            <span className="text-muted-foreground text-sm">Not set</span>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
     </div>
   );
 }

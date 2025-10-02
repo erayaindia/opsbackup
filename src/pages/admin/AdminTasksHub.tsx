@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { renderRichContent } from '@/lib/textUtils';
 import { getHierarchicalTaskId } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -86,6 +87,7 @@ import {
   GitBranch,
   Code,
   RotateCcw,
+  Brain,
 } from 'lucide-react';
 import { TaskCard } from '@/components/tasks/TaskCard';
 import { TaskDrawer } from '@/components/tasks/TaskDrawer';
@@ -112,6 +114,7 @@ import {
 } from '@/types/tasks';
 
 export default function AdminTasksHub() {
+  const navigate = useNavigate();
   const [selectedTask, setSelectedTask] = useState<TaskWithDetails | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [createTaskOpen, setCreateTaskOpen] = useState(false);
@@ -2014,6 +2017,11 @@ export default function AdminTasksHub() {
           </Button>
 
           {/* Actions */}
+          <Button onClick={() => navigate('/ai-task-analyzer')} variant="outline">
+            <Brain className="h-4 w-4 mr-2" />
+            AI Task Analyzer
+          </Button>
+
           <Button onClick={() => setCreateTaskOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Create Task

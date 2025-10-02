@@ -94,7 +94,9 @@ import GSTTax from "./pages/finance/GSTTax";
 import PendingRemittances from "./pages/finance/PendingRemittances";
 import Purchase from "./pages/finance/Purchase";
 import Invoice from "./pages/finance/Invoice";
-import Payroll from "./pages/account/Payroll";
+import Payroll from "./pages/finance/Payroll";
+import PayrollRecords from "./pages/finance/PayrollRecords";
+import HolidayCalendar from "./pages/HolidayCalendar";
 
 // Management pages
 import PeopleRoles from "./pages/management/PeopleRoles";
@@ -105,6 +107,7 @@ import AnalyticsInsights from "./pages/management/AnalyticsInsights";
 // Admin pages
 import Admin from "./pages/admin/Admin";
 import OnboardingApplications from "./pages/admin/OnboardingApplications";
+import AddEmployeeDetails from "./pages/admin/AddEmployeeDetails";
 
 // Profile page
 import Profile from "./pages/system/Profile";
@@ -199,7 +202,7 @@ const App = () => (
                 <Route path="chat" element={<Chat />} />
                 <Route path="tasks" element={<Tasks />} />
                 <Route path="team" element={<TeamManagement />} />
-                <Route path="users" element={
+                <Route path="people" element={
                   <PermissionGuard requiredModule="management" requiredRole={["admin", "super_admin"]}>
                     <Users />
                   </PermissionGuard>
@@ -479,7 +482,17 @@ const App = () => (
                     <Payroll />
                   </PermissionGuard>
                 } />
-                
+                <Route path="payroll/:periodId/records" element={
+                  <PermissionGuard requiredModule="finance">
+                    <PayrollRecords />
+                  </PermissionGuard>
+                } />
+                <Route path="holiday-calendar" element={
+                  <PermissionGuard requiredModule="team_hub">
+                    <HolidayCalendar />
+                  </PermissionGuard>
+                } />
+
                 {/* Management & Admin routes */}
                 <Route path="management/people-roles" element={
                   <PermissionGuard requiredModule="management" requiredRole={["admin", "super_admin"]}>
@@ -513,7 +526,12 @@ const App = () => (
                     <OnboardingApplications />
                   </PermissionGuard>
                 } />
-                
+                <Route path="admin/add-employee-details" element={
+                  <PermissionGuard requiredModule="management" requiredRole={["admin", "super_admin"]}>
+                    <AddEmployeeDetails />
+                  </PermissionGuard>
+                } />
+
                 {/* Alerts routes */}
                 <Route path="alerts/inventory" element={
                   <PermissionGuard requiredModule="alerts">

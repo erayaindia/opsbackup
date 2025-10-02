@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 
 interface KPIData {
-  activeUsers: number;
+  activePeople: number;
   activeTasks: number;
   pendingApplications: number;
   integrations: number;
@@ -29,7 +29,7 @@ interface KPIData {
 const Admin = () => {
   const navigate = useNavigate();
   const [kpiData, setKpiData] = useState<KPIData>({
-    activeUsers: 0,
+    activePeople: 0,
     activeTasks: 0,
     pendingApplications: 0,
     integrations: 0,
@@ -42,7 +42,7 @@ const Admin = () => {
       try {
         setKpiData(prev => ({ ...prev, loading: true }));
 
-        // Fetch active users count
+        // Fetch active people count
         const { count: usersCount } = await supabase
           .from('app_users')
           .select('*', { count: 'exact', head: true });
@@ -72,7 +72,7 @@ const Admin = () => {
         let integrationsCount = 12; // Placeholder - you can replace with actual query
 
         setKpiData({
-          activeUsers: usersCount || 0,
+          activePeople: usersCount || 0,
           activeTasks: tasksCount || 0,
           pendingApplications: applicationsCount,
           integrations: integrationsCount,
@@ -90,13 +90,13 @@ const Admin = () => {
 
   const adminOptions = [
     {
-      title: 'Users',
-      description: 'Manage user accounts, permissions, and access controls',
+      title: 'People & Roles',
+      description: 'Manage people accounts, roles, permissions, and access controls',
       icon: Users,
-      path: '/users',
+      path: '/people',
       color: 'bg-blue-500',
-      stats: `${kpiData.activeUsers} Active`,
-      category: 'User Management'
+      stats: `${kpiData.activePeople} Active`,
+      category: 'People Management'
     },
     {
       title: 'Employee Onboarding',
@@ -124,15 +124,6 @@ const Admin = () => {
       color: 'bg-orange-500',
       stats: `${kpiData.activeTasks} Active`,
       category: 'Operations'
-    },
-    {
-      title: 'People & Roles',
-      description: 'Manage organizational structure, roles, and permissions',
-      icon: Shield,
-      path: '/management/people-roles',
-      color: 'bg-red-500',
-      stats: 'Manage Roles',
-      category: 'Management'
     },
     {
       title: 'System Settings',
@@ -196,8 +187,8 @@ const Admin = () => {
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600">{kpiData.activeUsers}</div>
-              <div className="text-sm text-muted-foreground">Active Users</div>
+              <div className="text-2xl font-bold text-blue-600">{kpiData.activePeople}</div>
+              <div className="text-sm text-muted-foreground">Active People</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-green-600">{kpiData.activeTasks}</div>
