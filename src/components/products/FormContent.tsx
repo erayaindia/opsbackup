@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
-import { X, ImagePlus, VideoIcon, Eye } from 'lucide-react'
+import { X, ImagePlus, VideoIcon, Eye, Download } from 'lucide-react'
 import { ImagePreviewModal } from '@/components/fulfillment/packing/ImagePreviewModal'
 import ProductImageCarousel from './ProductImageCarousel'
 import RichEditor from '@/components/RichEditor'
@@ -177,6 +177,7 @@ export const FormContent: React.FC<FormContentProps> = ({
       <div className="p-4 bg-muted/10 rounded-lg border">
         <ProductImageCarousel
           productId={productId}
+          productName={newIdeaForm.workingTitle || newIdeaForm.name}
           maxImages={10}
           onImagesChange={onProductImagesChange}
         />
@@ -544,6 +545,26 @@ export const FormContent: React.FC<FormContentProps> = ({
                               onClick={() => openUploadedImagePreview(index)}
                             >
                               <Eye className="h-2 w-2 text-white" />
+                            </Button>
+                            {/* Download button */}
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="secondary"
+                              className="absolute -bottom-1 -left-1 h-5 w-5 rounded-full p-0 opacity-0 group-hover:opacity-100 transition-opacity bg-blue-500 hover:bg-blue-600 border-0 z-10"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                const url = URL.createObjectURL(file)
+                                const link = document.createElement('a')
+                                link.href = url
+                                link.download = file.name || `image-${index + 1}.jpg`
+                                document.body.appendChild(link)
+                                link.click()
+                                document.body.removeChild(link)
+                                URL.revokeObjectURL(url)
+                              }}
+                            >
+                              <Download className="h-3 w-3 text-white" />
                             </Button>
                             {/* Remove button */}
                             <Button

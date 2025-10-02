@@ -131,7 +131,8 @@ import { ActivityPanel, type StageKey, type TimelineEntry, type NowNextBlocked, 
 import { FormContent } from '@/components/products/FormContent'
 
 const STORAGE_KEYS = {
-  LAST_VIEW: 'lifecycle_last_view'
+  LAST_VIEW: 'lifecycle_last_view',
+  COLLAPSED_GROUPS: 'products_collapsed_groups'
 }
 
 const STAGE_CONFIG = {
@@ -715,8 +716,17 @@ export default function Lifecycle() {
   
   // Saved views state
   const [savedViews, setSavedViews] = useState<SavedView[]>([])
-  
-  
+
+  // Collapsed groups state (for toggle functionality) - load from localStorage
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.COLLAPSED_GROUPS)
+      return saved ? new Set(JSON.parse(saved)) : new Set()
+    } catch {
+      return new Set()
+    }
+  })
+
   // Stage filter state
   const [activeStageFilter, setActiveStageFilter] = useState<Stage | 'all'>('all')
 
@@ -933,7 +943,12 @@ export default function Lifecycle() {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.LAST_VIEW, selectedView)
   }, [selectedView])
-  
+
+  // Persist collapsed groups state
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.COLLAPSED_GROUPS, JSON.stringify(Array.from(collapsedGroups)))
+  }, [collapsedGroups])
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -1457,6 +1472,19 @@ export default function Lifecycle() {
     setGroupBy(option)
   }
 
+  // Toggle group collapse/expand
+  const toggleGroupCollapse = (groupName: string) => {
+    setCollapsedGroups(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(groupName)) {
+        newSet.delete(groupName)
+      } else {
+        newSet.add(groupName)
+      }
+      return newSet
+    })
+  }
+
   // Handle column visibility toggle
   const toggleColumnVisibility = (columnKey: string) => {
     setTableColumns(prev =>
@@ -1803,164 +1831,351 @@ export default function Lifecycle() {
         
         {/* Main Content Based on View */}
         {selectedView === 'table' && (
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="border-r border-border/50 whitespace-nowrap min-w-[300px]">Product</TableHead>
-                  <TableHead className="border-r border-border/50 whitespace-nowrap min-w-[120px]">Stage</TableHead>
-                  <TableHead className="border-r border-border/50 whitespace-nowrap min-w-[100px]">Priority</TableHead>
-                  <TableHead className="border-r border-border/50 whitespace-nowrap min-w-[150px]">Category</TableHead>
-                  <TableHead className="border-r border-border/50 whitespace-nowrap min-w-[120px]">Assigned To</TableHead>
-                  <TableHead className="border-r border-border/50 whitespace-nowrap min-w-[100px]">Created</TableHead>
-                  <TableHead className="whitespace-nowrap min-w-[80px]">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredCards.map((card) => {
-                  const priorityVariant = card.priority === 'high' ? 'destructive' :
-                                      card.priority === 'medium' ? 'default' :
-                                      'secondary' as const;
-                  const stageConfig = STAGE_CONFIG[card.stage];
-                  const StageIcon = stageConfig?.icon || Package;
+          <>
+            {filteredCards.length > 0 ? (
+              <>
+                {groupBy === 'none' ? (
+                  <div className="rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="border-r border-border/50 whitespace-nowrap min-w-[300px]">Product</TableHead>
+                          <TableHead className="border-r border-border/50 whitespace-nowrap min-w-[120px]">Stage</TableHead>
+                          <TableHead className="border-r border-border/50 whitespace-nowrap min-w-[100px]">Priority</TableHead>
+                          <TableHead className="border-r border-border/50 whitespace-nowrap min-w-[150px]">Category</TableHead>
+                          <TableHead className="border-r border-border/50 whitespace-nowrap min-w-[120px]">Assigned To</TableHead>
+                          <TableHead className="border-r border-border/50 whitespace-nowrap min-w-[100px]">Created</TableHead>
+                          <TableHead className="whitespace-nowrap min-w-[80px]">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredCards.map((card) => {
+                          const priorityVariant = card.priority === 'high' ? 'destructive' :
+                                              card.priority === 'medium' ? 'default' :
+                                              'secondary' as const;
+                          const stageConfig = STAGE_CONFIG[card.stage];
+                          const StageIcon = stageConfig?.icon || Package;
 
-                  return (
-                    <TableRow
-                      key={card.id}
-                      className="cursor-pointer hover:bg-muted/50 transition-colors group"
-                      onClick={() => handleProductClick(card)}
-                    >
-                      {/* Product Info with Thumbnail */}
-                      <TableCell className="border-r border-border/50">
-                        <div className="flex items-center gap-3">
-                          {/* Product Thumbnail */}
-                          <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden">
-                            {card.primaryFile?.file_url ? (
-                              <LazyImage
-                                src={card.primaryFile?.file_url}
-                                alt={card.workingTitle || card.name}
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <Package className="h-5 w-5 text-muted-foreground" />
-                            )}
-                          </div>
-                          {/* Product Details */}
-                          <div className="min-w-0 flex-1">
-                            <div className="font-medium truncate group-hover:text-primary transition-colors">
-                              {card.workingTitle || card.name || `Product ${card.internalCode}`}
-                            </div>
-                            <div className="text-sm text-muted-foreground font-mono">{card.internalCode}</div>
-                            {/* Tags */}
-                            {card.tags && card.tags.length > 0 && (
-                              <div className="flex items-center gap-1 mt-1 overflow-hidden">
-                                {card.tags.slice(0, 2).map((tag, tagIndex) => (
-                                  <Badge key={tagIndex} variant="secondary" className="text-xs">
-                                    {tag}
-                                  </Badge>
-                                ))}
-                                {card.tags.length > 2 && (
-                                  <span className="text-xs text-muted-foreground">+{card.tags.length - 2}</span>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </TableCell>
+                          return (
+                            <TableRow
+                              key={card.id}
+                              className="cursor-pointer hover:bg-muted/50 transition-colors group"
+                              onClick={() => handleProductClick(card)}
+                            >
+                              {/* Product Info with Thumbnail */}
+                              <TableCell className="border-r border-border/50">
+                                <div className="flex items-center gap-3">
+                                  {/* Product Thumbnail */}
+                                  <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden">
+                                    {card.primaryFile?.file_url ? (
+                                      <LazyImage
+                                        src={card.primaryFile?.file_url}
+                                        alt={card.workingTitle || card.name}
+                                        className="w-full h-full object-cover"
+                                      />
+                                    ) : (
+                                      <Package className="h-5 w-5 text-muted-foreground" />
+                                    )}
+                                  </div>
+                                  {/* Product Details */}
+                                  <div className="min-w-0 flex-1">
+                                    <div className="font-medium truncate group-hover:text-primary transition-colors">
+                                      {card.workingTitle || card.name || `Product ${card.internalCode}`}
+                                    </div>
+                                    <div className="text-sm text-muted-foreground font-mono">{card.internalCode}</div>
+                                    {/* Tags */}
+                                    {card.tags && card.tags.length > 0 && (
+                                      <div className="flex items-center gap-1 mt-1 overflow-hidden">
+                                        {card.tags.slice(0, 2).map((tag, tagIndex) => (
+                                          <Badge key={tagIndex} variant="secondary" className="text-xs">
+                                            {tag}
+                                          </Badge>
+                                        ))}
+                                        {card.tags.length > 2 && (
+                                          <span className="text-xs text-muted-foreground">+{card.tags.length - 2}</span>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </TableCell>
 
-                      {/* Stage */}
-                      <TableCell className="border-r border-border/50">
-                        <div className="flex items-center gap-2">
-                          <div className={`p-1.5 rounded-lg ${stageConfig?.bgColor || 'bg-muted'}`}>
-                            <StageIcon className={`h-4 w-4 ${stageConfig?.color || 'text-muted-foreground'}`} />
-                          </div>
-                          <span className="font-medium">{stageConfig?.name || card.stage}</span>
-                        </div>
-                      </TableCell>
+                              {/* Stage */}
+                              <TableCell className="border-r border-border/50">
+                                <div className="flex items-center gap-2">
+                                  <div className={`p-1.5 rounded-lg ${stageConfig?.bgColor || 'bg-muted'}`}>
+                                    <StageIcon className={`h-4 w-4 ${stageConfig?.color || 'text-muted-foreground'}`} />
+                                  </div>
+                                  <span className="font-medium">{stageConfig?.name || card.stage}</span>
+                                </div>
+                              </TableCell>
 
-                      {/* Priority */}
-                      <TableCell className="border-r border-border/50">
-                        <Badge variant={priorityVariant}>
-                          {(card.priority || 'medium').charAt(0).toUpperCase() + (card.priority || 'medium').slice(1)}
-                        </Badge>
-                      </TableCell>
+                              {/* Priority */}
+                              <TableCell className="border-r border-border/50">
+                                <Badge variant={priorityVariant}>
+                                  {(card.priority || 'medium').charAt(0).toUpperCase() + (card.priority || 'medium').slice(1)}
+                                </Badge>
+                              </TableCell>
 
-                      {/* Category */}
-                      <TableCell className="border-r border-border/50">
-                        <div className="flex flex-wrap gap-1">
-                          {card.category.slice(0, 2).map((cat, catIndex) => (
-                            <Badge key={catIndex} variant="secondary" className="text-xs">
-                              {cat}
+                              {/* Category */}
+                              <TableCell className="border-r border-border/50">
+                                <div className="flex flex-wrap gap-1">
+                                  {card.category.slice(0, 2).map((cat, catIndex) => (
+                                    <Badge key={catIndex} variant="secondary" className="text-xs">
+                                      {cat}
+                                    </Badge>
+                                  ))}
+                                  {card.category.length > 2 && (
+                                    <span className="text-xs text-muted-foreground">+{card.category.length - 2}</span>
+                                  )}
+                                </div>
+                              </TableCell>
+
+                              {/* Assigned To */}
+                              <TableCell className="border-r border-border/50">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-medium text-primary">
+                                    {card.teamLead?.name?.charAt(0) || '?'}
+                                  </div>
+                                  <div>
+                                    <div className="font-medium">{card.teamLead?.name?.split(' ')[0] || 'Unknown'}</div>
+                                    <div className="text-xs text-muted-foreground">{card.teamLead?.name?.split(' ').slice(1).join(' ') || ''}</div>
+                                  </div>
+                                </div>
+                              </TableCell>
+
+                              {/* Created Date */}
+                              <TableCell className="border-r border-border/50">
+                                <div className="text-sm">
+                                  {card.createdAt.toLocaleDateString('en-US', {
+                                    month: 'short',
+                                    day: 'numeric',
+                                    year: 'numeric'
+                                  })}
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  {card.idleDays} days ago
+                                </div>
+                              </TableCell>
+
+                              {/* Actions */}
+                              <TableCell>
+                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 w-8 p-0"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleProductClick(card)
+                                    }}
+                                  >
+                                    <ExternalLink className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 w-8 p-0"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      // Edit functionality can be added here
+                                    }}
+                                  >
+                                    <Edit3 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {Object.entries(groupedCards).map(([groupName, cards]) => {
+                      const isCollapsed = collapsedGroups.has(groupName)
+                      return (
+                        <div key={groupName} className="space-y-3">
+                          <div
+                            className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
+                            onClick={() => toggleGroupCollapse(groupName)}
+                          >
+                            <ChevronDown
+                              className={`h-5 w-5 text-muted-foreground transition-transform ${
+                                isCollapsed ? '-rotate-90' : ''
+                              }`}
+                            />
+                            <h3 className="text-lg font-semibold text-foreground">{groupName}</h3>
+                            <Badge variant="secondary" className="px-2 py-1 text-xs">
+                              {cards.length} {cards.length === 1 ? 'item' : 'items'}
                             </Badge>
-                          ))}
-                          {card.category.length > 2 && (
-                            <span className="text-xs text-muted-foreground">+{card.category.length - 2}</span>
+                          </div>
+                          {!isCollapsed && (
+                            <div className="rounded-md border">
+                              <Table>
+                                <TableHeader>
+                                  <TableRow>
+                                    <TableHead className="border-r border-border/50 whitespace-nowrap min-w-[300px]">Product</TableHead>
+                                    <TableHead className="border-r border-border/50 whitespace-nowrap min-w-[120px]">Stage</TableHead>
+                                    <TableHead className="border-r border-border/50 whitespace-nowrap min-w-[100px]">Priority</TableHead>
+                                    <TableHead className="border-r border-border/50 whitespace-nowrap min-w-[150px]">Category</TableHead>
+                                    <TableHead className="border-r border-border/50 whitespace-nowrap min-w-[120px]">Assigned To</TableHead>
+                                    <TableHead className="border-r border-border/50 whitespace-nowrap min-w-[100px]">Created</TableHead>
+                                    <TableHead className="whitespace-nowrap min-w-[80px]">Actions</TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {cards.map((card) => {
+                                    const priorityVariant = card.priority === 'high' ? 'destructive' :
+                                                        card.priority === 'medium' ? 'default' :
+                                                        'secondary' as const;
+                                    const stageConfig = STAGE_CONFIG[card.stage];
+                                    const StageIcon = stageConfig?.icon || Package;
+
+                                    return (
+                                      <TableRow
+                                        key={card.id}
+                                        className="cursor-pointer hover:bg-muted/50 transition-colors group"
+                                        onClick={() => handleProductClick(card)}
+                                      >
+                                        {/* Product Info with Thumbnail */}
+                                        <TableCell className="border-r border-border/50">
+                                          <div className="flex items-center gap-3">
+                                            {/* Product Thumbnail */}
+                                            <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden">
+                                              {card.primaryFile?.file_url ? (
+                                                <LazyImage
+                                                  src={card.primaryFile?.file_url}
+                                                  alt={card.workingTitle || card.name}
+                                                  className="w-full h-full object-cover"
+                                                />
+                                              ) : (
+                                                <Package className="h-5 w-5 text-muted-foreground" />
+                                              )}
+                                            </div>
+                                            {/* Product Details */}
+                                            <div className="min-w-0 flex-1">
+                                              <div className="font-medium truncate group-hover:text-primary transition-colors">
+                                                {card.workingTitle || card.name || `Product ${card.internalCode}`}
+                                              </div>
+                                              <div className="text-sm text-muted-foreground font-mono">{card.internalCode}</div>
+                                              {/* Tags */}
+                                              {card.tags && card.tags.length > 0 && (
+                                                <div className="flex items-center gap-1 mt-1 overflow-hidden">
+                                                  {card.tags.slice(0, 2).map((tag, tagIndex) => (
+                                                    <Badge key={tagIndex} variant="secondary" className="text-xs">
+                                                      {tag}
+                                                    </Badge>
+                                                  ))}
+                                                  {card.tags.length > 2 && (
+                                                    <span className="text-xs text-muted-foreground">+{card.tags.length - 2}</span>
+                                                  )}
+                                                </div>
+                                              )}
+                                            </div>
+                                          </div>
+                                        </TableCell>
+
+                                        {/* Stage */}
+                                        <TableCell className="border-r border-border/50">
+                                          <div className="flex items-center gap-2">
+                                            <div className={`p-1.5 rounded-lg ${stageConfig?.bgColor || 'bg-muted'}`}>
+                                              <StageIcon className={`h-4 w-4 ${stageConfig?.color || 'text-muted-foreground'}`} />
+                                            </div>
+                                            <span className="font-medium">{stageConfig?.name || card.stage}</span>
+                                          </div>
+                                        </TableCell>
+
+                                        {/* Priority */}
+                                        <TableCell className="border-r border-border/50">
+                                          <Badge variant={priorityVariant}>
+                                            {(card.priority || 'medium').charAt(0).toUpperCase() + (card.priority || 'medium').slice(1)}
+                                          </Badge>
+                                        </TableCell>
+
+                                        {/* Category */}
+                                        <TableCell className="border-r border-border/50">
+                                          <div className="flex flex-wrap gap-1">
+                                            {card.category.slice(0, 2).map((cat, catIndex) => (
+                                              <Badge key={catIndex} variant="secondary" className="text-xs">
+                                                {cat}
+                                              </Badge>
+                                            ))}
+                                            {card.category.length > 2 && (
+                                              <span className="text-xs text-muted-foreground">+{card.category.length - 2}</span>
+                                            )}
+                                          </div>
+                                        </TableCell>
+
+                                        {/* Assigned To */}
+                                        <TableCell className="border-r border-border/50">
+                                          <div className="flex items-center gap-2">
+                                            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-medium text-primary">
+                                              {card.teamLead?.name?.charAt(0) || '?'}
+                                            </div>
+                                            <div>
+                                              <div className="font-medium">{card.teamLead?.name?.split(' ')[0] || 'Unknown'}</div>
+                                              <div className="text-xs text-muted-foreground">{card.teamLead?.name?.split(' ').slice(1).join(' ') || ''}</div>
+                                            </div>
+                                          </div>
+                                        </TableCell>
+
+                                        {/* Created Date */}
+                                        <TableCell className="border-r border-border/50">
+                                          <div className="text-sm">
+                                            {card.createdAt.toLocaleDateString('en-US', {
+                                              month: 'short',
+                                              day: 'numeric',
+                                              year: 'numeric'
+                                            })}
+                                          </div>
+                                          <div className="text-xs text-muted-foreground">
+                                            {card.idleDays} days ago
+                                          </div>
+                                        </TableCell>
+
+                                        {/* Actions */}
+                                        <TableCell>
+                                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <Button
+                                              variant="ghost"
+                                              size="sm"
+                                              className="h-8 w-8 p-0"
+                                              onClick={(e) => {
+                                                e.stopPropagation()
+                                                handleProductClick(card)
+                                              }}
+                                            >
+                                              <ExternalLink className="h-4 w-4" />
+                                            </Button>
+                                            <Button
+                                              variant="ghost"
+                                              size="sm"
+                                              className="h-8 w-8 p-0"
+                                              onClick={(e) => {
+                                                e.stopPropagation()
+                                                // Edit functionality can be added here
+                                              }}
+                                            >
+                                              <Edit3 className="h-4 w-4" />
+                                            </Button>
+                                          </div>
+                                        </TableCell>
+                                      </TableRow>
+                                    );
+                                  })}
+                                </TableBody>
+                              </Table>
+                            </div>
                           )}
                         </div>
-                      </TableCell>
-
-                      {/* Assigned To */}
-                      <TableCell className="border-r border-border/50">
-                        <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-medium text-primary">
-                            {card.teamLead?.name?.charAt(0) || '?'}
-                          </div>
-                          <div>
-                            <div className="font-medium">{card.teamLead?.name?.split(' ')[0] || 'Unknown'}</div>
-                            <div className="text-xs text-muted-foreground">{card.teamLead?.name?.split(' ').slice(1).join(' ') || ''}</div>
-                          </div>
-                        </div>
-                      </TableCell>
-
-                      {/* Created Date */}
-                      <TableCell className="border-r border-border/50">
-                        <div className="text-sm">
-                          {card.createdAt.toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric'
-                          })}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {card.idleDays} days ago
-                        </div>
-                      </TableCell>
-
-                      {/* Actions */}
-                      <TableCell>
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleProductClick(card)
-                            }}
-                          >
-                            <ExternalLink className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              // Edit functionality can be added here
-                            }}
-                          >
-                            <Edit3 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-
-            {/* Empty State */}
-            {filteredCards.length === 0 && (
+                      )
+                    })}
+                  </div>
+                )}
+              </>
+            ) : (
               <EmptyState
                 hasFilters={hasActiveFilters}
                 searchQuery={searchQuery}
@@ -1968,7 +2183,7 @@ export default function Lifecycle() {
                 onClearFilters={clearAllFilters}
               />
             )}
-          </div>
+          </>
         )}
         {selectedView === 'gallery' && (
           <>
@@ -1993,32 +2208,45 @@ export default function Lifecycle() {
                   </div>
                 ) : (
                   <div className="space-y-8">
-                    {Object.entries(groupedCards).map(([groupName, cards]) => (
-                      <div key={groupName} className="space-y-4">
-                        <div className="flex items-center gap-3">
-                          <h3 className="text-lg font-semibold text-foreground">{groupName}</h3>
-                          <Badge variant="secondary" className="px-2 py-1 text-xs">
-                            {cards.length} {cards.length === 1 ? 'item' : 'items'}
-                          </Badge>
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 sm:gap-6">
-                          {cards.map(card => (
-                            <ProductCard
-                              key={card.id}
-                              card={card}
-                              onClick={handleProductClick}
-                              onFavorite={toggleFavorite}
-                              onArchive={handleArchive}
-                              onDuplicate={handleDuplicate}
-                              isFavorite={favoriteProducts.has(card.id)}
-                              getProductAge={getProductAge}
-                              primaryFile={card.primaryFile}
-                              canDelete={hasRole(['super_admin'])}
+                    {Object.entries(groupedCards).map(([groupName, cards]) => {
+                      const isCollapsed = collapsedGroups.has(groupName)
+                      return (
+                        <div key={groupName} className="space-y-4">
+                          <div
+                            className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
+                            onClick={() => toggleGroupCollapse(groupName)}
+                          >
+                            <ChevronDown
+                              className={`h-5 w-5 text-muted-foreground transition-transform ${
+                                isCollapsed ? '-rotate-90' : ''
+                              }`}
                             />
-                          ))}
+                            <h3 className="text-lg font-semibold text-foreground">{groupName}</h3>
+                            <Badge variant="secondary" className="px-2 py-1 text-xs">
+                              {cards.length} {cards.length === 1 ? 'item' : 'items'}
+                            </Badge>
+                          </div>
+                          {!isCollapsed && (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 sm:gap-6">
+                              {cards.map(card => (
+                                <ProductCard
+                                  key={card.id}
+                                  card={card}
+                                  onClick={handleProductClick}
+                                  onFavorite={toggleFavorite}
+                                  onArchive={handleArchive}
+                                  onDuplicate={handleDuplicate}
+                                  isFavorite={favoriteProducts.has(card.id)}
+                                  getProductAge={getProductAge}
+                                  primaryFile={card.primaryFile}
+                                  canDelete={hasRole(['super_admin'])}
+                                />
+                              ))}
+                            </div>
+                          )}
                         </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 )}
 

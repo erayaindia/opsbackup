@@ -37,7 +37,8 @@ import {
   FileVideo,
   FileText,
   Archive,
-  Plus
+  Plus,
+  Download
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 import { productFilesService, type ProductFile } from '@/services/productFilesService'
@@ -101,6 +102,9 @@ const renderFilePreview = (file: ProductFile) => {
 
 interface SortableFileProps {
   file: ProductFile
+  productName?: string
+  fileIndex?: number
+  totalFiles?: number
   onDelete: (id: string) => void
   onSetPrimary: (id: string) => void
   onPreview: (file: ProductFile) => void
@@ -109,6 +113,9 @@ interface SortableFileProps {
 
 const SortableFile: React.FC<SortableFileProps> = ({
   file,
+  productName,
+  fileIndex = 1,
+  totalFiles = 1,
   onDelete,
   onSetPrimary,
   onPreview,
@@ -184,6 +191,81 @@ const SortableFile: React.FC<SortableFileProps> = ({
           <GripVertical className="h-2.5 w-2.5 text-white m-0.5" />
         </div>
 
+        {/* Download button - top left */}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="absolute top-0 left-0 h-4 w-4 p-0 bg-blue-500/80 hover:bg-blue-600 text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-auto rounded-br"
+          onClick={async (e) => {
+            e.stopPropagation()
+            // Get file extension from the original filename or file type
+            const extension = file.file_name?.split('.').pop() ||
+                            (file.file_type?.startsWith('image/') ? 'jpg' :
+                             file.file_type?.startsWith('video/') ? 'mp4' :
+                             file.file_type?.includes('pdf') ? 'pdf' : 'file')
+
+            // Build filename with product name and number if multiple files
+            let filename: string
+            if (productName) {
+              if (totalFiles > 1) {
+                filename = `${productName} (${fileIndex}).${extension}`
+              } else {
+                filename = `${productName}.${extension}`
+              }
+            } else {
+              filename = file.file_name || `download.${extension}`
+            }
+
+            console.log('Download debug:', { productName, fileIndex, totalFiles, filename })
+
+            try {
+              // Fetch the file as a blob with CORS mode
+              const response = await fetch(file.file_url, {
+                mode: 'cors',
+                credentials: 'omit'
+              })
+
+              if (!response.ok) {
+                throw new Error('Failed to fetch file')
+              }
+
+              const blob = await response.blob()
+
+              // Create a blob URL and trigger download
+              const blobUrl = window.URL.createObjectURL(blob)
+              const link = document.createElement('a')
+              link.style.display = 'none'
+              link.href = blobUrl
+              link.download = filename
+              link.setAttribute('download', filename) // Force download attribute
+
+              document.body.appendChild(link)
+              link.click()
+
+              // Clean up
+              setTimeout(() => {
+                document.body.removeChild(link)
+                window.URL.revokeObjectURL(blobUrl)
+              }, 100)
+
+              toast({
+                title: 'Download Started',
+                description: `Downloading ${filename}`,
+              })
+            } catch (error) {
+              console.error('Download failed:', error)
+              toast({
+                title: 'Download Failed',
+                description: 'Failed to download file',
+                variant: 'destructive'
+              })
+            }
+          }}
+          aria-label="Download file"
+        >
+          <Download className="h-2.5 w-2.5" />
+        </Button>
+
         {/* Delete button - bottom right */}
         <Button
           variant="ghost"
@@ -221,6 +303,7 @@ const SortableFile: React.FC<SortableFileProps> = ({
 
 interface ProductImageCarouselProps {
   productId?: string
+  productName?: string
   className?: string
   maxImages?: number
   onImagesChange?: (files: ProductFile[]) => void
@@ -228,6 +311,7 @@ interface ProductImageCarouselProps {
 
 export const ProductImageCarousel: React.FC<ProductImageCarouselProps> = ({
   productId,
+  productName,
   className,
   maxImages = 10,
   onImagesChange
@@ -587,10 +671,13 @@ export const ProductImageCarousel: React.FC<ProductImageCarouselProps> = ({
           onDragEnd={handleDragEnd}
         >
           <SortableContext items={files.map(file => file.id)} strategy={rectSortingStrategy}>
-            {files.map((file) => (
+            {files.map((file, index) => (
               <div key={file.id} className="w-48 h-48 flex-shrink-0">
                 <SortableFile
                   file={file}
+                  productName={productName}
+                  fileIndex={index + 1}
+                  totalFiles={files.length}
                   onDelete={handleDeleteFile}
                   onSetPrimary={handleSetPrimary}
                   onPreview={handlePreview}
