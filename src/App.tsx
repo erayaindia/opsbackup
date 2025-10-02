@@ -478,12 +478,12 @@ const App = () => (
                   </PermissionGuard>
                 } />
                 <Route path="payroll" element={
-                  <PermissionGuard requiredModule="finance">
+                  <PermissionGuard requiredModule="finance" requiredRole={["super_admin"]}>
                     <Payroll />
                   </PermissionGuard>
                 } />
                 <Route path="payroll/:periodId/records" element={
-                  <PermissionGuard requiredModule="finance">
+                  <PermissionGuard requiredModule="finance" requiredRole={["super_admin"]}>
                     <PayrollRecords />
                   </PermissionGuard>
                 } />

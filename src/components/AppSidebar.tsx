@@ -163,7 +163,6 @@ const productManagementItems = [
 const accountsItems = [
   { title: "Purchase", url: "/account/purchase", icon: ShoppingCart },
   { title: "Invoice", url: "/account/invoice", icon: FileText },
-  { title: "Payroll", url: "/payroll", icon: DollarSign },
 ];
 
 // Admin Section
@@ -367,6 +366,12 @@ export function AppSidebar() {
     return ['admin', 'super_admin'].includes(currentUser.role);
   };
 
+  // Check if user has super_admin role only
+  const hasSuperAdminAccess = (): boolean => {
+    if (!currentUser) return false;
+    return currentUser.role === 'super_admin';
+  };
+
   // Special render function for Admin menu with role-based access
   const renderAdminMenuSection = () => {
     if (isLoading || permissionsLoading) {
@@ -400,17 +405,17 @@ export function AppSidebar() {
             <NavLink
               to={hasFullAccess ? adminItem.url : '#'}
               end
-              className={`${isCollapsed && !hoverExpanded ? 'flex items-center justify-center w-full h-full' : 'flex items-center'}`}
+              className={`${isCollapsed && !hoverExpanded ? 'flex items-center justify-center w-full h-full' : 'flex items-center w-full'}`}
               onClick={hasFullAccess ? undefined : (e) => e.preventDefault()}
             >
               <adminItem.icon className={`h-4 w-4 transition-all duration-300 ease-in-out group-hover:scale-110 ${active ? 'text-sidebar-primary-foreground' : hasFullAccess ? '' : 'text-sidebar-foreground/40'} ${isCollapsed && !hoverExpanded ? '' : 'mr-2'}`} />
               {shouldShowLabels && (
-                <span className={`${active ? 'font-medium' : ''} ${hasFullAccess ? '' : 'text-sidebar-foreground/50'} transition-all duration-500 ease-in-out whitespace-nowrap text-sm flex-1`}>
+                <span className={`${active ? 'font-medium' : ''} ${hasFullAccess ? '' : 'text-sidebar-foreground/50'} transition-all duration-500 ease-in-out whitespace-nowrap text-sm`}>
                   {adminItem.title}
                 </span>
               )}
               {!hasFullAccess && shouldShowLabels && (
-                <Lock className="h-3 w-3 text-sidebar-foreground/40 ml-auto" />
+                <Lock className="h-4 w-4 text-orange-500 ml-2 flex-shrink-0" />
               )}
               {active && shouldShowLabels && hasFullAccess && (
                 <div className="absolute right-2 w-1 h-1 bg-sidebar-primary-foreground rounded-full animate-bounce-in" />
@@ -453,6 +458,56 @@ export function AppSidebar() {
         </SidebarGroupContent>
       </SidebarGroup>
     );
+  };
+
+  // Special render function for Payroll menu with super_admin role-based access
+  const renderPayrollMenuSection = () => {
+    if (isLoading || permissionsLoading) {
+      return <SkeletonMenu count={1} showLabels={shouldShowLabels} />;
+    }
+
+    const hasModuleAccess = canAccessModule('finance');
+    const hasRoleAccess = hasSuperAdminAccess();
+    const hasFullAccess = hasModuleAccess && hasRoleAccess;
+    const active = isActive('/payroll');
+
+    const payrollItem = { title: "Payroll", url: "/payroll", icon: DollarSign };
+
+    const menuButton = (
+      <SidebarMenuItem style={{ animationDelay: '0ms' }}>
+        <RippleEffect className="rounded-none">
+          <SidebarMenuButton
+            asChild
+            className={`
+              h-8 rounded-none transition-all duration-400 ease-in-out ml-6 group
+              hover:scale-105 active:scale-95
+              ${active
+                ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium shadow-sm'
+                : hasFullAccess
+                  ? 'hover:bg-sidebar-accent/50 text-sidebar-foreground/70 hover:text-sidebar-foreground hover:shadow-sm'
+                  : 'hover:bg-sidebar-accent/30 text-sidebar-foreground/50 cursor-not-allowed'
+              }
+            `}
+          >
+            <NavLink
+              to={hasFullAccess ? payrollItem.url : '#'}
+              className="flex items-center w-full"
+              onClick={hasFullAccess ? undefined : (e) => e.preventDefault()}
+            >
+              <payrollItem.icon className={`h-4 w-4 mr-2 transition-transform duration-300 ease-in-out group-hover:scale-110 flex-shrink-0 ${active ? '' : hasFullAccess ? '' : 'text-sidebar-foreground/40'}`} />
+              <span className={`whitespace-nowrap text-sm ${hasFullAccess ? '' : 'text-sidebar-foreground/50'}`}>
+                {payrollItem.title}
+              </span>
+              {!hasFullAccess && (
+                <Lock className="h-4 w-4 text-orange-500 ml-2 flex-shrink-0" />
+              )}
+            </NavLink>
+          </SidebarMenuButton>
+        </RippleEffect>
+      </SidebarMenuItem>
+    );
+
+    return menuButton;
   };
 
   const renderMenuSection = (items: typeof operationsItems, label: string, requiredModule?: string) => {
@@ -1021,13 +1076,13 @@ export function AppSidebar() {
                       return (
                         <SidebarMenuItem key={item.title} className="animate-stagger-in" style={{ animationDelay: `${index * 50}ms` }}>
                           <RippleEffect className="rounded-none">
-                            <SidebarMenuButton 
-                              asChild 
+                            <SidebarMenuButton
+                              asChild
                               className={`
                                 h-8 rounded-none transition-all duration-400 ease-in-out ml-6 group
                                 hover:scale-105 active:scale-95
-                                ${active 
-                                  ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium shadow-sm' 
+                                ${active
+                                  ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium shadow-sm'
                                   : 'hover:bg-sidebar-accent/50 text-sidebar-foreground/70 hover:text-sidebar-foreground hover:shadow-sm'
                                 }
                               `}
@@ -1041,6 +1096,8 @@ export function AppSidebar() {
                         </SidebarMenuItem>
                       );
                     })}
+                    {/* Payroll - Super Admin Only */}
+                    {renderPayrollMenuSection()}
                   </SidebarMenu>
                 </SidebarGroupContent>
               </SidebarGroup>
