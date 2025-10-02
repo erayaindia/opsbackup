@@ -966,7 +966,7 @@ export const RichEditor: React.FC<RichEditorProps> = ({
   }, [editor, disableUndoRedo]);
 
   const EditorComponent = useMemo(() => (
-    <div className="notion-editor h-full relative" style={{backgroundColor: '#111219'}}>
+    <div className={`notion-editor h-full relative ${className || ''}`} style={{backgroundColor: '#111219'}}>
       <style jsx global="true">{`
         .notion-editor-content {
           outline: none;
@@ -1655,7 +1655,7 @@ export const RichEditor: React.FC<RichEditorProps> = ({
         document.body
       )}
     </div>
-  ), [editor, showSlashMenu, menuPosition, slashQuery, handleSlashCommandSelect, showFindReplace, findText, replaceText, currentMatch, totalMatches, findInEditor, findNext, replaceCurrent, replaceAll, debouncedSearch]);
+  ), [editor, showSlashMenu, menuPosition, slashQuery, handleSlashCommandSelect, showFindReplace, findText, replaceText, currentMatch, totalMatches, findInEditor, findNext, replaceCurrent, replaceAll, debouncedSearch, className]);
 
   return (
     <RichEditorErrorBoundary>

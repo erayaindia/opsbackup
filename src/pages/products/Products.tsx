@@ -540,9 +540,9 @@ const ProductCard = memo(({
                 </span>
                 <div className="flex items-center gap-1 text-xs text-muted-foreground">
                   <div className="w-4 h-4 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium">
-                    {card.teamLead?.full_name?.charAt(0) || '?'}
+                    {card.teamLead?.name?.charAt(0) || '?'}
                   </div>
-                  <span className="text-xs">{card.teamLead?.full_name?.split(' ')[0] || 'Unknown'}</span>
+                  <span className="text-xs">{card.teamLead?.name?.split(' ')[0] || 'Unknown'}</span>
                 </div>
               </div>
 
@@ -624,7 +624,7 @@ export default function Lifecycle() {
   const [isLoadingMore, setIsLoadingMore] = useState(false)
 
   // Grouping and sorting state
-  const [groupBy, setGroupBy] = useState<GroupByOption>('none')
+  const [groupBy, setGroupBy] = useState<GroupByOption>('category')
   const [sortOption, setSortOption] = useState<SortOption>({
     field: 'updated_at',
     direction: 'desc',
@@ -799,13 +799,15 @@ export default function Lifecycle() {
 
         // Fetch data with pagination
         const offset = (currentPage - 1) * itemsPerPage
+        // Remove categories from filters since we do client-side filtering
+        const { categories, tags, ...serverFilters } = filters
         const cardsData = await productLifecycleService.listProducts({
           limit: itemsPerPage,
           offset,
           search: debouncedSearchQuery,
           stage: activeStageFilter !== 'all' ? activeStageFilter : undefined,
           sort: { field: sortOption.field, direction: sortOption.direction },
-          ...filters
+          ...serverFilters
         })
 
         // Update cache
@@ -856,6 +858,14 @@ export default function Lifecycle() {
     // Exclude archived products
     filtered = filtered.filter(card => !archivedProducts.has(card.id))
 
+    // Apply category filter (client-side)
+    if (filters.categories && filters.categories.length > 0) {
+      filtered = filtered.filter(card => {
+        // Check if card has any of the selected categories
+        return card.category.some(cat => filters.categories?.includes(cat))
+      })
+    }
+
     // Sort: favorites first, then by server sort order
     filtered.sort((a, b) => {
       const aIsFavorite = favoriteProducts.has(a.id)
@@ -869,7 +879,7 @@ export default function Lifecycle() {
     })
 
     return filtered
-  }, [cards, archivedProducts, favoriteProducts])
+  }, [cards, archivedProducts, favoriteProducts, filters.categories])
 
   // Group filtered cards
   const groupedCards = useMemo(() => {
@@ -890,7 +900,7 @@ export default function Lifecycle() {
           groupKey = card.ideaData?.selectedSupplierId || 'No Vendor'
           break
         case 'assignee':
-          groupKey = card.teamLead.full_name || 'Unassigned'
+          groupKey = card.teamLead.name || 'Unassigned'
           break
         case 'stage':
           groupKey = STAGE_CONFIG[card.stage]?.name || card.stage
@@ -1563,157 +1573,32 @@ export default function Lifecycle() {
       <div className="px-4 sm:px-6 py-4 sm:py-6">
         {/* Header */}
         <div className="sticky top-0 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b mb-6 pb-4 -mx-4 sm:-mx-6 px-4 sm:px-6">
-          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 mb-4">
-            <div className="flex flex-col w-full lg:w-auto">
-              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight mb-3 sm:mb-4">Product Management</h1>
-
-              {/* Mobile-first layout for controls */}
-              <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
-                {/* View Toggle & Count */}
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-1 p-1 bg-muted rounded">
-                    <Button
-                      variant={selectedView === 'gallery' ? 'default' : 'ghost'}
-                      size="sm"
-                      onClick={() => setSelectedView('gallery')}
-                      className="gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3"
-                    >
-                      <Images className="h-3 w-3 sm:h-4 sm:w-4" />
-                      <span className="hidden sm:inline">Gallery</span>
-                    </Button>
-                    <Button
-                      variant={selectedView === 'table' ? 'default' : 'ghost'}
-                      size="sm"
-                      onClick={() => setSelectedView('table')}
-                      className="gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3"
-                    >
-                      <TableIcon className="h-3 w-3 sm:h-4 sm:w-4" />
-                      <span className="hidden sm:inline">Table</span>
-                    </Button>
-                  </div>
-
-                  <Badge variant="secondary" className="px-2 sm:px-3 py-1 text-xs">
-                    {filteredCount} {filteredCount === 1 ? 'item' : 'items'}
-                    {groupBy !== 'none' && (
-                      <span className="ml-1 text-xs">• Grouped by {groupBy}</span>
-                    )}
-                    {activeFilters > 0 && (
-                      <span className="ml-1 text-xs">• {activeFilters} filters</span>
-                    )}
-                    {cards.length < (totalItems || 0) && (
-                      <span className="ml-1 text-xs">• {cards.length} loaded</span>
-                    )}
-                  </Badge>
-                </div>
-
-                {/* Filters & Search */}
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" className="gap-2 h-10 justify-start sm:justify-center">
-                        <Filter className="h-4 w-4" />
-                        <span className="text-sm">Categories</span>
-                        {filters.categories && filters.categories.length > 0 && (
-                          <Badge variant="secondary" className="ml-auto sm:ml-1 h-5 px-1.5 text-xs">
-                            {filters.categories.length}
-                          </Badge>
-                        )}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-80 p-4" align="start">
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                          <h4 className="text-sm font-medium">Filter by Categories</h4>
-                          {filters.categories && filters.categories.length > 0 && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setFilters(prev => ({ ...prev, categories: [] }))}
-                              className="h-6 px-2 text-xs"
-                            >
-                              Clear
-                            </Button>
-                          )}
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-60 overflow-y-auto">
-                          {(databaseCategories || []).map((category) => (
-                            <div key={category.name} className="flex items-center space-x-2">
-                              <Checkbox
-                                id={`category-${category.name}`}
-                                checked={filters.categories?.includes(category.name) || false}
-                                onCheckedChange={(checked) => {
-                                  setFilters(prev => ({
-                                    ...prev,
-                                    categories: checked
-                                      ? [...(prev.categories || []), category.name]
-                                      : (prev.categories || []).filter(c => c !== category.name)
-                                  }))
-                                }}
-                              />
-                              <Label
-                                htmlFor={`category-${category.name}`}
-                                className="text-xs cursor-pointer"
-                              >
-                                {category.name}
-                              </Label>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-
-                  {/* Group By Dropdown */}
-                  <Select value={groupBy} onValueChange={handleGroupByChange}>
-                    <SelectTrigger className="h-10 w-full sm:w-40 gap-2">
-                      <Group className="h-4 w-4" />
-                      <SelectValue placeholder="Group by" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">No grouping</SelectItem>
-                      <SelectItem value="category">Category</SelectItem>
-                      <SelectItem value="stage">Stage</SelectItem>
-                      <SelectItem value="priority">Priority</SelectItem>
-                      <SelectItem value="vendor">Vendor</SelectItem>
-                      <SelectItem value="assignee">Assignee</SelectItem>
-                    </SelectContent>
-                  </Select>
-
-                  <div className="relative w-full sm:w-64 lg:w-80">
-                    <Input
-                      id="lifecycle-search"
-                      placeholder="Search products..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="px-4 h-10 text-sm w-full"
-                    />
-                  </div>
-                </div>
-              </div>
+          {/* Row 1: Title & Action Buttons */}
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-4">
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Product Management</h1>
+              <Badge variant="secondary" className="px-3 py-1 text-sm">
+                {filteredCount} {filteredCount === 1 ? 'item' : 'items'}
+              </Badge>
             </div>
 
-            {/* Action Buttons */}
-            <div className="flex items-center gap-2 w-full sm:w-auto">
+            <div className="flex items-center gap-2">
               <Button
                 onClick={handleCreateIdeaClick}
                 disabled={isCreatingIdea}
-                className={`gap-2 transition-all duration-300 relative overflow-hidden flex-1 sm:flex-none ${
-                  isCreatingIdea
-                    ? 'bg-primary/80 scale-105 shadow-lg animate-pulse'
-                    : 'hover:scale-105 hover:shadow-md active:scale-95'
-                }`}
+                className="gap-2"
               >
                 {isCreatingIdea ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <Plus className="h-4 w-4" />
                 )}
-                <span className="hidden sm:inline">{isCreatingIdea ? 'Creating...' : 'New Idea'}</span>
-                <span className="sm:hidden">{isCreatingIdea ? 'Creating...' : 'New'}</span>
+                <span className="hidden sm:inline">{isCreatingIdea ? 'Creating...' : 'New Product'}</span>
+                <span className="sm:hidden">New</span>
               </Button>
               <Button
                 variant="outline"
-                className="gap-2 flex-1 sm:flex-none"
+                className="gap-2 hidden sm:flex"
                 onClick={() => {
                   toast({
                     title: 'Export started',
@@ -1722,8 +1607,140 @@ export default function Lifecycle() {
                 }}
               >
                 <Download className="h-4 w-4" />
-                <span className="hidden sm:inline">Export</span>
+                Export
               </Button>
+            </div>
+          </div>
+
+          {/* Row 2: Search & Filter Controls */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            {/* Search Bar - Primary Focus */}
+            <div className="relative flex-1 max-w-md">
+              <Input
+                id="lifecycle-search"
+                placeholder="Search products..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="h-10"
+              />
+            </div>
+
+            {/* Filter Controls Group */}
+            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+              {/* Category Filter */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="gap-2 h-10">
+                    <Filter className="h-4 w-4" />
+                    <span className="hidden sm:inline">Categories</span>
+                    <span className="sm:hidden">Filter</span>
+                    {filters.categories && filters.categories.length > 0 && (
+                      <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
+                        {filters.categories.length}
+                      </Badge>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80 p-4" align="start">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm font-medium">Filter by Categories</h4>
+                      {filters.categories && filters.categories.length > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setFilters(prev => ({ ...prev, categories: [] }))}
+                          className="h-6 px-2 text-xs"
+                        >
+                          Clear
+                        </Button>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-60 overflow-y-auto">
+                      {(databaseCategories || []).map((category) => (
+                        <div key={category.name} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`category-${category.name}`}
+                            checked={filters.categories?.includes(category.name) || false}
+                            onCheckedChange={(checked) => {
+                              setFilters(prev => ({
+                                ...prev,
+                                categories: checked
+                                  ? [...(prev.categories || []), category.name]
+                                  : (prev.categories || []).filter(c => c !== category.name)
+                              }))
+                            }}
+                          />
+                          <Label
+                            htmlFor={`category-${category.name}`}
+                            className="text-xs cursor-pointer"
+                          >
+                            {category.name}
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+
+              {/* Group By */}
+              <Select value={groupBy} onValueChange={handleGroupByChange}>
+                <SelectTrigger className="h-10 w-[140px]">
+                  <Group className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Group by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No grouping</SelectItem>
+                  <SelectItem value="category">Category</SelectItem>
+                  <SelectItem value="stage">Stage</SelectItem>
+                  <SelectItem value="priority">Priority</SelectItem>
+                  <SelectItem value="vendor">Vendor</SelectItem>
+                  <SelectItem value="assignee">Assignee</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* Sort */}
+              <Select
+                value={`${sortOption.field}-${sortOption.direction}`}
+                onValueChange={(value) => {
+                  const [field, direction] = value.split('-')
+                  const option = sortOptions.find(opt => opt.field === field && opt.direction === direction)
+                  if (option) setSortOption(option)
+                }}
+              >
+                <SelectTrigger className="h-10 w-[140px]">
+                  <ArrowUpDown className="h-4 w-4 mr-2" />
+                  <span className="hidden sm:inline">Sort</span>
+                </SelectTrigger>
+                <SelectContent>
+                  {sortOptions.map((option) => (
+                    <SelectItem key={`${option.field}-${option.direction}`} value={`${option.field}-${option.direction}`}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {/* View Toggle */}
+              <div className="flex items-center gap-1 p-1 bg-muted rounded">
+                <Button
+                  variant={selectedView === 'gallery' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setSelectedView('gallery')}
+                  className="h-8 w-8 p-0"
+                >
+                  <Images className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant={selectedView === 'table' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setSelectedView('table')}
+                  className="h-8 w-8 p-0"
+                >
+                  <TableIcon className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </div>
         </div>
@@ -1886,11 +1903,11 @@ export default function Lifecycle() {
                       <TableCell className="border-r border-border/50">
                         <div className="flex items-center gap-2">
                           <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-medium text-primary">
-                            {card.teamLead?.full_name?.charAt(0) || '?'}
+                            {card.teamLead?.name?.charAt(0) || '?'}
                           </div>
                           <div>
-                            <div className="font-medium">{card.teamLead?.full_name?.split(' ')[0] || 'Unknown'}</div>
-                            <div className="text-xs text-muted-foreground">{card.teamLead?.full_name?.split(' ').slice(1).join(' ') || ''}</div>
+                            <div className="font-medium">{card.teamLead?.name?.split(' ')[0] || 'Unknown'}</div>
+                            <div className="text-xs text-muted-foreground">{card.teamLead?.name?.split(' ').slice(1).join(' ') || ''}</div>
                           </div>
                         </div>
                       </TableCell>

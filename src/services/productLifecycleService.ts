@@ -253,17 +253,8 @@ class ProductLifecycleService {
         query = query.or(`working_title.ilike.%${searchQuery}%,name.ilike.%${searchQuery}%,internal_code.ilike.%${searchQuery}%,tags.ilike.%${searchQuery}%,categories.ilike.%${searchQuery}%`)
       }
 
-      // Apply additional filters
-      if (options?.filters?.categories?.length) {
-        // For JSON array fields, we need to use overlap operator
-        const categoriesFilter = options.filters.categories.map(cat => `"${cat}"`).join(',')
-        query = query.filter('categories', 'cs', `[${categoriesFilter}]`)
-      }
-
-      if (options?.filters?.tags?.length) {
-        const tagsFilter = options.filters.tags.map(tag => `"${tag}"`).join(',')
-        query = query.filter('tags', 'cs', `[${tagsFilter}]`)
-      }
+      // Apply category filter - client-side filtering will handle this
+      // Removed broken Supabase JSON array filtering
 
       if (options?.filters?.potentialScoreMin !== undefined) {
         query = query.gte('potential_score', options.filters.potentialScoreMin)

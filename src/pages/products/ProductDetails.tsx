@@ -1666,7 +1666,7 @@ export default function ProductDetails() {
       <div className="px-6 py-6">
         {/* Header */}
         <div className="sticky top-0 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border/40 mb-6">
-          <div className="py-4">
+          <div className="py-4 max-w-7xl mx-auto">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Button
@@ -1680,9 +1680,6 @@ export default function ProductDetails() {
                 </Button>
 
                 <div className="flex items-center gap-3">
-                  <div className={`p-1.5 rounded-none ${stageConfig?.bgColor}`}>
-                    <Edit3 className="h-4 w-4 text-primary" />
-                  </div>
                   <div>
                     <h1 className="text-xl font-semibold tracking-tight text-foreground">
                       {product.workingTitle || product.name || 'Untitled Product'}
@@ -1728,22 +1725,14 @@ export default function ProductDetails() {
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             {/* Tab Navigation */}
             <div className="mb-6">
-              <TabsList className="grid w-full max-w-2xl grid-cols-5 bg-muted rounded-none">
+              <TabsList className="grid w-full max-w-xl grid-cols-3 bg-muted rounded-none">
                 <TabsTrigger value="idea" className="flex items-center gap-2 rounded-none data-[state=active]:bg-background data-[state=active]:shadow-sm">
                   <Lightbulb className="h-4 w-4" />
                   Idea
                 </TabsTrigger>
                 <TabsTrigger value="design" className="flex items-center gap-2 rounded-none data-[state=active]:bg-background data-[state=active]:shadow-sm">
-                  <Palette className="h-4 w-4" />
-                  Design
-                </TabsTrigger>
-                <TabsTrigger value="production" className="flex items-center gap-2 rounded-none data-[state=active]:bg-background data-[state=active]:shadow-sm">
-                  <Factory className="h-4 w-4" />
-                  Production
-                </TabsTrigger>
-                <TabsTrigger value="content" className="flex items-center gap-2 rounded-none data-[state=active]:bg-background data-[state=active]:shadow-sm">
-                  <Camera className="h-4 w-4" />
-                  Content
+                  <FileText className="h-4 w-4" />
+                  Details
                 </TabsTrigger>
                 <TabsTrigger value="scaling" className="flex items-center gap-2 rounded-none data-[state=active]:bg-background data-[state=active]:shadow-sm">
                   <TrendingUp className="h-4 w-4" />
@@ -1809,71 +1798,34 @@ export default function ProductDetails() {
               <div className="bg-card rounded-none border shadow-sm p-6">
                 <div className="space-y-6">
                   <div className="flex items-center gap-3 pb-4">
-                    <div className="p-2 rounded-none bg-pink-50 dark:bg-pink-950">
-                      <Palette className="h-5 w-5 text-pink-600" />
+                    <div className="p-2 rounded-none bg-blue-50 dark:bg-blue-950">
+                      <FileText className="h-5 w-5 text-blue-600" />
                     </div>
                     <div>
-                      <h3 className="text-lg font-semibold text-foreground">Design Details</h3>
-                      <p className="text-sm text-muted-foreground">All design information, files, and progress tracking</p>
+                      <h3 className="text-lg font-semibold text-foreground">Details</h3>
+                      <p className="text-sm text-muted-foreground">All product information, files, and documentation</p>
                     </div>
                   </div>
 
-                  {/* Design Status */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label className="text-xs font-medium text-muted-foreground mb-2 block">Design Status</Label>
-                      <Select value={designStatus} onValueChange={setDesignStatus}>
-                        <SelectTrigger className="rounded-none">
-                          <SelectValue placeholder="Select status" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="not_started">Not Started</SelectItem>
-                          <SelectItem value="concept">Concept Phase</SelectItem>
-                          <SelectItem value="sketching">Sketching</SelectItem>
-                          <SelectItem value="prototyping">Prototyping</SelectItem>
-                          <SelectItem value="refinement">Refinement</SelectItem>
-                          <SelectItem value="finalized">Finalized</SelectItem>
-                          <SelectItem value="approved">Approved</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label className="text-xs font-medium text-muted-foreground mb-2 block">Design Style</Label>
-                      <Select value={designStyle} onValueChange={setDesignStyle}>
-                        <SelectTrigger className="rounded-none">
-                          <SelectValue placeholder="Select design style" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="minimal">Minimal</SelectItem>
-                          <SelectItem value="modern">Modern</SelectItem>
-                          <SelectItem value="vintage">Vintage</SelectItem>
-                          <SelectItem value="industrial">Industrial</SelectItem>
-                          <SelectItem value="luxury">Luxury</SelectItem>
-                          <SelectItem value="playful">Playful</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  {/* Main Design Details */}
+                  {/* Main Details */}
                   <div>
-                    <Label className="text-xs font-medium text-muted-foreground mb-2 block">Design Details</Label>
+                    <Label className="text-xs font-medium text-muted-foreground mb-2 block">Details</Label>
                     <RichEditor
                       value={productVision}
                       onChange={setProductVision}
-                      placeholder="Document all design details including vision, target audience, colors, materials, assets (mood boards, CAD files, technical drawings), feedback, revisions, and any other design-related information..."
-                      className="min-h-[300px]"
+                      placeholder="Document all product details including vision, target audience, colors, materials, specifications, feedback, revisions, and any other relevant information..."
+                      className="min-h-[500px]"
                       hideToolbar={false}
                     />
                   </div>
 
                   {/* File Upload */}
                   <div>
-                    <Label className="text-xs font-medium text-muted-foreground mb-2 block">Design Files</Label>
+                    <Label className="text-xs font-medium text-muted-foreground mb-2 block">Files</Label>
                     <div className="border-2 border-dashed border-border rounded-none p-4">
                       <div className="flex flex-col items-center gap-2">
                         <Upload className="h-6 w-6 text-muted-foreground" />
-                        <p className="text-sm text-muted-foreground">Upload design files, mock-ups, CAD files, technical drawings</p>
+                        <p className="text-sm text-muted-foreground">Upload product files, documents, images, and related materials</p>
                         <input
                           id="packaging-files"
                           type="file"
@@ -1925,213 +1877,6 @@ export default function ProductDetails() {
                 </div>
               </div>
             </TabsContent>
-
-            {/* Production Tab */}
-            <TabsContent value="production" className="mt-0">
-              <div className="bg-card rounded-none border shadow-sm p-6">
-                <div className="space-y-6">
-                  <div className="flex items-center gap-3 pb-4">
-                    <div className="p-2 rounded-none bg-orange-50 dark:bg-orange-950">
-                      <Factory className="h-5 w-5 text-orange-600" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-foreground">Production Details</h3>
-                      <p className="text-sm text-muted-foreground">All production information, suppliers, and timeline</p>
-                    </div>
-                  </div>
-
-                  {/* Production Status & Sample Status */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label className="text-xs font-medium text-muted-foreground mb-2 block">Production Status</Label>
-                      <Select value={productionStatus} onValueChange={setProductionStatus}>
-                        <SelectTrigger className="rounded-none">
-                          <SelectValue placeholder="Select status" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="not_started">Not Started</SelectItem>
-                          <SelectItem value="planning">Planning</SelectItem>
-                          <SelectItem value="in_production">In Production</SelectItem>
-                          <SelectItem value="quality_check">Quality Check</SelectItem>
-                          <SelectItem value="completed">Completed</SelectItem>
-                          <SelectItem value="on_hold">On Hold</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label className="text-xs font-medium text-muted-foreground mb-2 block">Sample Status</Label>
-                      <Select value={sampleStatus} onValueChange={setSampleStatus}>
-                        <SelectTrigger className="rounded-none">
-                          <SelectValue placeholder="Select status" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="not_requested">Not Requested</SelectItem>
-                          <SelectItem value="requested">Requested</SelectItem>
-                          <SelectItem value="received">Received</SelectItem>
-                          <SelectItem value="approved">Approved</SelectItem>
-                          <SelectItem value="rejected">Rejected</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  {/* Main Production Details */}
-                  <div>
-                    <Label className="text-xs font-medium text-muted-foreground mb-2 block">Production Details</Label>
-                    <RichEditor
-                      value={productionDetails}
-                      onChange={setProductionDetails}
-                      placeholder="Document all production details including suppliers, pricing, quality ratings, sample information, manufacturing process, timeline, milestones, and any other production-related information..."
-                      className="min-h-[300px]"
-                      hideToolbar={false}
-                    />
-                  </div>
-
-                  {/* File Upload */}
-                  <div>
-                    <Label className="text-xs font-medium text-muted-foreground mb-2 block">Production Files</Label>
-                    <div className="border-2 border-dashed border-border rounded-none p-4">
-                      <div className="flex flex-col items-center gap-2">
-                        <Upload className="h-6 w-6 text-muted-foreground" />
-                        <p className="text-sm text-muted-foreground">Upload sample photos, quality reports, production specs</p>
-                        <input
-                          id="production-files"
-                          type="file"
-                          multiple
-                          accept=".pdf,image/*,video/*"
-                          onChange={handlePackagingFileUpload}
-                          className="hidden"
-                        />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => document.getElementById('production-files')?.click()}
-                        >
-                          Choose Files
-                        </Button>
-                      </div>
-                    </div>
-
-                    {/* Files Preview */}
-                    {packagingFiles.length > 0 && (
-                      <div className="mt-3 space-y-2">
-                        <p className="text-xs font-medium text-muted-foreground">
-                          Uploaded Files ({packagingFiles.length}/15)
-                        </p>
-                        <div className="space-y-1">
-                          {packagingFiles.map((file, index) => (
-                            <div key={index} className="flex items-center justify-between p-2 bg-muted/20 rounded-none">
-                              <div className="flex items-center gap-2">
-                                <span>{getFileTypeIcon(file)}</span>
-                                <span className="text-xs font-medium truncate max-w-[200px]">{file.name}</span>
-                                <span className="text-xs text-muted-foreground">({formatFileSize(file.size)})</span>
-                              </div>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 w-6 p-0 hover:text-destructive"
-                                onClick={() => removePackagingFile(index)}
-                              >
-                                <X className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </TabsContent>
-
-            {/* Content Tab */}
-            <TabsContent value="content" className="mt-0">
-              <div className="bg-card rounded-none border shadow-sm p-6">
-                <div className="space-y-6">
-                  <div className="flex items-center gap-3 pb-4">
-                    <div className="p-2 rounded-none bg-blue-50 dark:bg-blue-950">
-                      <Camera className="h-5 w-5 text-blue-600" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-foreground">Content Details</h3>
-                      <p className="text-sm text-muted-foreground">All content information, scripts, and assets</p>
-                    </div>
-                  </div>
-
-                  {/* Main Content Details */}
-                  <div>
-                    <Label className="text-xs font-medium text-muted-foreground mb-2 block">Content Details</Label>
-                    <RichEditor
-                      value={heroVideoScript}
-                      onChange={setHeroVideoScript}
-                      placeholder="Document all content details including scripts (hero video, lifestyle, unboxing, 15s, 30s), creative briefs, moodboards, team assignments, photographer/videographer info, and any other content-related information..."
-                      className="min-h-[300px]"
-                      hideToolbar={false}
-                    />
-                  </div>
-
-                  {/* File Upload */}
-                  <div>
-                    <Label className="text-xs font-medium text-muted-foreground mb-2 block">Content Files</Label>
-                    <div className="border-2 border-dashed border-border rounded-none p-4">
-                      <div className="flex flex-col items-center gap-2">
-                        <Upload className="h-6 w-6 text-muted-foreground" />
-                        <p className="text-sm text-muted-foreground">Upload videos, photos, scripts, creative briefs</p>
-                        <input
-                          id="content-files"
-                          type="file"
-                          multiple
-                          accept=".pdf,image/*,video/*"
-                          onChange={handlePackagingFileUpload}
-                          className="hidden"
-                        />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => document.getElementById('content-files')?.click()}
-                        >
-                          Choose Files
-                        </Button>
-                      </div>
-                    </div>
-
-                    {/* Files Preview */}
-                    {packagingFiles.length > 0 && (
-                      <div className="mt-3 space-y-2">
-                        <p className="text-xs font-medium text-muted-foreground">
-                          Uploaded Files ({packagingFiles.length}/15)
-                        </p>
-                        <div className="space-y-1">
-                          {packagingFiles.map((file, index) => (
-                            <div key={index} className="flex items-center justify-between p-2 bg-muted/20 rounded-none">
-                              <div className="flex items-center gap-2">
-                                <span>{getFileTypeIcon(file)}</span>
-                                <span className="text-xs font-medium truncate max-w-[200px]">{file.name}</span>
-                                <span className="text-xs text-muted-foreground">({formatFileSize(file.size)})</span>
-                              </div>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 w-6 p-0 hover:text-destructive"
-                                onClick={() => removePackagingFile(index)}
-                              >
-                                <X className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </TabsContent>
-
-            {/* Scaling Tab */}
             <TabsContent value="scaling" className="mt-0">
               <div className="bg-card rounded-none border shadow-sm p-6">
                 <div className="space-y-6">
