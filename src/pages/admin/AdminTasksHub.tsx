@@ -876,6 +876,12 @@ export default function AdminTasksHub() {
           }`}
           onClick={() => toggleRowExpansion(task.id)}
         >
+          <TableCell className="border-r border-border/50 py-2" onClick={(e) => e.stopPropagation()}>
+            <Checkbox
+              checked={selectedTasks.has(task.id)}
+              onCheckedChange={(checked) => handleTaskSelect(task, checked as boolean)}
+            />
+          </TableCell>
           <TableCell className="border-r border-border/50 py-2">
             <div className={`flex items-center gap-1 ${indentClass}`}>
               <Button
@@ -1696,6 +1702,18 @@ export default function AdminTasksHub() {
           <Table className="min-w-full">
             <TableHeader className="sticky top-0 z-10 bg-background">
               <TableRow>
+                <TableHead className="w-12 border-r border-border/50">
+                  <Checkbox
+                    checked={selectedTasks.size === tasks.length && tasks.length > 0}
+                    onCheckedChange={(checked) => {
+                      if (checked) {
+                        setSelectedTasks(new Set(tasks.map(t => t.id)));
+                      } else {
+                        setSelectedTasks(new Set());
+                      }
+                    }}
+                  />
+                </TableHead>
                 <TableHead className="w-8 border-r border-border/50"></TableHead>
                 <TableHead className="w-16 border-r border-border/50 whitespace-nowrap">
                   <Button
@@ -1932,7 +1950,7 @@ export default function AdminTasksHub() {
                   {/* Group Header Row */}
                   {groupBy !== 'none' && (
                     <TableRow className="bg-muted/20 hover:bg-muted/30 transition-colors">
-                      <TableCell colSpan={10} className="py-3">
+                      <TableCell colSpan={11} className="py-3">
                         <Button
                           variant="ghost"
                           className="flex items-center gap-2 p-0 h-auto font-semibold hover:bg-transparent text-left w-full justify-start"

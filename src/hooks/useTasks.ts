@@ -498,7 +498,38 @@ export function useTasks(initialFilters: TaskFilters = {}): UseTasksReturn {
 
       console.log('Task exists, proceeding with deletion:', taskExists);
 
-      // Step 2: Check for subtasks and delete them first
+      // Step 2: Delete related records first (submissions, reviews, comments)
+      console.log('Deleting task submissions...');
+      await supabase
+        .from('task_submissions')
+        .delete()
+        .eq('task_id', id);
+
+      console.log('Deleting task reviews...');
+      await supabase
+        .from('task_reviews')
+        .delete()
+        .eq('task_id', id);
+
+      console.log('Deleting task comments...');
+      await supabase
+        .from('task_comments')
+        .delete()
+        .eq('task_id', id);
+
+      console.log('Deleting recurring instances (tasks with this as original_task_id)...');
+      await supabase
+        .from('tasks')
+        .delete()
+        .eq('original_task_id', id);
+
+      console.log('Deleting tasks that reference this via task_id...');
+      await supabase
+        .from('tasks')
+        .delete()
+        .eq('task_id', id);
+
+      // Step 3: Check for subtasks and delete them recursively
       const { data: subtasks, error: subtaskCheckError } = await supabase
         .from('tasks')
         .select('id, title')
@@ -507,10 +538,22 @@ export function useTasks(initialFilters: TaskFilters = {}): UseTasksReturn {
       if (subtaskCheckError) {
         console.log('Subtask check error (table might not support subtasks):', subtaskCheckError);
       } else if (subtasks && subtasks.length > 0) {
-        console.log(`Found ${subtasks.length} subtasks, deleting them first:`, subtasks);
+        console.log(`Found ${subtasks.length} subtasks, deleting them recursively:`, subtasks);
 
-        // Delete each subtask individually to ensure they're deleted
+        // Recursively delete each subtask to handle their own foreign key references
         for (const subtask of subtasks) {
+          // Delete related records for this subtask first
+          await supabase.from('task_submissions').delete().eq('task_id', subtask.id);
+          await supabase.from('task_reviews').delete().eq('task_id', subtask.id);
+          await supabase.from('task_comments').delete().eq('task_id', subtask.id);
+
+          // Delete tasks that reference this subtask as original_task_id
+          await supabase.from('tasks').delete().eq('original_task_id', subtask.id);
+
+          // Delete tasks that reference this subtask via task_id
+          await supabase.from('tasks').delete().eq('task_id', subtask.id);
+
+          // Now delete the subtask itself
           const { error: subtaskDeleteError } = await supabase
             .from('tasks')
             .delete()
@@ -525,7 +568,7 @@ export function useTasks(initialFilters: TaskFilters = {}): UseTasksReturn {
         }
       }
 
-      // Step 3: Delete the main task with user authentication context
+      // Step 4: Delete the main task with user authentication context
       console.log('Deleting main task...');
 
       console.log('Using authenticated user for deletion:', user.email);
@@ -822,7 +865,6 @@ export function useTasks(initialFilters: TaskFilters = {}): UseTasksReturn {
           break;
 
         case 'approve':
-          // Bulk approve daily tasks
           result = await supabase
             .from('tasks')
             .update({ status: TaskStatus.APPROVED })
@@ -861,17 +903,26 @@ export function useTasks(initialFilters: TaskFilters = {}): UseTasksReturn {
           break;
 
         case 'delete':
-          result = await supabase
-            .from('tasks')
-            .delete()
-            .in('id', action.task_ids);
+          // Cascade delete: Delete each task one by one using the single deleteTask function
+          // This ensures proper foreign key handling for each task
+          console.log('Starting bulk delete for tasks:', action.task_ids);
+
+          for (const taskId of action.task_ids) {
+            const deleteResult = await deleteTask(taskId);
+            if (deleteResult.error) {
+              throw new Error(`Failed to delete task ${taskId}: ${deleteResult.error.message}`);
+            }
+          }
+
+          // Return success after all deletions
+          result = { data: null, error: null };
           break;
 
         default:
           throw new Error('Invalid bulk action type');
       }
 
-      if (result.error) {
+      if (result?.error) {
         throw new Error(result.error.message);
       }
 
@@ -881,7 +932,7 @@ export function useTasks(initialFilters: TaskFilters = {}): UseTasksReturn {
       });
 
       // Refresh tasks list
-      fetchTasks();
+      await fetchTasks();
 
       return {};
     } catch (err) {
@@ -898,7 +949,7 @@ export function useTasks(initialFilters: TaskFilters = {}): UseTasksReturn {
 
       return { error };
     }
-  }, [fetchTasks, toast]);
+  }, [fetchTasks, toast, deleteTask]);
 
   const refetch = useCallback(() => fetchTasks(), [fetchTasks]);
 
