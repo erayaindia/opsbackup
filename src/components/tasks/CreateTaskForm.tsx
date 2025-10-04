@@ -202,6 +202,13 @@ export function CreateTaskForm({ open, onOpenChange, onTaskCreated, task, mode =
 
   // Populate form data when editing a task
   useEffect(() => {
+    console.log('🔄 Edit useEffect triggered:', {
+      taskId: task?.id,
+      mode,
+      open,
+      taskType: task?.task_type,
+      recurrencePattern: task?.recurrence_pattern
+    });
     if (task && mode === 'edit' && open) {
       // Convert subtasks from TaskWithDetails to CreateSubtaskData format
       const convertedSubtasks = task.subtasks?.map((subtask, index) => ({
@@ -236,16 +243,20 @@ export function CreateTaskForm({ open, onOpenChange, onTaskCreated, task, mode =
           if (pattern.type === 'weekly' && pattern.days) {
             weekDays = pattern.days;
             setSelectedWeekDays(weekDays);
+            console.log('✅ Setting weekly days:', weekDays);
           }
 
           // Extract selected days for monthly tasks
           if (pattern.type === 'monthly' && pattern.days) {
             monthDays = pattern.days;
             setSelectedMonthDays(monthDays);
+            console.log('✅ Setting monthly days:', monthDays);
           }
         } catch (e) {
           console.error('Error parsing recurrence pattern:', e);
         }
+      } else {
+        console.log('ℹ️ No recurrence pattern found for task:', task.task_type);
       }
 
       setFormData({
@@ -290,6 +301,9 @@ export function CreateTaskForm({ open, onOpenChange, onTaskCreated, task, mode =
         tags: [],
         checklistItems: [],
         subtasks: [],
+        recurrencePattern: null,
+        recurrenceStartDate: null,
+        recurrenceEndDate: null,
       });
       setSelectedTemplate('');
       setSelectedUsers(new Set());
@@ -300,6 +314,9 @@ export function CreateTaskForm({ open, onOpenChange, onTaskCreated, task, mode =
       setActiveTab('manual');
       setShowTitleAI(false);
       setShowDescriptionAI(false);
+      // Clear recurrence selections
+      setSelectedWeekDays([]);
+      setSelectedMonthDays([]);
     }
   }, [open]);
 
