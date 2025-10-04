@@ -115,7 +115,44 @@ import {
   TaskPriority,
   TaskType,
   TaskSort,
+  RecurrencePattern,
 } from '@/types/tasks';
+
+// Helper function to format recurrence pattern for display
+const formatRecurrencePattern = (taskType: string, recurrencePattern: any): string => {
+  if (taskType === 'daily') {
+    return 'Daily';
+  }
+
+  if (taskType === 'weekly' && recurrencePattern) {
+    try {
+      const pattern = typeof recurrencePattern === 'string' ? JSON.parse(recurrencePattern) : recurrencePattern;
+      if (pattern?.days) {
+        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const selectedDays = pattern.days.map((d: number) => dayNames[d]).join(', ');
+        return `Weekly (${selectedDays})`;
+      }
+    } catch (e) {
+      console.error('Error parsing recurrence pattern:', e);
+    }
+    return 'Weekly';
+  }
+
+  if (taskType === 'monthly' && recurrencePattern) {
+    try {
+      const pattern = typeof recurrencePattern === 'string' ? JSON.parse(recurrencePattern) : recurrencePattern;
+      if (pattern?.days) {
+        const dayNumbers = pattern.days.join(', ');
+        return `Monthly (${dayNumbers})`;
+      }
+    } catch (e) {
+      console.error('Error parsing recurrence pattern:', e);
+    }
+    return 'Monthly';
+  }
+
+  return taskType === 'one-off' ? 'One-off' : taskType;
+};
 
 export default function MyTasks() {
   // All state variables from AdminTasksHub
@@ -446,8 +483,16 @@ export default function MyTasks() {
   const updateTask = async () => ({ error: { message: 'Not implemented in direct mode' } });
   const deleteTask = async () => ({ error: { message: 'Not implemented in direct mode' } });
 
-  // Initialize daily task recurrence now that refetch is defined
-  useDailyTaskRecurrence(refetch);
+  // Auto-create daily tasks when page loads (simulates midnight creation)
+  useEffect(() => {
+    const autoCreate = async () => {
+      const { autoCreateDailyTasksIfNeeded } = await import('@/services/simpleDailyTaskService');
+      await autoCreateDailyTasksIfNeeded();
+      // Refresh tasks after creation
+      refetch();
+    };
+    autoCreate();
+  }, []); // Run once on mount
 
 
 
@@ -1145,7 +1190,15 @@ export default function MyTasks() {
       } else if (groupBy === 'assignee') {
         groupKey = task.assigned_user?.full_name || 'Unassigned';
       } else if (groupBy === 'task_type') {
-        groupKey = task.task_type === 'daily' ? 'Daily Tasks' : 'One-off Tasks';
+        if (task.task_type === 'daily') {
+          groupKey = 'Daily Tasks';
+        } else if (task.task_type === 'weekly') {
+          groupKey = 'Weekly Tasks';
+        } else if (task.task_type === 'monthly') {
+          groupKey = 'Monthly Tasks';
+        } else {
+          groupKey = 'One-off Tasks';
+        }
       }
 
       if (!groups[groupKey]) {
@@ -1291,7 +1344,7 @@ export default function MyTasks() {
           {/* Type - Show as read-only */}
           <TableCell className="border-r border-border/50 py-2 whitespace-nowrap">
             <Badge variant="secondary" className="text-xs">
-              {task.task_type === 'one-off' ? 'One-off' : 'Daily'}
+              {formatRecurrencePattern(task.task_type, task.recurrence_pattern)}
             </Badge>
           </TableCell>
 
@@ -1947,6 +2000,8 @@ export default function MyTasks() {
                 <SelectContent>
                   <SelectItem value="all">All Types</SelectItem>
                   <SelectItem value="daily">Daily</SelectItem>
+                  <SelectItem value="weekly">Weekly</SelectItem>
+                  <SelectItem value="monthly">Monthly</SelectItem>
                   <SelectItem value="one-off">One-off</SelectItem>
                 </SelectContent>
               </Select>

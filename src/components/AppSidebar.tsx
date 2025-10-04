@@ -71,7 +71,8 @@ import {
   Lock,
   ScrollText,
   Grid3X3,
-  BookText
+  BookText,
+  Wrench
 } from "lucide-react";
 import {
   Sidebar,
@@ -1234,6 +1235,9 @@ export function AppSidebar() {
 
             {/* Admin - Single Menu Item (after Alerts) with Role-based Lock */}
             {renderAdminMenuSection()}
+
+            {/* Tools - Single Menu Item (after Admin) with Role-based Lock */}
+            {renderMenuSection([{ title: "Tools", url: "/tools", icon: Wrench }], "", "management")}
 
             {/* Separator */}
             {shouldShowLabels && (

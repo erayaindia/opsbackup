@@ -103,6 +103,9 @@ export function CreateTaskForm({ open, onOpenChange, onTaskCreated, task, mode =
     tags: [],
     checklistItems: [],
     subtasks: [],
+    recurrencePattern: null,
+    recurrenceStartDate: null,
+    recurrenceEndDate: null,
   });
 
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
@@ -113,6 +116,10 @@ export function CreateTaskForm({ open, onOpenChange, onTaskCreated, task, mode =
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [showTitleAI, setShowTitleAI] = useState(false);
   const [showDescriptionAI, setShowDescriptionAI] = useState(false);
+
+  // Recurrence pattern state
+  const [selectedWeekDays, setSelectedWeekDays] = useState<number[]>([]);
+  const [selectedMonthDays, setSelectedMonthDays] = useState<number[]>([]);
 
   const { toast } = useToast();
 
@@ -265,7 +272,33 @@ export function CreateTaskForm({ open, onOpenChange, onTaskCreated, task, mode =
   }, [open]);
 
   const handleInputChange = (field: keyof CreateTaskData, value: unknown) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    // Special handling for taskType to set recurrence pattern
+    if (field === 'taskType') {
+      const taskType = value as TaskTypeValue;
+
+      // Clear recurrence selections when changing task type
+      setSelectedWeekDays([]);
+      setSelectedMonthDays([]);
+
+      let recurrencePattern = null;
+      if (taskType === 'daily') {
+        recurrencePattern = { type: 'daily' };
+      } else if (taskType === 'weekly') {
+        recurrencePattern = null; // Will be set when user selects days
+      } else if (taskType === 'monthly') {
+        recurrencePattern = null; // Will be set when user selects days
+      }
+
+      setFormData(prev => ({
+        ...prev,
+        [field]: value,
+        recurrencePattern,
+        recurrenceStartDate: (taskType !== 'one-off') ? prev.recurrenceStartDate : null,
+        recurrenceEndDate: (taskType !== 'one-off') ? prev.recurrenceEndDate : null,
+      }));
+    } else {
+      setFormData(prev => ({ ...prev, [field]: value }));
+    }
   };
 
   const handleUserSelection = (userId: string, checked: boolean) => {
@@ -647,10 +680,140 @@ export function CreateTaskForm({ open, onOpenChange, onTaskCreated, task, mode =
                     </SelectTrigger>
                     <SelectContent className="rounded-none">
                       <SelectItem value="daily">Daily Task</SelectItem>
+                      <SelectItem value="weekly">Weekly Task</SelectItem>
+                      <SelectItem value="monthly">Monthly Task</SelectItem>
                       <SelectItem value="one-off">One-off Task</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
+
+                {/* Weekly Recurrence Pattern */}
+                {formData.taskType === 'weekly' && (
+                  <div className="space-y-2 mt-4 p-4 border border-border rounded-md bg-muted/20">
+                    <Label>Select Days of Week</Label>
+                    <div className="grid grid-cols-7 gap-2">
+                      {[
+                        { label: 'Sun', value: 0 },
+                        { label: 'Mon', value: 1 },
+                        { label: 'Tue', value: 2 },
+                        { label: 'Wed', value: 3 },
+                        { label: 'Thu', value: 4 },
+                        { label: 'Fri', value: 5 },
+                        { label: 'Sat', value: 6 },
+                      ].map((day) => (
+                        <div key={day.value} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`day-${day.value}`}
+                            checked={selectedWeekDays.includes(day.value)}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                const newDays = [...selectedWeekDays, day.value].sort();
+                                setSelectedWeekDays(newDays);
+                                setFormData({
+                                  ...formData,
+                                  recurrencePattern: {
+                                    type: 'weekly',
+                                    days: newDays,
+                                  },
+                                });
+                              } else {
+                                const newDays = selectedWeekDays.filter((d) => d !== day.value);
+                                setSelectedWeekDays(newDays);
+                                setFormData({
+                                  ...formData,
+                                  recurrencePattern: newDays.length > 0 ? {
+                                    type: 'weekly',
+                                    days: newDays,
+                                  } : null,
+                                });
+                              }
+                            }}
+                          />
+                          <Label
+                            htmlFor={`day-${day.value}`}
+                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                          >
+                            {day.label}
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                    {selectedWeekDays.length === 0 && (
+                      <p className="text-xs text-muted-foreground">Please select at least one day</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Monthly Recurrence Pattern */}
+                {formData.taskType === 'monthly' && (
+                  <div className="space-y-2 mt-4 p-4 border border-border rounded-md bg-muted/20">
+                    <Label>Select Days of Month</Label>
+                    <div className="grid grid-cols-7 gap-2">
+                      {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+                        <div key={day} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`month-day-${day}`}
+                            checked={selectedMonthDays.includes(day)}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                const newDays = [...selectedMonthDays, day].sort((a, b) => a - b);
+                                setSelectedMonthDays(newDays);
+                                setFormData({
+                                  ...formData,
+                                  recurrencePattern: {
+                                    type: 'monthly',
+                                    days: newDays,
+                                  },
+                                });
+                              } else {
+                                const newDays = selectedMonthDays.filter((d) => d !== day);
+                                setSelectedMonthDays(newDays);
+                                setFormData({
+                                  ...formData,
+                                  recurrencePattern: newDays.length > 0 ? {
+                                    type: 'monthly',
+                                    days: newDays,
+                                  } : null,
+                                });
+                              }
+                            }}
+                          />
+                          <Label
+                            htmlFor={`month-day-${day}`}
+                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                          >
+                            {day}
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                    {selectedMonthDays.length === 0 && (
+                      <p className="text-xs text-muted-foreground">Please select at least one day</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Recurrence Start/End Dates */}
+                {(formData.taskType === 'daily' || formData.taskType === 'weekly' || formData.taskType === 'monthly') && (
+                  <div className="grid grid-cols-2 gap-4 mt-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="recurrenceStartDate">Start Date</Label>
+                      <DatePicker
+                        value={formData.recurrenceStartDate || ''}
+                        onChange={(date) => setFormData({ ...formData, recurrenceStartDate: date })}
+                        placeholder="Select start date"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="recurrenceEndDate">End Date (Optional)</Label>
+                      <DatePicker
+                        value={formData.recurrenceEndDate || ''}
+                        onChange={(date) => setFormData({ ...formData, recurrenceEndDate: date })}
+                        placeholder="No end date"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">

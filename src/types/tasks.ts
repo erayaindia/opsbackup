@@ -65,9 +65,28 @@ export interface TaskTemplateWithCreator extends TaskTemplate {
 // Enums for better type safety
 export const TaskType = {
   DAILY: 'daily',
+  WEEKLY: 'weekly',
+  MONTHLY: 'monthly',
   ONE_OFF: 'one-off',
 } as const;
 export type TaskTypeValue = typeof TaskType[keyof typeof TaskType];
+
+// Recurrence pattern types
+export interface DailyRecurrencePattern {
+  type: 'daily';
+}
+
+export interface WeeklyRecurrencePattern {
+  type: 'weekly';
+  days: number[]; // 0=Sunday, 1=Monday, ..., 6=Saturday
+}
+
+export interface MonthlyRecurrencePattern {
+  type: 'monthly';
+  days: number[]; // 1-31 (day of month)
+}
+
+export type RecurrencePattern = DailyRecurrencePattern | WeeklyRecurrencePattern | MonthlyRecurrencePattern;
 
 export const TaskPriority = {
   LOW: 'low',
@@ -327,6 +346,10 @@ export interface CreateTaskData {
   // Subtask support
   parentTaskId?: string | null;
   subtasks?: CreateSubtaskData[];
+  // Recurrence support
+  recurrencePattern?: RecurrencePattern | null;
+  recurrenceStartDate?: string | null;
+  recurrenceEndDate?: string | null;
 }
 
 export interface CreateSubtaskData {

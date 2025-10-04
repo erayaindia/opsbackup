@@ -82,10 +82,14 @@ export function useTaskCreation() {
           tags: taskData.tags || [],
           checklist_items: taskData.checklistItems ? JSON.stringify(taskData.checklistItems) : null,
           status: 'pending',
-          // For daily tasks, mark them as templates (will auto-create instances at 12am)
-          is_recurring_instance: taskData.taskType === 'daily' ? false : null,
+          // For recurring tasks (daily, weekly, monthly), mark them as templates (will auto-create instances)
+          is_recurring_instance: (taskData.taskType === 'daily' || taskData.taskType === 'weekly' || taskData.taskType === 'monthly') ? false : null,
           original_task_id: null,
           instance_date: null, // Templates don't have instance dates
+          // Recurrence pattern fields
+          recurrence_pattern: taskData.recurrencePattern ? JSON.stringify(taskData.recurrencePattern) : null,
+          recurrence_start_date: taskData.recurrenceStartDate || null,
+          recurrence_end_date: taskData.recurrenceEndDate || null,
         };
 
         const { data: task, error } = await supabase

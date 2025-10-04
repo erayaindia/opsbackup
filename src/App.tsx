@@ -123,6 +123,9 @@ import Logs from "./pages/system/Logs";
 // Notion page
 import Notion from "./pages/system/Notion";
 
+// Tools page
+import Tools from "./pages/system/Tools";
+
 // Create a client
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -577,6 +580,13 @@ const App = () => (
                 <Route path="notion" element={
                   <PermissionGuard requiredModule="management" requiredRole={["admin", "super_admin"]}>
                     <Notion />
+                  </PermissionGuard>
+                } />
+
+                {/* Tools route */}
+                <Route path="tools" element={
+                  <PermissionGuard requiredModule="management" requiredRole={["admin", "super_admin"]}>
+                    <Tools />
                   </PermissionGuard>
                 } />
               </Route>
