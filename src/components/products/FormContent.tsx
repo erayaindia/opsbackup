@@ -22,8 +22,8 @@ interface FormContentProps {
   setTagInput: (input: string) => void
   tags: string[]
   setTags: (tags: string[]) => void
-  referenceLinks: Array<{url: string, type: 'competitor' | 'ad'}>
-  setReferenceLinks: (links: Array<{url: string, type: 'competitor' | 'ad'}>) => void
+  referenceLinks: Array<{url: string, type: string}>
+  setReferenceLinks: (links: Array<{url: string, type: string}>) => void
   uploadedImages: File[]
   uploadedVideos: File[]
   handleImageUpload: (event: React.ChangeEvent<HTMLInputElement>) => void
@@ -117,7 +117,7 @@ export const FormContent: React.FC<FormContentProps> = ({
 
   const [showLinkInput, setShowLinkInput] = useState(false)
   const [newLinkUrl, setNewLinkUrl] = useState('')
-  const [newLinkType, setNewLinkType] = useState<'competitor' | 'ad'>('competitor')
+  const [newLinkType, setNewLinkType] = useState('')
 
   // Image preview state
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false)
@@ -129,17 +129,17 @@ export const FormContent: React.FC<FormContentProps> = ({
   }
 
   const saveLinkInput = () => {
-    if (newLinkUrl.trim()) {
-      setReferenceLinks([...referenceLinks, { url: newLinkUrl.trim(), type: newLinkType }])
+    if (newLinkUrl.trim() && newLinkType.trim()) {
+      setReferenceLinks([...referenceLinks, { url: newLinkUrl.trim(), type: newLinkType.trim() }])
       setNewLinkUrl('')
-      setNewLinkType('competitor')
+      setNewLinkType('')
       setShowLinkInput(false)
     }
   }
 
   const cancelLinkInput = () => {
     setNewLinkUrl('')
-    setNewLinkType('competitor')
+    setNewLinkType('')
     setShowLinkInput(false)
   }
 
@@ -402,15 +402,12 @@ export const FormContent: React.FC<FormContentProps> = ({
                 <div className="space-y-3 mt-3 p-3 border border-border/50 rounded-none bg-muted/20">
                   <div>
                     <Label className="text-xs font-medium text-foreground">Link Type</Label>
-                    <Select value={newLinkType} onValueChange={(value: 'competitor' | 'ad') => setNewLinkType(value)}>
-                      <SelectTrigger className="mt-1 h-8 rounded-none">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="competitor">Competitor</SelectItem>
-                        <SelectItem value="ad">Advertisement</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Input
+                      value={newLinkType}
+                      onChange={(e) => setNewLinkType(e.target.value)}
+                      placeholder="e.g., Competitor, Advertisement, Reference"
+                      className="mt-1 h-8 rounded-none"
+                    />
                   </div>
 
                   <div>
@@ -459,8 +456,8 @@ export const FormContent: React.FC<FormContentProps> = ({
                 <div className="space-y-2 mt-3">
                   {referenceLinks.map((link, index) => (
                     <div key={index} className="flex items-center gap-2 p-2 bg-muted/30 rounded-none">
-                      <Badge variant={link.type === 'competitor' ? 'destructive' : 'default'} className="text-xs">
-                        {link.type}
+                      <Badge variant="default" className="text-xs capitalize">
+                        {link.type || 'Link'}
                       </Badge>
                       <a
                         href={link.url}

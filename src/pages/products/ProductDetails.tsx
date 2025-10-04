@@ -126,7 +126,7 @@ export default function ProductDetails() {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [tagInput, setTagInput] = useState('')
   const [tags, setTags] = useState<string[]>([])
-  const [referenceLinks, setReferenceLinks] = useState<Array<{url: string, type: 'competitor' | 'ad'}>>([])
+  const [referenceLinks, setReferenceLinks] = useState<Array<{url: string, type: string}>>([])
   const [uploadedImages, setUploadedImages] = useState<File[]>([])
   const [uploadedVideos, setUploadedVideos] = useState<File[]>([])
   const [uploadedProductImage, setUploadedProductImage] = useState<File | null>(null)
@@ -783,9 +783,9 @@ export default function ProductDetails() {
         setTags(foundProduct.tags)
 
         // Load existing reference links from database
-        const existingReferenceLinks: Array<{url: string, type: 'competitor' | 'ad'}> = [
-          ...(foundProduct.ideaData?.competitorLinks || []).map(url => ({ url, type: 'competitor' as const })),
-          ...(foundProduct.ideaData?.adLinks || []).map(url => ({ url, type: 'ad' as const }))
+        const existingReferenceLinks: Array<{url: string, type: string}> = [
+          ...(foundProduct.ideaData?.competitorLinks || []).map(url => ({ url, type: 'competitor' })),
+          ...(foundProduct.ideaData?.adLinks || []).map(url => ({ url, type: 'ad' }))
         ]
         setReferenceLinks(existingReferenceLinks)
 
