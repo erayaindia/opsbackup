@@ -383,10 +383,10 @@ export default function AdminTasksHub() {
 
   const handleTaskTypeChange = async (taskId: string, newTaskType: string) => {
     // Validate task_type value
-    if (!newTaskType || (newTaskType !== 'daily' && newTaskType !== 'one-off')) {
+    if (!newTaskType || !['daily', 'weekly', 'monthly', 'one-off'].includes(newTaskType)) {
       toast({
         title: 'Invalid task type',
-        description: 'Task type must be either "daily" or "one-off"',
+        description: 'Task type must be either "daily", "weekly", "monthly", or "one-off"',
         variant: 'destructive'
       });
       return;
@@ -1025,6 +1025,8 @@ export default function AdminTasksHub() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="daily">Daily</SelectItem>
+                <SelectItem value="weekly">Weekly</SelectItem>
+                <SelectItem value="monthly">Monthly</SelectItem>
                 <SelectItem value="one-off">One Off</SelectItem>
               </SelectContent>
             </Select>
@@ -2202,6 +2204,8 @@ export default function AdminTasksHub() {
                 <SelectContent>
                   <SelectItem value="all">All Types</SelectItem>
                   <SelectItem value="daily">Daily</SelectItem>
+                  <SelectItem value="weekly">Weekly</SelectItem>
+                  <SelectItem value="monthly">Monthly</SelectItem>
                   <SelectItem value="one-off">One-off</SelectItem>
                 </SelectContent>
               </Select>

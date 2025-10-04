@@ -219,6 +219,35 @@ export function CreateTaskForm({ open, onOpenChange, onTaskCreated, task, mode =
         taskOrder: subtask.task_order || index,
       })) || [];
 
+      // Parse recurrence pattern if it exists
+      let recurrencePattern = null;
+      let weekDays: number[] = [];
+      let monthDays: number[] = [];
+
+      if (task.recurrence_pattern) {
+        try {
+          const pattern = typeof task.recurrence_pattern === 'string'
+            ? JSON.parse(task.recurrence_pattern)
+            : task.recurrence_pattern;
+
+          recurrencePattern = pattern;
+
+          // Extract selected days for weekly tasks
+          if (pattern.type === 'weekly' && pattern.days) {
+            weekDays = pattern.days;
+            setSelectedWeekDays(weekDays);
+          }
+
+          // Extract selected days for monthly tasks
+          if (pattern.type === 'monthly' && pattern.days) {
+            monthDays = pattern.days;
+            setSelectedMonthDays(monthDays);
+          }
+        } catch (e) {
+          console.error('Error parsing recurrence pattern:', e);
+        }
+      }
+
       setFormData({
         title: task.title || '',
         description: task.description || {
@@ -234,6 +263,9 @@ export function CreateTaskForm({ open, onOpenChange, onTaskCreated, task, mode =
         tags: task.tags || [],
         checklistItems: task.checklist_items || [],
         subtasks: convertedSubtasks,
+        recurrencePattern: recurrencePattern,
+        recurrenceStartDate: task.recurrence_start_date || null,
+        recurrenceEndDate: task.recurrence_end_date || null,
       });
 
       if (task.assigned_to) {
