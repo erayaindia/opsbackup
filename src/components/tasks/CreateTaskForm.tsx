@@ -436,7 +436,18 @@ export function CreateTaskForm({ open, onOpenChange, onTaskCreated, task, mode =
           assigned_to: formData.assignedTo.length > 0 ? formData.assignedTo[0] : null,
           tags: formData.tags || [],
           checklist_items: formData.checklistItems || [],
+          // Include recurrence fields
+          recurrence_pattern: formData.recurrencePattern ? JSON.stringify(formData.recurrencePattern) : null,
+          recurrence_start_date: formData.recurrenceStartDate || null,
+          recurrence_end_date: formData.recurrenceEndDate || null,
         };
+
+        console.log('💾 Updating task with recurrence data:', {
+          taskType: updateData.task_type,
+          recurrencePattern: updateData.recurrence_pattern,
+          recurrenceStartDate: updateData.recurrence_start_date,
+          recurrenceEndDate: updateData.recurrence_end_date,
+        });
 
         const result = await updateTask(task.id, updateData);
 
